@@ -158,7 +158,7 @@ export class AppMenu {
                     {
                         label: 'View Source',
                         icon: 'pi pi-fw pi-github',
-                        url: 'https://github.com/primefaces/sakai-ng',
+                        url: 'https://github.com/cesarhfborges/otto',
                         target: '_blank'
                     }
                 ]
