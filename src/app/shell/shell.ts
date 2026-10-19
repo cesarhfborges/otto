@@ -75,7 +75,7 @@ function savedSplitterSize(key: string, fallback: number): number {
                 <p-splitter
                     [pt]="sidebarSplitterPt()"
                     [panelSizes]="sidebarSizes"
-                    [minSizes]="[15, 40]"
+                    [minSizes]="sidebarSizesMinSizes"
                     [stateKey]="sidebarStateKey"
                     stateStorage="local"
                     (onResizeEnd)="sidebarSize.set(firstSize($event))"
@@ -83,7 +83,7 @@ function savedSplitterSize(key: string, fallback: number): number {
                     styleClass="h-full !rounded-none !border-0 !bg-transparent [&>.p-splitterpanel]:min-h-0 [&>.p-splitterpanel]:min-w-0 [&>.p-splitterpanel]:overflow-hidden"
                 >
                     <ng-template #panel>
-                        <app-collections-sidebar class="h-full w-full !border-r-0" />
+                        <app-collections-sidebar class="h-full w-full border-r-0!" />
                     </ng-template>
                     <ng-template #panel>
                         <ng-container *ngTemplateOutlet="mainContent" />
@@ -119,21 +119,22 @@ function savedSplitterSize(key: string, fallback: number): number {
         '(document:keydown)': 'onKeydown($event)'
     },
     styles: `
-        ::ng-deep {
-            .main-splitter {
-                > .p-splitter-gutter {
-                    //background: var(--p-primary-color);
-                    background: var(--highlight-bg);
-                }
-            }
-        }
+        //::ng-deep {
+        //    .main-splitter {
+        //        > .p-splitter-gutter {
+        //            //background: var(--p-primary-color);
+        //            background: var(--p-primary-color);
+        //        }
+        //    }
+        //}
     `
 })
 export class Shell {
     protected readonly ui = inject(UiState);
 
     protected readonly sidebarStateKey = SIDEBAR_SPLITTER_KEY;
-    protected readonly sidebarSizes = [22, 78];
+    protected readonly sidebarSizes = [15, 85];
+    protected readonly sidebarSizesMinSizes = [5, 5];
     /** Largura da barra lateral (%), para o `aria-valuenow` do divisor; começa pelo tamanho salvo. */
     protected readonly sidebarSize = signal(savedSplitterSize(SIDEBAR_SPLITTER_KEY, this.sidebarSizes[0]!));
     /**

@@ -17,8 +17,9 @@ const COMPACT_LABELS: Partial<Record<HttpMethod, string>> = { DELETE: 'DEL', OPT
     selector: 'app-method-badge',
     template: `{{ label() }}`,
     host: {
-        class: 'inline-block shrink-0 font-semibold uppercase tracking-wide',
-        '[style.font-size]': "compact() ? '0.6875rem' : null",
+        class: 'flex shrink-0 font-semibold uppercase tracking-wide',
+        '[style.font-size]': "compact() ? '0.6875rem' : '1rem'",
+        '[style.line-height]': "compact() ? '0.6875rem' : '1rem'",
         '[style.color]': 'color()',
         '[style.min-width]': "compact() ? '1.75rem' : null"
     }

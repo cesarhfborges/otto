@@ -5,7 +5,7 @@
             <button
                 type="button"
                 class="flex w-full cursor-pointer items-center gap-2.5 rounded-md border-0 px-3 py-2 text-left text-sm"
-                [class]="section() === item.id ? 'bg-surface-100 font-medium text-color dark:bg-surface-800' : 'bg-transparent text-muted-color hover:bg-surface-100 hover:text-color dark:hover:bg-surface-800'"
+                [class]="section() === item.id ? 'bg-surface-100  font-medium text-(--p-emerald-700) dark:text-(--p-emerald-500) dark:bg-surface-800' : 'bg-transparent text-muted-color hover:bg-surface-100 hover:text-color dark:hover:bg-surface-800'"
                 [attr.aria-current]="section() === item.id ? 'page' : null"
                 (click)="section.set(item.id)"
             >
@@ -20,7 +20,7 @@
 <div class="min-w-0 flex-1 overflow-auto p-6">
     <header class="mb-6 flex flex-wrap items-baseline justify-between gap-2">
         <h2 class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">{{ currentLabel() }}</h2>
-        <p class="m-0 text-sm text-muted-color" role="status" aria-live="polite">
+        <p class="m-0 text-sm text-(--p-emerald-700) dark:text-(--p-emerald-500) absolute right-6" role="status" aria-live="polite">
             @switch (status()) { @case ('saving') { Saving… } @case ('saved') {
             <i class="pi pi-check mr-1" aria-hidden="true"></i>All changes saved } }
         </p>
@@ -48,23 +48,23 @@
             <small id="base-directory-help" class="text-muted-color"> New and imported workspaces are created here: <code>&lt;folder&gt;/&lt;workspace&gt;/collections/&lt;collection&gt;</code>. Changing it does not move existing workspaces. </small>
         </div>
         <div class="flex items-center gap-3">
-            <p-toggleswitch formControlName="minimizeToTray" inputId="minimize-to-tray" ariaLabelledBy="minimize-to-tray-label" />
+            <p-toggle-switch formControlName="minimizeToTray" inputId="minimize-to-tray" ariaLabelledBy="minimize-to-tray-label" />
             <label id="minimize-to-tray-label" for="minimize-to-tray">Keep running in the system tray when the window is closed</label>
         </div>
         <ng-container formGroupName="http">
             <div class="flex items-center gap-3">
-                <p-toggleswitch formControlName="followRedirects" inputId="follow-redirects" ariaLabelledBy="follow-redirects-label" />
+                <p-toggle-switch formControlName="followRedirects" inputId="follow-redirects" ariaLabelledBy="follow-redirects-label" />
                 <label id="follow-redirects-label" for="follow-redirects">Follow redirects automatically</label>
             </div>
             <div class="flex flex-col gap-2">
                 <label for="timeout" class="font-medium">Request timeout (ms)</label>
-                <p-inputnumber formControlName="timeoutMs" inputId="timeout" [min]="0" [max]="maxTimeoutMs" [useGrouping]="false" [invalid]="controlInvalid('http.timeoutMs')" ariaDescribedBy="timeout-help" class="w-full sm:w-48" />
+                <p-input-number formControlName="timeoutMs" inputId="timeout" [min]="0" [max]="maxTimeoutMs" [useGrouping]="false" [invalid]="controlInvalid('http.timeoutMs')" ariaDescribedBy="timeout-help" class="w-full sm:w-48" />
                 <small id="timeout-help" class="text-muted-color">Use 0 to disable the timeout. Maximum {{ maxTimeoutMs }} ms (1 hour).</small>
             </div>
         </ng-container>
         <div formGroupName="history" class="flex flex-col gap-2">
             <label for="history-max-entries" class="font-medium">Requests kept in history</label>
-            <p-inputnumber formControlName="maxEntries" inputId="history-max-entries" [min]="0" [max]="maxHistoryEntries" [useGrouping]="false" [invalid]="controlInvalid('history.maxEntries')" ariaDescribedBy="history-help" class="w-full sm:w-48" />
+            <p-input-number formControlName="maxEntries" inputId="history-max-entries" [min]="0" [max]="maxHistoryEntries" [useGrouping]="false" [invalid]="controlInvalid('history.maxEntries')" ariaDescribedBy="history-help" class="w-full sm:w-48" />
             <small id="history-help" class="text-muted-color">Older entries are removed automatically. Use 0 to stop recording history. Maximum {{ maxHistoryEntries }}.</small>
         </div>
         } @case ('themes') {

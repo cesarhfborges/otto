@@ -42,6 +42,43 @@ const ACCESSIBLE_TOKENS = {
                     error: { color: '{red.700}' }
                 }
             }
+        },
+        splitter: {
+            colorScheme: {
+                light: {
+                    gutter: {
+                        background: '{surface.200}'
+                    },
+                    handle: {
+                        background: '{surface.400}',
+                        size: '3rem',
+                        borderRadius: '2rem'
+                    }
+                },
+                dark: {
+                    gutter: {
+                        background: '{surface.800}'
+                    },
+                    handle: {
+                        background: '{surface.600}',
+                        size: '3rem',
+                        borderRadius: '2rem'
+                    }
+                }
+            }
+        },
+        toggleswitch: {
+            handle: {
+                size: 'calc(1rem + 1px)'
+            },
+            root: {
+                // height: 'calc(100% + 1 px)'
+            }
+            // colorScheme: {
+            //     light: {
+            //         height: 'calc(100% + 1 px)'
+            //     }
+            // }
         }
     }
 };

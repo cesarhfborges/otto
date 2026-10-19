@@ -17,23 +17,12 @@ import { WorkspacesState } from '../core/state/workspaces.state';
     imports: [NgOptimizedImage, MenuModule, TooltipModule],
     template: `
         <div class="app-no-drag flex items-center gap-0.5" [style.padding-left.rem]="windowControls.isMac ? 4.5 : null">
-            @if (windowControls.available && !windowControls.isMac) {
-                <button #menuButton type="button" class="otto-icon-button" aria-label="Application menu" appendTo="body" pTooltip [tooltipOptions]="tooltipMenu" (click)="windowControls.showAppMenu(menuButton)">
-                    <i class="pi pi-bars" aria-hidden="true"></i>
-                </button>
-            }
-            <button type="button" class="otto-icon-button" aria-label="Workspace home" pTooltip="Home" tooltipPosition="bottom" (click)="goHome()">
-                <i class="pi pi-home" aria-hidden="true"></i>
+            <button type="button" class="otto-icon-button" [attr.aria-pressed]="ui.sidebarVisible()" aria-label="Toggle sidebar" (click)="ui.toggleSidebar()">
+                <i class="pi pi-objects-column" aria-hidden="true"></i>
             </button>
-            <button type="button" class="otto-icon-button !w-auto max-w-64 gap-1.5 px-2 text-sm font-semibold !text-color" aria-haspopup="menu" [attr.aria-label]="'Workspace: ' + workspaces.activeName()" (click)="workspaceMenu.toggle($event)">
-                <span class="truncate">{{ workspaces.activeName() }}</span>
-                @if (workspaces.busy()) {
-                    <i class="pi pi-spin pi-spinner text-xs text-muted-color" aria-hidden="true"></i>
-                } @else {
-                    <i class="pi pi-chevron-down text-xs text-muted-color" aria-hidden="true"></i>
-                }
-            </button>
-            <p-menu #workspaceMenu [model]="workspaceItems()" [popup]="true" [style]="{ minWidth: '16rem' }" />
+            <!--            <button type="button" class="otto-icon-button" aria-label="Workspace home" pTooltip="Home" tooltipPosition="bottom" (click)="goHome()">-->
+            <!--                <i class="pi pi-home" aria-hidden="true"></i>-->
+            <!--            </button>-->
         </div>
 
         <div class="pointer-events-none absolute inset-x-0 mx-auto flex w-fit items-center gap-2 text-sm font-semibold" aria-hidden="true">
@@ -42,9 +31,30 @@ import { WorkspacesState } from '../core/state/workspaces.state';
         </div>
 
         <div class="app-no-drag ml-auto flex items-center gap-0.5">
-            <button type="button" class="otto-icon-button" [attr.aria-pressed]="ui.sidebarVisible()" aria-label="Toggle sidebar" pTooltip="Toggle sidebar" tooltipPosition="bottom" (click)="ui.toggleSidebar()">
-                <i class="pi pi-objects-column" aria-hidden="true"></i>
-            </button>
+
+            <div class="flex items-center gap-1 mr-2">
+                <button
+                    type="button"
+                    class="otto-icon-button w-auto! max-w-64 gap-1.5 px-2!  text-sm font-semibold text-color!"
+                    aria-haspopup="menu"
+                    [attr.aria-label]="'Workspace: ' + workspaces.activeName()"
+                    (click)="workspaceMenu.toggle($event)"
+                >
+                    <span class="truncate">{{ workspaces.activeName() }}</span>
+                    @if (workspaces.busy()) {
+                        <i class="pi pi-spin pi-spinner text-xs text-muted-color" aria-hidden="true"></i>
+                    } @else {
+                        <i class="pi pi-chevron-down text-xs text-muted-color" aria-hidden="true"></i>
+                    }
+                </button>
+                <p-menu #workspaceMenu [model]="workspaceItems()" [popup]="true" [style]="{ minWidth: '16rem' }" />
+
+                @if (windowControls.available && !windowControls.isMac) {
+                    <button #menuButton type="button" class="otto-icon-button" aria-label="Application menu" appendTo="body" pTooltip [tooltipOptions]="tooltipMenu" (click)="windowControls.showAppMenu(menuButton)">
+                        <i class="pi pi-bars" aria-hidden="true"></i>
+                    </button>
+                }
+            </div>
 
             @if (windowControls.available && !windowControls.isMac) {
                 <span class="mx-1 h-4 w-px bg-surface-200 dark:bg-surface-700" aria-hidden="true"></span>
@@ -75,8 +85,8 @@ export class TitleBar {
 
     protected readonly tooltipMenu: TooltipOptions = {
         tooltipLabel: 'Menu',
-        positionLeft: -30,
-        positionTop: 32,
+        positionLeft: 0,
+        positionTop: 6,
         tooltipEvent: 'hover',
         tooltipPosition: 'bottom'
         // tooltipZIndex: '99999',
