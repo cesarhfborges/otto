@@ -1,5 +1,5 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
-import type { CollectionMetadata, CollectionNode, EntityId, OpenedCollection } from '@shared/models';
+import type { CollectionManifestPatch, CollectionMetadata, CollectionNode, EntityId, OpenedCollection } from '@shared/models';
 import { ipcErrorMessage } from '../bridge/ipc-error';
 import { CollectionsGateway, DialogGateway } from '../ports';
 
@@ -86,15 +86,23 @@ export class CollectionsState {
         await this.loadKnown();
     }
 
+    /** Grava descrição/headers no `otto.yaml`. Lança o erro para a tela exibir. */
+    async updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<void> {
+        const manifest = await this.gateway.updateManifest(id, patch);
+
+        this.openedState.update((list) => list.map((c) => (c.metadata.id === id ? { ...c, manifest } : c)));
+    }
+
+    /** Relê árvore e manifesto (mudanças pelo app, Git ou editor externo). */
     async refresh(id: EntityId): Promise<void> {
         if (!this.find(id)) {
             return;
         }
 
         try {
-            const tree = await this.gateway.tree(id);
+            const [tree, manifest] = await Promise.all([this.gateway.tree(id), this.gateway.manifest(id)]);
 
-            this.openedState.update((list) => list.map((c) => (c.metadata.id === id ? { ...c, tree } : c)));
+            this.openedState.update((list) => list.map((c) => (c.metadata.id === id ? { ...c, tree, manifest } : c)));
         } catch (error) {
             // A pasta pode ter sido removida/renomeada fora do app.
             this.errorState.set(ipcErrorMessage(error));

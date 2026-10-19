@@ -8,3 +8,4 @@ export * from './request';
 export * from './settings';
 export * from './tab';
 export * from './workspace';
+export * from './openapi';

@@ -10,6 +10,8 @@ export interface KeyValue {
     value: string;
     /** Itens desabilitados ficam salvos, mas não são enviados/interpolados. */
     enabled: boolean;
+    /** Anotação para quem usa a requisição; não é enviada. */
+    description?: string;
 }
 
 export interface Timestamps {

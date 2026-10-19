@@ -12,9 +12,10 @@ import {
     ElectronTabsGateway,
     ElectronThemeGateway,
     ElectronWindowGateway,
-    ElectronWorkspacesGateway
+    ElectronWorkspacesGateway,
+    ElectronOpenApiGateway
 } from './adapters/electron/electron-gateways';
-import { AppInfoGateway, CollectionFilesGateway, CollectionsGateway, DialogGateway, EnvironmentsGateway, HistoryGateway, HttpGateway, MenuEventsGateway, SettingsGateway, TabsGateway, ThemeGateway, WindowGateway, WorkspacesGateway } from './ports';
+import { AppInfoGateway, CollectionFilesGateway, CollectionsGateway, DialogGateway, EnvironmentsGateway, HistoryGateway, HttpGateway, MenuEventsGateway, SettingsGateway, TabsGateway, ThemeGateway, WindowGateway, WorkspacesGateway, OpenApiGateway } from './ports';
 import { ThemeService } from './theme/theme.service';
 
 /** Liga os ports do renderer às implementações sobre o IPC do Electron. */
@@ -33,6 +34,7 @@ export function provideOttoCore(): EnvironmentProviders {
         { provide: EnvironmentsGateway, useClass: ElectronEnvironmentsGateway },
         { provide: CollectionsGateway, useClass: ElectronCollectionsGateway },
         { provide: CollectionFilesGateway, useClass: ElectronCollectionFilesGateway },
+        { provide: OpenApiGateway, useClass: ElectronOpenApiGateway },
         // Aplica o tema antes da primeira renderização das rotas.
         provideAppInitializer(() => {
             inject(ThemeService);

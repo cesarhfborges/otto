@@ -6,3 +6,4 @@ export * from './http';
 export * from './request';
 export * from './settings';
 export * from './tabs';
+export * from './openapi';

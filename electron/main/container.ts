@@ -31,6 +31,8 @@ import { ThemeIpcModule } from './ipc/theme.ipc';
 import { TabsIpcModule } from './ipc/tabs.ipc';
 import { WindowIpcModule } from './ipc/window.ipc';
 import { WorkspacesIpcModule } from './ipc/workspaces.ipc';
+import { OpenApiIpcModule } from './ipc/openapi.ipc';
+import { OpenApiService } from './services/openapi/openapi.service';
 import { CollectionService } from './services/collections/collection.service';
 import { FetchHttpExecutor } from './services/http/fetch-http-executor';
 import { HistoryRecordingExecutor } from './services/http/history-recording-executor';
@@ -118,6 +120,22 @@ export function createContainer(): Container {
         onRecorded: () => window.notify('history:changed', null),
         onError: (error) => console.error('[otto] could not record history:', error)
     });
+    // Busca de specs usa o executor base (proxy/SSL das preferências) sem gravar no histórico.
+    const openapi = new OpenApiService(
+        collectionService,
+        httpBase,
+        {
+            read: async (file) => {
+                if ((await fs.stat(file)).size > 20_000_000) {
+                    throw new Error('The spec file is too large');
+                }
+
+                return fs.readFile(file, 'utf8');
+            }
+        },
+        environments,
+        systemClock
+    );
     const theme = new ThemeController(settings, window);
     const dialogs = new DialogService(() => window.current);
     const commands = new AppCommands(window, dialogs);
@@ -148,6 +166,7 @@ export function createContainer(): Container {
             new WorkspacesIpcModule(workspaceService, window, (folder) => shell.showItemInFolder(path.join(folder, 'workspace.yaml'))),
             new EnvironmentsIpcModule(environments, () => workspaceService.active().id),
             new CollectionsIpcModule(collections, collectionService, workspaceService, window),
+            new OpenApiIpcModule(openapi),
             new CollectionFilesIpcModule(collectionService)
         ],
         dispose: () => {

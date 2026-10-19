@@ -6,6 +6,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { CollectionsState } from '../core/state/collections.state';
 import { TabsState } from '../core/state/tabs.state';
 import { UiState } from '../core/state/ui.state';
+import { draftKey, RequestDraftsState } from '../core/state/request-drafts.state';
 import { MethodBadge } from '../shared/method-badge';
 import { TAB_ICONS } from '../shared/tab-icon';
 
@@ -47,6 +48,10 @@ export const TAB_PANEL_ID = 'otto-tab-panel';
                             <i [class]="icons[tab.kind]" class="text-xs" aria-hidden="true"></i>
                         }
                         <span class="truncate" [class.italic]="tab.kind === 'request' && !methodOf(tab)">{{ tab.title }}</span>
+                        @if (isDirty(tab)) {
+                            <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true"></span>
+                            <span class="sr-only">(unsaved changes)</span>
+                        }
                     </button>
                     <span class="otto-icon-button mr-1 h-5! w-5! opacity-0 group-hover:opacity-100" [class.opacity-100]="tab.id === tabs.activeId()" aria-hidden="true" title="Close tab" (click)="tabs.close(tab.id)">
                         <i class="pi pi-times text-[0.625rem]"></i>
@@ -65,6 +70,7 @@ export class TabStrip {
     protected readonly tabs = inject(TabsState);
     private readonly collections = inject(CollectionsState);
     private readonly ui = inject(UiState);
+    private readonly drafts = inject(RequestDraftsState);
     private readonly tablist = viewChild.required<ElementRef<HTMLElement>>('tablist');
     private readonly addMenu = viewChild.required<Menu>('addMenu');
 
@@ -78,9 +84,15 @@ export class TabStrip {
         { label: 'Preferences', icon: 'pi pi-cog', command: () => this.tabs.open({ kind: 'settings', title: 'Preferences', collectionId: null }) }
     ];
 
-    /** Método atual da requisição, lido da árvore (reflete edições feitas fora do app). */
+    /** Método do rascunho em edição; sem rascunho, o da árvore (reflete edições feitas fora do app). */
     protected methodOf(tab: TabState): HttpMethod | null {
-        return findMethod(this.collections.find(tab.collectionId)?.tree.children ?? [], tab.resourceRef ?? '');
+        const draft = tab.collectionId && tab.resourceRef ? this.drafts.draft(draftKey(tab.collectionId, tab.resourceRef)) : null;
+
+        return draft?.method ?? findMethod(this.collections.find(tab.collectionId)?.tree.children ?? [], tab.resourceRef ?? '');
+    }
+
+    protected isDirty(tab: TabState): boolean {
+        return tab.kind === 'request' && !!tab.collectionId && !!tab.resourceRef && this.drafts.isDirty(draftKey(tab.collectionId, tab.resourceRef));
     }
 
     protected add(event: MouseEvent): void {

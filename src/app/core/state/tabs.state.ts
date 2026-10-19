@@ -32,6 +32,8 @@ export class TabsState {
     /** Última aba ativa de cada contexto (chave `''` = workspace). */
     private readonly activeByContext = signal<Record<string, EntityId>>({});
     private saveTimer: ReturnType<typeof setTimeout> | undefined;
+    /** Pergunta antes de fechar (ex.: requisição com alterações não salvas). */
+    private closeGuard: ((tab: TabState) => boolean | Promise<boolean>) | null = null;
     /** Workspace dono das abas atuais; `null` até a restauração (nada é salvo antes disso). */
     private workspaceId: EntityId | null = null;
 
@@ -120,7 +122,28 @@ export class TabsState {
         this.scheduleSave();
     }
 
+    setCloseGuard(guard: (tab: TabState) => boolean | Promise<boolean>): void {
+        this.closeGuard = guard;
+    }
+
+    /** Fecha a aba, consultando antes o guard (que pode pedir confirmação). */
     close(id: EntityId): void {
+        const tab = this.tabsState().find((t) => t.id === id);
+
+        if (!tab) {
+            return;
+        }
+
+        if (!this.closeGuard) {
+            this.remove(id);
+
+            return;
+        }
+
+        void Promise.resolve(this.closeGuard(tab)).then((allowed) => allowed && this.remove(id));
+    }
+
+    private remove(id: EntityId): void {
         const tabs = this.tabsState();
         const index = tabs.findIndex((t) => t.id === id);
         const tab = tabs[index];
@@ -143,12 +166,20 @@ export class TabsState {
         this.scheduleSave();
     }
 
-    closeOthers(id: EntityId): void {
+    /** Fecha as demais abas do contexto, uma a uma (cada uma pode pedir confirmação). */
+    async closeOthers(id: EntityId): Promise<void> {
         const tab = this.tabsState().find((t) => t.id === id);
 
-        if (tab) {
-            this.tabsState.update((tabs) => tabs.filter((t) => t.collectionId !== tab.collectionId || t.id === id));
-            this.activate(id);
+        if (!tab) {
+            return;
+        }
+
+        this.activate(id);
+
+        for (const other of this.tabsState().filter((t) => t.collectionId === tab.collectionId && t.id !== id)) {
+            if (!this.closeGuard || (await this.closeGuard(other))) {
+                this.remove(other.id);
+            }
         }
     }
 

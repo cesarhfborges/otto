@@ -4,6 +4,18 @@ export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS',
 
 export type HttpMethod = (typeof HTTP_METHODS)[number];
 
+/** Métodos que não levam corpo: a aba Body fica oculta e nada é enviado. */
+export const METHODS_WITHOUT_BODY: readonly HttpMethod[] = ['GET', 'HEAD', 'TRACE', 'CONNECT'];
+
+export const hasBody = (method: HttpMethod): boolean => !METHODS_WITHOUT_BODY.includes(method);
+
+/** Parte de um corpo multipart já interpolada; arquivos são lidos pelo main no envio. */
+export interface HttpMultipartPart {
+    name: string;
+    value: string;
+    file: boolean;
+}
+
 /** Corpos maiores são truncados (evita estourar a memória do main e do renderer). */
 export const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
 
@@ -20,7 +32,13 @@ export interface HttpRequest {
     method: HttpMethod;
     url: string;
     headers?: Record<string, string>;
+    /** Corpo em texto. Alternativas (exclusivas): `bodyFile` e `multipart`. */
     body?: string;
+    /** Caminho absoluto de um arquivo enviado como corpo (File/Binary). */
+    bodyFile?: string;
+    multipart?: HttpMultipartPart[];
+    /** Credenciais WSSE: o main gera `X-WSSE` (nonce, data e digest) no momento do envio. */
+    wsse?: { username: string; password: string };
     timeoutMs?: number;
     source?: HttpRequestSource;
 }

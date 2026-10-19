@@ -1,5 +1,5 @@
 import type { KeyValue } from '../models/common';
-import type { HttpRequest, HttpRequestSource } from '../models/http';
+import { hasBody, type HttpMultipartPart, type HttpRequest, type HttpRequestSource } from '../models/http';
 import type { RequestDefinition } from '../models/request';
 
 export interface BuildRequestOptions {
@@ -15,7 +15,7 @@ const DEFAULT_CONTENT_TYPES = {
     'form-urlencoded': 'application/x-www-form-urlencoded'
 } as const;
 
-const enabled = (items: readonly KeyValue[]): KeyValue[] => items.filter((item) => item.enabled && item.key.trim());
+const enabled = <T extends KeyValue>(items: readonly T[]): T[] => items.filter((item) => item.enabled && item.key.trim());
 
 const encodePairs = (items: readonly KeyValue[]): string => items.map(({ key, value }) => `${encodeURIComponent(key.trim())}=${encodeURIComponent(value)}`).join('&');
 
@@ -67,12 +67,16 @@ class HeaderBag {
 /**
  * Converte o arquivo da coleção numa requisição executável: params e headers
  * habilitados, autenticação e corpo com `Content-Type` padrão quando ausente.
- * A interpolação de `{{variáveis}}` acontece antes (Etapa 7).
+ * A interpolação de `{{variáveis}}` acontece antes (`interpolateRequest`).
+ * Métodos sem corpo (GET, HEAD...) ignoram o body salvo.
  */
 export function buildHttpRequest(definition: RequestDefinition, options: BuildRequestOptions): HttpRequest {
     const headers = new HeaderBag();
     const query = [...enabled(definition.params)];
     let body: string | undefined;
+    let bodyFile: string | undefined;
+    let multipart: HttpMultipartPart[] | undefined;
+    let wsse: HttpRequest['wsse'];
 
     for (const { key, value } of enabled(definition.headers)) {
         headers.set(key.trim(), value);
@@ -96,17 +100,33 @@ export function buildHttpRequest(definition: RequestDefinition, options: BuildRe
                 }
             }
             break;
+        case 'wsse':
+            // O digest depende de nonce e horário: é gerado pelo main no envio.
+            wsse = { username: auth.username, password: auth.password };
+            break;
         // `inherit` depende da autenticação da coleção (Etapa 8); `none` não envia nada.
     }
 
-    const definitionBody = definition.body;
+    const definitionBody = hasBody(definition.method) ? definition.body : ({ type: 'none' } as const);
 
-    if (definitionBody.type !== 'none') {
-        body = definitionBody.type === 'form-urlencoded' ? encodePairs(enabled(definitionBody.fields)) : definitionBody.content;
+    switch (definitionBody.type) {
+        case 'none':
+            break;
+        case 'multipart-form':
+            // Content-Type (com boundary) é definido pelo main ao montar o FormData.
+            multipart = enabled(definitionBody.fields).map((field) => ({ name: field.key.trim(), value: field.value, file: field.kind === 'file' }));
+            break;
+        case 'binary':
+            if (definitionBody.file) {
+                bodyFile = definitionBody.file;
+            }
+            break;
+        default:
+            body = definitionBody.type === 'form-urlencoded' ? encodePairs(enabled(definitionBody.fields)) : definitionBody.content;
 
-        if (!headers.has('content-type')) {
-            headers.set('Content-Type', DEFAULT_CONTENT_TYPES[definitionBody.type]);
-        }
+            if (!headers.has('content-type')) {
+                headers.set('Content-Type', DEFAULT_CONTENT_TYPES[definitionBody.type]);
+            }
     }
 
     return {
@@ -115,6 +135,9 @@ export function buildHttpRequest(definition: RequestDefinition, options: BuildRe
         url: appendQuery(withScheme(definition.url.trim()), encodePairs(query)),
         headers: headers.toRecord(),
         ...(body !== undefined && { body }),
+        ...(bodyFile && { bodyFile }),
+        ...(multipart && { multipart }),
+        ...(wsse && { wsse }),
         ...(options.source && { source: options.source })
     };
 }

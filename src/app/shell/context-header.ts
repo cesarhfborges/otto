@@ -67,9 +67,11 @@ export class ContextHeader {
 
     protected readonly environmentOptions = computed(() => {
         const id = this.tabs.context();
-        const list = id ? this.environments.list(id) : [];
+        const collection = id ? this.environments.list(id) : [];
+        const global = this.environments.list(null);
 
-        return [{ label: 'No Environment', value: null }, ...list.map((env) => ({ label: env.name, value: env.id }))];
+        // Ambientes da coleção primeiro; os globais do workspace em seguida.
+        return [{ label: 'No Environment', value: null }, ...collection.map((env) => ({ label: env.name, value: env.id })), ...global.map((env) => ({ label: `${env.name} (global)`, value: env.id }))];
     });
 
     protected readonly collectionItems = computed<MenuItem[]>(() => {
@@ -108,6 +110,7 @@ export class ContextHeader {
             untracked(() => {
                 if (id) {
                     void this.environments.load(id);
+                    void this.environments.load(null);
                     this.environmentControl.setValue(this.environments.activeFor(id), { emitEvent: false });
                 }
             });

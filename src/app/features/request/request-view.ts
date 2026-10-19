@@ -1,23 +1,29 @@
-import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, effect, inject, input, linkedSignal, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { type EntityId, HTTP_METHODS, type HttpMethod, type KeyValue, type RequestDefinition } from '@shared/models';
+import { type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { SelectModule } from 'primeng/select';
+import { SplitterModule } from 'primeng/splitter';
 import { TabsModule } from 'primeng/tabs';
+import type { SplitterPassThrough, SplitterResizeEndEvent } from 'primeng/types/splitter';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { CollectionFilesGateway } from '../../core/ports';
 import { CollectionsState } from '../../core/state/collections.state';
-import { SettingsState } from '../../core/state/settings.state';
+import { draftKey, RequestDraftsState } from '../../core/state/request-drafts.state';
 import { responseKey, ResponsesState } from '../../core/state/responses.state';
+import { SettingsState } from '../../core/state/settings.state';
 import { MethodBadge } from '../../shared/method-badge';
+import { AuthEditor } from './auth-editor';
+import { BodyEditor } from './body-editor';
+import { KeyValueEditor } from './key-value-editor';
 import { ResponsePanel } from './response-panel';
-import { SplitterModule } from 'primeng/splitter';
-import type { SplitterPassThrough, SplitterResizeEndEvent } from 'primeng/types/splitter';
 
 const REQUEST_SPLITTER_KEY = 'otto.splitter.request';
+
+type Section = 'params' | 'body' | 'headers' | 'auth' | 'docs';
 
 /** Primeiro tamanho (%) salvo pelo `stateKey` do splitter; `localStorage` pode estar indisponível. */
 function savedSplitterSize(key: string, fallback: number): number {
@@ -30,21 +36,16 @@ function savedSplitterSize(key: string, fallback: number): number {
     }
 }
 
-const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
-    none: 'No authentication',
-    inherit: 'Inherited from the collection',
-    bearer: 'Bearer token',
-    basic: 'Basic authentication',
-    apikey: 'API key'
-};
+const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): number => items.filter((item) => item.enabled && item.key.trim()).length;
 
 /**
- * Aba de requisição: barra de URL, sub-abas da requisição e painel de resposta.
- * Conteúdo lido do arquivo da coleção (recarrega quando o disco muda).
+ * Editor da requisição: método, URL, params, body, headers, auth e docs, com o painel
+ * de resposta ao lado. As edições ficam num rascunho (sobrevive à troca de abas) e são
+ * gravadas no arquivo da coleção com Save / Ctrl+S. O envio usa o rascunho atual.
  */
 @Component({
     selector: 'app-request-view',
-    imports: [NgTemplateOutlet, ReactiveFormsModule, TabsModule, ButtonModule, MessageModule, SelectModule, MethodBadge, ResponsePanel, SplitterModule],
+    imports: [ReactiveFormsModule, TabsModule, ButtonModule, InputTextModule, MessageModule, SelectModule, SplitterModule, MethodBadge, KeyValueEditor, BodyEditor, AuthEditor, ResponsePanel],
     template: `
         @if (error(); as message) {
             <p-message severity="error" styleClass="m-4"
@@ -52,7 +53,7 @@ const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
             >
         } @else if (request(); as req) {
             <div class="flex shrink-0 items-center gap-2 px-3 pt-3">
-                <div class="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-surface-200 pr-3 dark:border-surface-700" role="group" aria-label="Request URL">
+                <div class="flex h-9 min-w-0 flex-1 items-center rounded-md border border-surface-200 dark:border-surface-700" role="group" aria-label="Request line">
                     <p-select [formControl]="methodControl" [options]="methods" ariaLabel="HTTP method" scrollHeight="none" styleClass="otto-method-select" panelStyleClass="otto-method-panel" [style]="{ width: '7.5rem' }">
                         <ng-template #selectedItem let-method>
                             <app-method-badge [method]="method" />
@@ -61,14 +62,17 @@ const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
                             <app-method-badge [method]="method" />
                         </ng-template>
                     </p-select>
-                    <span class="min-w-0 flex-1 truncate font-mono text-sm" [attr.aria-label]="req.url || 'No URL'">
-                        @for (part of urlParts(); track $index) {
-                            <span [class]="part.variable ? 'text-primary-700 dark:text-primary-300' : ''">{{ part.text }}</span>
-                        } @empty {
-                            <span class="text-muted-color">No URL</span>
-                        }
-                    </span>
+                    <input
+                        class="h-full min-w-0 flex-1 border-0 bg-transparent px-3 font-mono text-sm text-color outline-none placeholder:text-muted-color focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--p-primary-color)]"
+                        [value]="req.url"
+                        placeholder="https://api.example.com/users or {{ urlExample }}"
+                        aria-label="Request URL"
+                        autocomplete="off"
+                        spellcheck="false"
+                        (input)="update({ url: $any($event.target).value })"
+                    />
                 </div>
+                <p-button label="Save" icon="pi pi-save" size="small" severity="secondary" [outlined]="true" [disabled]="!dirty()" [loading]="saving()" ariaLabel="Save request (Ctrl+S)" (onClick)="save()" />
                 @if (sending()) {
                     <p-button label="Cancel" icon="pi pi-times" size="small" severity="secondary" (onClick)="cancel()" />
                 } @else {
@@ -78,7 +82,7 @@ const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
 
             @if (saveError(); as message) {
                 <p-message severity="error" size="small" styleClass="mx-3 mt-2"
-                    ><span role="alert">Could not change the method: {{ message }}</span></p-message
+                    ><span role="alert">Could not save: {{ message }}</span></p-message
                 >
             }
 
@@ -100,54 +104,61 @@ const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
                 >
                     <ng-template #panel>
                         <div class="h-full w-full overflow-auto">
-                            <p-tabs value="params" class="w-full px-3" scrollable>
+                            <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="w-full px-3" scrollable>
                                 <p-tablist>
                                     <p-tab value="params"
                                         >Params
-                                        @if (req.params.length) {
-                                            <span class="text-xs text-muted-color">({{ req.params.length }})</span>
+                                        @if (counts().params) {
+                                            <span class="text-xs text-muted-color">({{ counts().params }})</span>
                                         }
                                     </p-tab>
-                                    <p-tab value="body">Body</p-tab>
+                                    @if (bodyAllowed()) {
+                                        <p-tab value="body"
+                                            >Body
+                                            @if (req.body.type !== 'none') {
+                                                <span class="text-xs text-muted-color">•</span>
+                                            }
+                                        </p-tab>
+                                    }
                                     <p-tab value="headers"
                                         >Headers
-                                        @if (req.headers.length) {
-                                            <span class="text-xs text-muted-color">({{ req.headers.length }})</span>
+                                        @if (counts().headers) {
+                                            <span class="text-xs text-muted-color">({{ counts().headers }})</span>
                                         }
                                     </p-tab>
-                                    <p-tab value="auth">Auth</p-tab>
+                                    <p-tab value="auth"
+                                        >Auth
+                                        @if (req.auth.type !== 'none') {
+                                            <span class="text-xs text-muted-color">•</span>
+                                        }
+                                    </p-tab>
                                     <p-tab value="docs">Docs</p-tab>
                                 </p-tablist>
                                 <p-tabpanels>
                                     <p-tabpanel value="params">
-                                        <ng-container *ngTemplateOutlet="keyValues; context: { $implicit: req.params, caption: 'Query parameters', empty: 'No query parameters.' }" />
+                                        <app-key-value-editor [items]="req.params" (itemsChange)="update({ params: $event })" label="Query parameters" addLabel="Add Param" />
+                                        <p class="m-0 mt-2 text-xs text-muted-color">Enabled params are appended to the URL query string when the request is sent.</p>
                                     </p-tabpanel>
-                                    <p-tabpanel value="body">
-                                        @switch (req.body.type) {
-                                            @case ('none') {
-                                                <p class="m-0 text-sm text-muted-color">This request has no body.</p>
-                                            }
-                                            @case ('form-urlencoded') {
-                                                <ng-container *ngTemplateOutlet="keyValues; context: { $implicit: req.body.fields, caption: 'Form fields', empty: 'No form fields.' }" />
-                                            }
-                                            @default {
-                                                <p class="m-0 mb-2 text-xs font-medium uppercase text-muted-color">{{ req.body.type }}</p>
-                                                <pre class="m-0 overflow-auto rounded-md bg-surface-100 p-3 font-mono text-sm dark:bg-surface-900">{{ bodyContent() }}</pre>
-                                            }
-                                        }
-                                    </p-tabpanel>
+                                    @if (bodyAllowed()) {
+                                        <p-tabpanel value="body">
+                                            <app-body-editor [body]="req.body" (bodyChange)="update({ body: $event })" />
+                                        </p-tabpanel>
+                                    }
                                     <p-tabpanel value="headers">
-                                        <ng-container *ngTemplateOutlet="keyValues; context: { $implicit: req.headers, caption: 'Headers', empty: 'No headers.' }" />
+                                        <app-key-value-editor [items]="req.headers" (itemsChange)="update({ headers: $event })" label="Headers" addLabel="Add Header" />
                                     </p-tabpanel>
                                     <p-tabpanel value="auth">
-                                        <p class="m-0 text-sm">{{ authLabel() }}</p>
+                                        <app-auth-editor [auth]="req.auth" (authChange)="update({ auth: $event })" />
                                     </p-tabpanel>
                                     <p-tabpanel value="docs">
-                                        @if (req.docs) {
-                                            <p class="m-0 whitespace-pre-wrap text-sm">{{ req.docs }}</p>
-                                        } @else {
-                                            <p class="m-0 text-sm text-muted-color">No documentation for this request.</p>
-                                        }
+                                        <label for="request-docs" class="mb-2 block text-sm font-medium">Documentation (Markdown)</label>
+                                        <textarea
+                                            id="request-docs"
+                                            class="min-h-48 w-full resize-y rounded-md border border-surface-300 bg-surface-0 p-3 text-sm text-color focus-visible:outline-2 focus-visible:outline-[var(--p-primary-color)] dark:border-surface-700 dark:bg-surface-950"
+                                            [value]="req.docs"
+                                            placeholder="Describe what this request does, its parameters and expected responses."
+                                            (input)="update({ docs: $any($event.target).value })"
+                                        ></textarea>
                                     </p-tabpanel>
                                 </p-tabpanels>
                             </p-tabs>
@@ -178,39 +189,6 @@ const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
         } @else {
             <p class="m-0 p-4 text-sm text-muted-color" role="status">Loading…</p>
         }
-
-        <ng-template #keyValues let-items let-caption="caption" let-empty="empty">
-            @if (items.length) {
-                <table class="w-full border-collapse text-sm">
-                    <caption class="sr-only">
-                        {{
-                            caption
-                        }}
-                    </caption>
-                    <thead>
-                        <tr class="text-left text-xs text-muted-color">
-                            <th scope="col" class="w-8 border-b border-surface-200 py-1.5 font-medium dark:border-surface-700"><span class="sr-only">Enabled</span></th>
-                            <th scope="col" class="border-b border-surface-200 py-1.5 font-medium dark:border-surface-700">Key</th>
-                            <th scope="col" class="border-b border-surface-200 py-1.5 font-medium dark:border-surface-700">Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (item of asKeyValues(items); track $index) {
-                            <tr [class.text-muted-color]="!item.enabled" [class.line-through]="!item.enabled">
-                                <td class="border-b border-surface-100 py-1.5 dark:border-surface-800">
-                                    <i class="pi text-xs" [class.pi-check-square]="item.enabled" [class.pi-stop]="!item.enabled" aria-hidden="true"></i>
-                                    <span class="sr-only">{{ item.enabled ? 'Enabled' : 'Disabled' }}</span>
-                                </td>
-                                <td class="border-b border-surface-100 py-1.5 font-mono dark:border-surface-800">{{ item.key }}</td>
-                                <td class="break-all border-b border-surface-100 py-1.5 font-mono dark:border-surface-800">{{ item.value }}</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            } @else {
-                <p class="m-0 text-sm text-muted-color">{{ empty }}</p>
-            }
-        </ng-template>
     `,
     host: {
         class: 'flex h-full min-h-0 flex-col',
@@ -222,6 +200,10 @@ export class RequestView {
     readonly collectionId = input.required<EntityId>();
     readonly path = input.required<string>();
     private readonly settings = inject(SettingsState);
+    private readonly files = inject(CollectionFilesGateway);
+    private readonly collections = inject(CollectionsState);
+    private readonly responses = inject(ResponsesState);
+    private readonly drafts = inject(RequestDraftsState);
 
     /** Layout escolhido em Preferences → Appearance. */
     protected readonly panelSplitterDir = computed(() => this.settings.settings().appearance.requestLayout);
@@ -229,8 +211,8 @@ export class RequestView {
     protected readonly splitterSizes = [50, 50];
     /** Largura do painel da requisição (%), para o `aria-valuenow` do divisor. */
     protected readonly requestSize = linkedSignal(() => savedSplitterSize(this.splitterStateKey(), this.splitterSizes[0]!));
-    /** O puxador (focável, responde às setas) é o separador acessível; ver `Shell`. */
     protected readonly firstSize = (event: SplitterResizeEndEvent): number => Number(event.sizes[0]);
+    /** O puxador (focável, responde às setas) é o separador acessível; ver `Shell`. */
     protected readonly splitterPt = computed<SplitterPassThrough>(() => ({
         panel: {},
         gutter: { role: 'none' },
@@ -244,40 +226,35 @@ export class RequestView {
         }
     }));
 
-    protected readonly request = signal<RequestDefinition | null>(null);
+    private readonly key = computed(() => draftKey(this.collectionId(), this.path()));
+    protected readonly request = computed(() => this.drafts.draft(this.key()));
+    protected readonly dirty = computed(() => this.drafts.isDirty(this.key()));
     protected readonly error = signal<string | null>(null);
     protected readonly saveError = signal<string | null>(null);
+    protected readonly saving = signal(false);
+    protected readonly section = signal<Section>('params');
     protected readonly methods = [...HTTP_METHODS];
     protected readonly methodControl = new FormControl<HttpMethod>('GET', { nonNullable: true });
+    protected readonly urlExample = '{{baseUrl}}/users';
     protected readonly shortcuts = [
         { label: 'Send Request', keys: 'Ctrl + Enter' },
+        { label: 'Save Request', keys: 'Ctrl + S' },
         { label: 'New Request', keys: 'Ctrl + N' },
-        { label: 'Preferences', keys: 'Ctrl + ,' },
-        { label: 'Toggle Theme', keys: 'Ctrl + Shift + D' }
+        { label: 'Preferences', keys: 'Ctrl + ,' }
     ];
-    protected readonly urlParts = computed(() => {
-        const url = this.request()?.url ?? '';
+    /** GET, HEAD, TRACE e CONNECT não levam corpo: a aba Body some. */
+    protected readonly bodyAllowed = computed(() => hasBody(this.request()?.method ?? 'GET'));
+    protected readonly counts = computed(() => {
+        const request = this.request();
 
-        return url
-            .split(/(\{\{[^}]*\}\})/)
-            .filter(Boolean)
-            .map((text) => ({ text, variable: text.startsWith('{{') }));
+        return { params: request ? enabledCount(request.params) : 0, headers: request ? enabledCount(request.headers) : 0 };
     });
-    protected readonly bodyContent = computed(() => {
-        const body = this.request()?.body;
-
-        return body && 'content' in body ? body.content : '';
-    });
+    protected readonly response = computed(() => this.responses.get(responseKey(this.collectionId(), this.path())));
     protected readonly sending = computed(() => this.response()?.status === 'sending');
-    protected readonly authLabel = computed(() => AUTH_LABELS[this.request()?.auth.type ?? 'none']);
-    private readonly files = inject(CollectionFilesGateway);
-    private readonly collections = inject(CollectionsState);
-    private readonly responses = inject(ResponsesState);
-    private readonly key = computed(() => responseKey(this.collectionId(), this.path()));
-    protected readonly response = computed(() => this.responses.get(this.key()));
 
     constructor() {
-        // Recarrega quando muda o arquivo aberto ou a árvore da coleção (edição externa, git pull).
+        // Lê o arquivo ao abrir e quando a árvore da coleção muda (edição externa, git pull);
+        // alterações locais não salvas são mantidas.
         effect(() => {
             const collectionId = this.collectionId();
             const path = this.path();
@@ -286,7 +263,6 @@ export class RequestView {
             untracked(() => void this.load(collectionId, path));
         });
 
-        // O seletor reflete o arquivo; mudar o seletor grava o arquivo.
         effect(() => {
             const method = this.request()?.method;
 
@@ -294,7 +270,31 @@ export class RequestView {
                 this.methodControl.setValue(method, { emitEvent: false });
             }
         });
-        this.methodControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((method) => void this.changeMethod(method));
+        this.methodControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((method) => this.update({ method }));
+
+        // Trocar para um método sem corpo com a aba Body aberta volta para Params.
+        effect(() => {
+            if (!this.bodyAllowed() && untracked(this.section) === 'body') {
+                this.section.set('params');
+            }
+        });
+    }
+
+    protected update(changes: Partial<RequestDefinition>): void {
+        this.drafts.update(this.key(), (draft) => ({ ...draft, ...changes }));
+    }
+
+    protected async save(): Promise<void> {
+        this.saving.set(true);
+        this.saveError.set(null);
+
+        try {
+            await this.drafts.save(this.collectionId(), this.path());
+        } catch (error) {
+            this.saveError.set(ipcErrorMessage(error));
+        } finally {
+            this.saving.set(false);
+        }
     }
 
     protected send(): void {
@@ -306,41 +306,14 @@ export class RequestView {
     }
 
     protected cancel(): void {
-        this.responses.cancel(this.key());
+        this.responses.cancel(responseKey(this.collectionId(), this.path()));
     }
 
     protected onSendShortcut(event: Event): void {
         event.preventDefault();
 
-        if (this.sending()) {
-            return;
-        }
-
-        this.send();
-    }
-
-    protected asKeyValues(items: unknown): KeyValue[] {
-        return items as KeyValue[];
-    }
-
-    private async changeMethod(method: HttpMethod): Promise<void> {
-        const current = this.request();
-
-        if (!current || current.method === method) {
-            return;
-        }
-
-        const updated = { ...current, method };
-
-        // Atualiza na hora; o watcher da coleção recarrega a árvore com o novo método.
-        this.request.set(updated);
-        this.saveError.set(null);
-
-        try {
-            await this.files.saveRequest(this.collectionId(), this.path(), updated);
-        } catch (error) {
-            this.request.set(current);
-            this.saveError.set(ipcErrorMessage(error));
+        if (!this.sending()) {
+            this.send();
         }
     }
 
@@ -348,10 +321,8 @@ export class RequestView {
         try {
             const request = await this.files.readRequest(collectionId, path);
 
-            if (collectionId === this.collectionId() && path === this.path()) {
-                this.request.set(request);
-                this.error.set(null);
-            }
+            this.drafts.loaded(draftKey(collectionId, path), request);
+            this.error.set(null);
         } catch (error) {
             this.error.set(ipcErrorMessage(error));
         }

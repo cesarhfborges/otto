@@ -15,7 +15,7 @@
 | 4     | Ponte IPC e sistema de arquivos (local-first)          | ✅ Concluída    |
 | 5     | Motor de requisições HTTP + histórico/métricas         | ✅ Concluída    |
 | 6     | Interface Angular (layout base e abas)                 | ✅ Concluída (adiantada, antes da 5) |
-| 7     | Editor de requisição, resposta e interpolação          | ⏳ Próxima — 🟡 Parcial (requisição em modo leitura, mas já envia; painel de resposta básico) |
+| 7     | Editor de requisição, resposta e interpolação          | 🟡 Parcial (editor completo e interpolação prontos; falta visualizador avançado da resposta) |
 | 8     | Collections (estilo Bruno), importação e sync OpenAPI  | 🟡 Parcial (só contratos + registry) |
 
 ## Stack efetiva
@@ -245,12 +245,22 @@ Pedido do usuário: layout semelhante ao Bruno (5 telas de referência) antes da
 - [x] `OttoPreset`: botões de texto/contorno "danger" em `red.700` no tema claro (o Aura dá 3,8:1)
 - [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (94; o teste do `WorkspaceService` foi removido por testar a API de "abrir"/escolher pasta que não existe mais — pedido de não escrever testes; uma expectativa de mensagem ajustada), no app real com `HOME` isolado: pasta padrão criada, diálogos só com nome, criar workspace/coleção na pasta base, exportar e importar coleção (.zip e pasta, duplicata recusada), menus sem "Open", ambientes de coleção e globais (criar, variáveis, secret, salvar, seletor) ✅, axe sem violações (ambientes claro/escuro) ✅
 
+## Editor de requisição (Etapa 7, parte 1 — pedido do usuário)
+
+- [x] Requisição **editável**: método, URL (campo de texto), Params, Body, Headers, Auth e Docs. As edições ficam num **rascunho** (`RequestDraftsState`) que sobrevive à troca de abas; **Save** / `Ctrl+S` / File → Save grava o YAML; ponto na aba indica alterações; fechar (inclusive "Close Others") pede confirmação. Mudança externa no arquivo atualiza o editor só se não houver alterações locais
+- [x] **Params / Headers**: nome, valor, descrição (não enviada; gravada no YAML) e habilitar/desabilitar (`KeyValueEditor`)
+- [x] **Body** (segmentos): Multipart Form (campos texto ou arquivo), Form URL Encoded, JSON, Text, XML, File/Binary e No Body. A aba Body some em GET/HEAD/TRACE/CONNECT (`METHODS_WITHOUT_BODY`). JSON/XML com validação ao digitar e **Pretty** (JSON tolera `{{variáveis}}` fora de aspas; Text remove espaços sobrando). Trocar de tipo aproveita o conteúdo (texto ↔ texto, campos ↔ campos)
+- [x] **Auth**: No Auth, Basic, Bearer, API Key (header ou query) e **WSSE** (UsernameToken: `Authorization: WSSE profile="UsernameToken"` + `X-WSSE` com nonce, `Created` e digest SHA-1, gerados pelo main a cada envio). "Inherit" só aparece em arquivos que já o usam
+- [x] **Interpolação de `{{variáveis}}`** (`electron/shared/http/interpolate.ts`) em URL, params, headers, auth e corpo (inclusive caminhos de arquivo), com variáveis que referenciam outras. Usa o ambiente selecionado na coleção — o seletor agora lista os ambientes da coleção e os **globais** do workspace. Variável inexistente gera mensagem dizendo qual e onde criar
+- [x] Main: `HttpRequest` ganhou `bodyFile`, `multipart` (arquivos lidos no envio, `FormData` do undici) e `wsse`; validação de caminhos absolutos; diálogo genérico `dialog:pick-file`
+- [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (94), no app real contra servidor de eco: URL editada, erro sem ambiente, interpolação com ambiente, params (descrição, desabilitado), headers com variável, JSON com Pretty e erro de sintaxe, Form URL Encoded + Basic, Multipart com arquivo + API Key em query, Binary + WSSE, `Ctrl+S` gravando o YAML, confirmação ao fechar ✅, **axe sem violações** em todas as seções e tipos (claro/escuro) ✅
+
 ## Pendências e débitos conhecidos
 
 - O `workspace.yaml` não é observado enquanto o app está aberto: mudanças externas (git pull) entram ao trocar de workspace ou reiniciar.
 - Ambientes de workspace ficam no SQLite (não vão no `workspace.yaml` nem no .zip exportado).
 
-- Aba de requisição é **somente leitura** (já envia; edição na Etapa 7). `auth: inherit` ainda não envia nada (depende da auth da coleção, Etapa 8). Sem tela de histórico (os dados e o evento `history:changed` já existem; o tipo de aba `history` está reservado).
+- `auth: inherit` ainda não envia nada (depende da auth da coleção, Etapa 8). Params não são sincronizados com a query digitada na URL (são acrescentados no envio). Editor de corpo é um `textarea` (sem destaque de sintaxe). Sem tela de histórico (os dados e o evento `history:changed` já existem; o tipo de aba `history` está reservado).
 - Métricas não separam DNS/TCP/TLS (o `fetch` não expõe); dá para obter via `diagnostics_channel` do undici se for necessário. Proxy SOCKS não é suportado (a validação aceita só http/https). Sem certificado de cliente (mTLS).
 - Exibição do corpo limitada a 1 milhão de caracteres e sem syntax highlight (visualizador completo na Etapa 7). Renomear/mover pela árvore, arrastar e soltar e redimensionar painéis (sidebar e requisição/resposta) ainda não existem.
 - Seleção de ambiente por coleção fica em `localStorage` (preferência visual). A interpolação de `{{variáveis}}` no envio ainda é da Etapa 7.

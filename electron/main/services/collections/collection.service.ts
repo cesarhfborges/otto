@@ -63,6 +63,60 @@ export class CollectionService {
         return { metadata, manifest };
     }
 
+    /** Pasta raiz da coleção (para resolver caminhos relativos, ex.: spec OpenAPI local). */
+    async manifestRoot(id: EntityId): Promise<string | null> {
+        return this.metadata.findById(id)?.path ?? null;
+    }
+
+    async manifest(id: EntityId): Promise<CollectionManifest> {
+        return this.readManifest(this.resolve(id).path);
+    }
+
+    /** Lê, altera e grava o `otto.yaml` (headers da coleção, ligação OpenAPI...). */
+    async updateManifest(id: EntityId, change: (manifest: CollectionManifest) => CollectionManifest): Promise<CollectionManifest> {
+        const root = this.resolve(id).path;
+        const updated = change(await this.readManifest(root));
+
+        await this.store.writeFile(root, this.format.manifestFile, this.format.serializeManifest(updated));
+        this.emitChanged(id);
+
+        return updated;
+    }
+
+    /** Todas as requisições válidas da coleção, com o caminho do arquivo. */
+    async requests(id: EntityId): Promise<Array<{ path: string; request: RequestDefinition }>> {
+        const root = this.resolve(id).path;
+        const result: Array<{ path: string; request: RequestDefinition }> = [];
+        const walk = async (entries: CollectionEntry[]): Promise<void> => {
+            for (const entry of entries) {
+                if (entry.kind === 'directory') {
+                    await walk(entry.children);
+                } else if (this.format.isRequestFile(entry.name)) {
+                    try {
+                        result.push({ path: entry.path, request: this.format.parseRequest(await this.store.readFile(root, entry.path)) });
+                    } catch {
+                        // Arquivo inválido: aparece na árvore com erro, mas não participa da sincronização.
+                    }
+                }
+            }
+        };
+
+        await walk(await this.store.list(root));
+
+        return result;
+    }
+
+    /** Arquivo auxiliar (não-requisição) na raiz da coleção; `null` se não existir. */
+    async readAuxFile(id: EntityId, name: string): Promise<string | null> {
+        const root = this.resolve(id).path;
+
+        return (await this.store.exists(root, name)) ? this.store.readFile(root, name) : null;
+    }
+
+    async writeAuxFile(id: EntityId, name: string, content: string): Promise<void> {
+        await this.store.writeFile(this.resolve(id).path, name, content);
+    }
+
     /** Arquivos da coleção (exceto ocultos e symlinks), para exportação. Caminhos relativos com `/`. */
     async files(id: EntityId): Promise<Map<string, Uint8Array>> {
         const root = this.resolve(id).path;
@@ -92,7 +146,7 @@ export class CollectionService {
 
         await this.store.createRoot(root);
 
-        const manifest: CollectionManifest = { version: COLLECTION_FORMAT_VERSION, name, description: '' };
+        const manifest: CollectionManifest = { version: COLLECTION_FORMAT_VERSION, name, description: '', headers: [], openapi: null };
 
         await this.store.writeFile(root, this.format.manifestFile, this.format.serializeManifest(manifest), { createOnly: true });
 

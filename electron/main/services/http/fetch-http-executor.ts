@@ -1,7 +1,10 @@
 import { request as httpRequest, STATUS_CODES, type IncomingHttpHeaders } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import { fetch, request as undiciRequest, type Dispatcher } from 'undici';
-import { DEFAULT_SETTINGS, MAX_RESPONSE_BYTES, type HttpRequest, type HttpResponse, type HttpResult, type HttpSettings } from '../../../shared/models';
+import { createHash, randomBytes } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import * as path from 'node:path';
+import { fetch, FormData, request as undiciRequest, type Dispatcher } from 'undici';
+import { DEFAULT_SETTINGS, hasBody, MAX_RESPONSE_BYTES, type HttpRequest, type HttpResponse, type HttpResult, type HttpSettings } from '../../../shared/models';
 import type { IHttpExecutor } from '../../core/contracts';
 import { DispatcherProvider } from './dispatcher-provider';
 
@@ -104,10 +107,60 @@ interface SendContext {
     url: URL;
     method: HttpRequest['method'];
     headers: Headers;
-    body: string | undefined;
+    body: string | Uint8Array | FormData | undefined;
     settings: HttpSettings;
     signal: AbortSignal;
     dispatcher: Dispatcher;
+}
+
+async function readBodyFile(file: string): Promise<Uint8Array> {
+    try {
+        return await readFile(file);
+    } catch (error) {
+        throw new Error(`Could not read the file "${file}" (${(error as NodeJS.ErrnoException).code ?? 'unknown error'})`);
+    }
+}
+
+/** Corpo final: texto, arquivo (File/Binary) ou multipart (texto + arquivos lidos agora). */
+async function buildBody(request: HttpRequest, headers: Headers): Promise<SendContext['body']> {
+    if (request.bodyFile) {
+        if (!headers.has('content-type')) {
+            headers.set('content-type', 'application/octet-stream');
+        }
+
+        return readBodyFile(request.bodyFile);
+    }
+
+    if (request.multipart) {
+        const form = new FormData();
+
+        for (const part of request.multipart) {
+            if (part.file) {
+                form.append(part.name, new Blob([new Uint8Array(await readBodyFile(part.value))]), path.basename(part.value));
+            } else {
+                form.append(part.name, part.value);
+            }
+        }
+
+        // O boundary é gerado pelo fetch; um Content-Type manual o quebraria.
+        headers.delete('content-type');
+
+        return form;
+    }
+
+    return request.body;
+}
+
+/** WSSE UsernameToken: digest = base64(sha1(nonce + created + senha)), gerado a cada envio. */
+function applyWsse(headers: Headers, { username, password }: NonNullable<HttpRequest['wsse']>): void {
+    const nonce = randomBytes(16);
+    const created = new Date().toISOString();
+    const digest = createHash('sha1')
+        .update(Buffer.concat([nonce, Buffer.from(created + password, 'utf8')]))
+        .digest('base64');
+
+    headers.set('authorization', 'WSSE profile="UsernameToken"');
+    headers.set('x-wsse', `UsernameToken Username="${username}", PasswordDigest="${digest}", Nonce="${nonce.toString('base64')}", Created="${created}"`);
 }
 
 const flattenHeaders = (headers: IncomingHttpHeaders): Array<[string, string]> =>
@@ -120,8 +173,9 @@ async function sendWithFetch({ url, method, headers, body, settings, signal, dis
 }
 
 /** TRACE é proibido no `fetch` (especificação), mas permitido na API `request` do undici. Não segue redirecionamentos. */
-async function sendWithRequest({ url, method, headers, body, signal, dispatcher }: SendContext): Promise<RawResponse> {
-    const res = await undiciRequest(url, { method, headers: Object.fromEntries(headers), body, signal, dispatcher });
+async function sendWithRequest({ url, method, headers, signal, dispatcher }: SendContext): Promise<RawResponse> {
+    // TRACE não leva corpo.
+    const res = await undiciRequest(url, { method, headers: Object.fromEntries(headers), signal, dispatcher });
 
     return { url: url.toString(), redirected: false, status: res.statusCode, statusText: STATUS_CODES[res.statusCode] ?? '', headers: flattenHeaders(res.headers), body: res.body };
 }
@@ -203,8 +257,11 @@ export class FetchHttpExecutor implements IHttpExecutor {
                 headers.set('user-agent', this.userAgent);
             }
 
-            const canHaveBody = !['GET', 'HEAD', 'TRACE', 'CONNECT'].includes(request.method);
-            const context: SendContext = { url, method: request.method, headers, body: canHaveBody ? request.body : undefined, settings, signal: controller.signal, dispatcher };
+            if (request.wsse) {
+                applyWsse(headers, request.wsse);
+            }
+
+            const context: SendContext = { url, method: request.method, headers, body: hasBody(request.method) ? await buildBody(request, headers) : undefined, settings, signal: controller.signal, dispatcher };
             const res = await (request.method === 'CONNECT' ? sendConnect(context) : request.method === 'TRACE' ? sendWithRequest(context) : sendWithFetch(context));
             const ttfbMs = elapsed();
             const { bytes, truncated } = await readBody(res.body, this.maxResponseBytes);

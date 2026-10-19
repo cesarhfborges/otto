@@ -101,7 +101,6 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
     },
     styles: `
         ::ng-deep {
-
             .p-tree-node-label {
                 width: 100%;
             }

@@ -1,15 +1,16 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { buildHttpRequest } from '@shared/http/build-request';
+import { interpolateRequest, variablesFrom } from '@shared/http/interpolate';
 import type { EntityId, HttpResult, RequestDefinition } from '@shared/models';
 import { ipcErrorMessage } from '../bridge/ipc-error';
 import { HttpGateway } from '../ports';
+import { CollectionsState } from './collections.state';
+import { EnvironmentsState } from './environments.state';
 
 export type ResponseEntry = { status: 'sending'; requestId: string } | { status: 'done'; result: HttpResult };
 
 /** Respostas guardadas em memória (corpos podem ser grandes); as mais antigas saem primeiro. */
 const MAX_KEPT_RESPONSES = 20;
-
-const UNRESOLVED_VARIABLE = /\{\{\s*([^}]*?)\s*\}\}/g;
 
 export const responseKey = (collectionId: EntityId, path: string): string => `${collectionId}:${path}`;
 
@@ -20,6 +21,8 @@ export const responseKey = (collectionId: EntityId, path: string): string => `${
 @Injectable({ providedIn: 'root' })
 export class ResponsesState {
     private readonly http = inject(HttpGateway);
+    private readonly environments = inject(EnvironmentsState);
+    private readonly collections = inject(CollectionsState);
     private readonly entries = signal<ReadonlyMap<string, ResponseEntry>>(new Map());
 
     get(key: string): ResponseEntry | undefined {
@@ -33,14 +36,26 @@ export class ResponsesState {
             return;
         }
 
-        const request = buildHttpRequest(definition, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } });
-        const variables = [...new Set([...request.url.matchAll(UNRESOLVED_VARIABLE)].map((match) => match[1]))];
+        // Variáveis do ambiente selecionado na coleção (da própria coleção ou global).
+        const environment = this.environments.selected(collectionId);
+        // Headers da coleção vêm antes: na montagem o último com o mesmo nome vence, então os da requisição têm prioridade.
+        const collectionHeaders = this.collections.find(collectionId)?.manifest.headers ?? [];
+        const withCollectionHeaders = { ...definition, headers: [...collectionHeaders, ...definition.headers] };
+        const { definition: resolved, unresolved } = interpolateRequest(withCollectionHeaders, variablesFrom(environment?.variables ?? []));
 
-        if (variables.length) {
-            this.set(key, { status: 'done', result: { ok: false, error: `Unresolved variables in the URL: ${variables.join(', ')}. Variable interpolation arrives with the request editor.`, timeMs: 0 } });
+        if (unresolved.length) {
+            const names = unresolved.map((name) => `{{${name}}}`).join(', ');
+            const verb = unresolved.length > 1 ? 'are' : 'is';
+            const error = environment
+                ? `${names} ${verb} not defined in the "${environment.name}" environment. Add ${unresolved.length > 1 ? 'them' : 'it'} in Environments or select another environment.`
+                : `${names} ${verb} not defined: no environment is selected. Select one in the top bar (or create it in Environments).`;
+
+            this.set(key, { status: 'done', result: { ok: false, error, timeMs: 0 } });
 
             return;
         }
+
+        const request = buildHttpRequest(resolved, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } });
 
         if (!request.url) {
             this.set(key, { status: 'done', result: { ok: false, error: 'Enter a URL to send this request.', timeMs: 0 } });

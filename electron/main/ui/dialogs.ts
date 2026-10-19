@@ -22,6 +22,11 @@ export class DialogService {
         return this.pickPath({ title: 'Choose the base folder for workspaces', buttonLabel: 'Choose', properties: ['openDirectory', 'createDirectory'], ...(defaultPath && { defaultPath }) });
     }
 
+    /** Arquivo qualquer (corpo File/Binary ou campo de arquivo do multipart). */
+    pickFile(title: string): Promise<string | null> {
+        return this.pickPath({ title, buttonLabel: 'Select', properties: ['openFile'] });
+    }
+
     pickCertificateFile(): Promise<string | null> {
         return this.pickPath({
             title: 'Select CA Certificate',

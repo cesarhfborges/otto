@@ -85,6 +85,13 @@ export class EnvironmentsState {
         this.listState.set({});
     }
 
+    /** Ambiente selecionado na coleção: um da própria coleção ou um global do workspace. */
+    selected(collectionId: EntityId): Environment | null {
+        const id = this.activeFor(collectionId);
+
+        return id ? ([...this.list(collectionId), ...this.list(null)].find((env) => env.id === id) ?? null) : null;
+    }
+
     activeFor(collectionId: EntityId): EntityId | null {
         return this.activeState()[collectionId] ?? null;
     }

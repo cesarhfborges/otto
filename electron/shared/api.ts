@@ -24,7 +24,11 @@ import type {
     WindowState,
     LoadedWorkspace,
     Workspace,
-    WorkspaceSummary
+    WorkspaceSummary,
+    CollectionManifest,
+    CollectionManifestPatch,
+    OpenApiConfig,
+    OpenApiStatus
 } from './models';
 
 export interface AppApi {
@@ -65,6 +69,8 @@ export interface HttpApi {
 export interface DialogApi {
     /** Seletor de arquivo de certificado (PEM/CRT). */
     pickCertificate(): Promise<string | null>;
+    /** Arquivo qualquer (corpo File/Binary ou campo de arquivo do multipart). */
+    pickFile(title: string): Promise<string | null>;
     /** Pasta de uma coleção existente, para importar (copiar) para o workspace. */
     pickCollectionFolder(): Promise<string | null>;
     /** Arquivo .zip de uma coleção exportada pelo Otto. */
@@ -133,8 +139,24 @@ export interface CollectionsApi {
     export(id: EntityId, file: string): Promise<void>;
     close(id: EntityId): Promise<void>;
     tree(id: EntityId): Promise<CollectionTree>;
+    /** `otto.yaml` atual (descrição, headers da coleção, ligação OpenAPI). */
+    manifest(id: EntityId): Promise<CollectionManifest>;
+    updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<CollectionManifest>;
     /** Disparado quando arquivos da coleção mudam (pelo app, git, editor...). */
     onChanged(listener: (event: { collectionId: EntityId }) => void): () => void;
+}
+
+/** Ligação de uma coleção com um spec OpenAPI/Swagger. */
+export interface OpenApiApi {
+    /** `refresh` busca o spec de novo (senão usa o da última verificação). */
+    status(collectionId: EntityId, refresh?: boolean): Promise<OpenApiStatus>;
+    connect(collectionId: EntityId, config: OpenApiConfig): Promise<OpenApiStatus>;
+    disconnect(collectionId: EntityId): Promise<void>;
+    spec(collectionId: EntityId): Promise<string>;
+    /** Aplica as atualizações do spec escolhidas (por `MÉTODO /caminho`). */
+    sync(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus>;
+    /** Volta as requisições escolhidas ao último spec sincronizado. */
+    revert(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus>;
 }
 
 /** Arquivos dentro de uma coleção. Caminhos são relativos à raiz e usam `/`. */
@@ -169,4 +191,5 @@ export interface OttoApi extends EventsApi {
     readonly environments: EnvironmentsApi;
     readonly collections: CollectionsApi;
     readonly collectionFiles: CollectionFilesApi;
+    readonly openapi: OpenApiApi;
 }

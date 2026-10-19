@@ -3,7 +3,7 @@
  * abstratas, usadas como tokens de DI. As implementações concretas (adapters)
  * são registradas em `provideOttoCore()`.
  */
-import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi } from '@shared/api';
+import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi } from '@shared/api';
 import type {
     AppInfo,
     CollectionMetadata,
@@ -26,7 +26,11 @@ import type {
     WindowState,
     LoadedWorkspace,
     Workspace,
-    WorkspaceSummary
+    WorkspaceSummary,
+    CollectionManifest,
+    CollectionManifestPatch,
+    OpenApiConfig,
+    OpenApiStatus
 } from '@shared/models';
 
 export abstract class AppInfoGateway implements AppApi {
@@ -60,6 +64,7 @@ export abstract class HttpGateway implements HttpApi {
 
 export abstract class DialogGateway implements DialogApi {
     abstract pickCertificate(): Promise<string | null>;
+    abstract pickFile(title: string): Promise<string | null>;
     abstract pickCollectionFolder(): Promise<string | null>;
     abstract pickCollectionArchive(): Promise<string | null>;
     abstract saveCollectionArchive(defaultName: string): Promise<string | null>;
@@ -116,6 +121,8 @@ export abstract class CollectionsGateway implements CollectionsApi {
     abstract export(id: EntityId, file: string): Promise<void>;
     abstract close(id: EntityId): Promise<void>;
     abstract tree(id: EntityId): Promise<CollectionTree>;
+    abstract manifest(id: EntityId): Promise<CollectionManifest>;
+    abstract updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<CollectionManifest>;
     abstract onChanged(listener: (event: { collectionId: EntityId }) => void): () => void;
 }
 
@@ -126,4 +133,13 @@ export abstract class CollectionFilesGateway implements CollectionFilesApi {
     abstract createFolder(collectionId: EntityId, parent: string, name: string): Promise<string>;
     abstract move(collectionId: EntityId, from: string, to: string): Promise<void>;
     abstract remove(collectionId: EntityId, path: string): Promise<void>;
+}
+
+export abstract class OpenApiGateway implements OpenApiApi {
+    abstract status(collectionId: EntityId, refresh?: boolean): Promise<OpenApiStatus>;
+    abstract connect(collectionId: EntityId, config: OpenApiConfig): Promise<OpenApiStatus>;
+    abstract disconnect(collectionId: EntityId): Promise<void>;
+    abstract spec(collectionId: EntityId): Promise<string>;
+    abstract sync(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus>;
+    abstract revert(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus>;
 }

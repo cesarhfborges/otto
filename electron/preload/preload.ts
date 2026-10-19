@@ -50,6 +50,7 @@ const api: OttoApi = {
     },
     dialog: {
         pickCertificate: () => invoke('dialog:pick-certificate'),
+        pickFile: (title) => invoke('dialog:pick-file', title),
         pickCollectionFolder: () => invoke('dialog:pick-collection-folder'),
         pickCollectionArchive: () => invoke('dialog:pick-collection-archive'),
         saveCollectionArchive: (defaultName) => invoke('dialog:save-collection-archive', defaultName),
@@ -97,6 +98,8 @@ const api: OttoApi = {
         export: (id, file) => invoke('collections:export', id, file),
         close: (id) => invoke('collections:close', id),
         tree: (id) => invoke('collections:tree', id),
+        manifest: (id) => invoke('collections:manifest', id),
+        updateManifest: (id, patch) => invoke('collections:update-manifest', id, patch),
         onChanged: (listener) => subscribe('collections:changed', listener)
     },
     collectionFiles: {
@@ -106,6 +109,14 @@ const api: OttoApi = {
         createFolder: (collectionId, parent, name) => invoke('collection-files:create-folder', collectionId, parent, name),
         move: (collectionId, from, to) => invoke('collection-files:move', collectionId, from, to),
         remove: (collectionId, path) => invoke('collection-files:remove', collectionId, path)
+    },
+    openapi: {
+        status: (collectionId, refresh) => invoke('openapi:status', collectionId, refresh),
+        connect: (collectionId, config) => invoke('openapi:connect', collectionId, config),
+        disconnect: (collectionId) => invoke('openapi:disconnect', collectionId),
+        spec: (collectionId) => invoke('openapi:spec', collectionId),
+        sync: (collectionId, keys) => invoke('openapi:sync', collectionId, keys),
+        revert: (collectionId, keys) => invoke('openapi:revert', collectionId, keys)
     },
     onMenuAction: (listener) => subscribe('menu:action', listener)
 };

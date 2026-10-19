@@ -21,7 +21,11 @@ import type {
     WindowState,
     LoadedWorkspace,
     Workspace,
-    WorkspaceSummary
+    WorkspaceSummary,
+    CollectionManifest,
+    CollectionManifestPatch,
+    OpenApiConfig,
+    OpenApiStatus
 } from '@shared/models';
 import { OTTO_API, requireOttoApi } from '../../bridge/otto-api.token';
 import {
@@ -37,7 +41,8 @@ import {
     TabsGateway,
     ThemeGateway,
     WindowGateway,
-    WorkspacesGateway
+    WorkspacesGateway,
+    OpenApiGateway
 } from '../../ports';
 
 /*
@@ -132,6 +137,10 @@ export class ElectronDialogGateway extends DialogGateway {
 
     pickCertificate(): Promise<string | null> {
         return requireOttoApi(this.api).dialog.pickCertificate();
+    }
+
+    pickFile(title: string): Promise<string | null> {
+        return requireOttoApi(this.api).dialog.pickFile(title);
     }
 
     pickCollectionFolder(): Promise<string | null> {
@@ -316,6 +325,14 @@ export class ElectronCollectionsGateway extends CollectionsGateway {
         return requireOttoApi(this.api).collections.tree(id);
     }
 
+    manifest(id: EntityId): Promise<CollectionManifest> {
+        return requireOttoApi(this.api).collections.manifest(id);
+    }
+
+    updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<CollectionManifest> {
+        return requireOttoApi(this.api).collections.updateManifest(id, patch);
+    }
+
     onChanged(listener: (event: { collectionId: EntityId }) => void): () => void {
         return this.api?.collections.onChanged(listener) ?? (() => undefined);
     }
@@ -347,5 +364,34 @@ export class ElectronCollectionFilesGateway extends CollectionFilesGateway {
 
     remove(collectionId: EntityId, path: string): Promise<void> {
         return requireOttoApi(this.api).collectionFiles.remove(collectionId, path);
+    }
+}
+
+@Injectable()
+export class ElectronOpenApiGateway extends OpenApiGateway {
+    private readonly api = inject(OTTO_API);
+
+    status(collectionId: EntityId, refresh?: boolean): Promise<OpenApiStatus> {
+        return requireOttoApi(this.api).openapi.status(collectionId, refresh);
+    }
+
+    connect(collectionId: EntityId, config: OpenApiConfig): Promise<OpenApiStatus> {
+        return requireOttoApi(this.api).openapi.connect(collectionId, config);
+    }
+
+    disconnect(collectionId: EntityId): Promise<void> {
+        return requireOttoApi(this.api).openapi.disconnect(collectionId);
+    }
+
+    spec(collectionId: EntityId): Promise<string> {
+        return requireOttoApi(this.api).openapi.spec(collectionId);
+    }
+
+    sync(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus> {
+        return requireOttoApi(this.api).openapi.sync(collectionId, keys);
+    }
+
+    revert(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus> {
+        return requireOttoApi(this.api).openapi.revert(collectionId, keys);
     }
 }

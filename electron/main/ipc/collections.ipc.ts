@@ -1,5 +1,5 @@
 import type { ICollectionMetadataRepository, IIpcModule, IIpcRegistrar, IRendererNotifier } from '../core/contracts';
-import { parseCollectionPatch, parseCollectionPath, parseEntityId, parseEntryName, parseNewCollection } from '../core/validation';
+import { parseCollectionPatch, parseCollectionPath, parseEntityId, parseEntryName, parseNewCollection, parseKeyValues, requireRecord, requireString } from '../core/validation';
 import type { CollectionService } from '../services/collections/collection.service';
 import type { WorkspaceService } from '../services/workspaces/workspace.service';
 import { parseArchivePath } from './workspaces.ipc';
@@ -40,6 +40,17 @@ export class CollectionsIpcModule implements IIpcModule {
         ipc.handle('collections:close', (_event, id) => this.workspaces.removeCollection(parseEntityId(id)));
 
         ipc.handle('collections:tree', (_event, id) => this.service.tree(parseEntityId(id)));
+
+        ipc.handle('collections:manifest', (_event, id) => this.service.manifest(parseEntityId(id)));
+
+        // Descrição e headers da coleção (gravados no otto.yaml).
+        ipc.handle('collections:update-manifest', (_event, id, rawPatch) => {
+            const patch = requireRecord(rawPatch, 'patch');
+            const description = patch['description'] === undefined ? undefined : requireString(patch['description'], 'patch.description', { allowEmpty: true, maxLength: 100_000 });
+            const headers = patch['headers'] === undefined ? undefined : parseKeyValues(patch['headers'], 'patch.headers');
+
+            return this.service.updateManifest(parseEntityId(id), (manifest) => ({ ...manifest, ...(description !== undefined && { description }), ...(headers && { headers }) }));
+        });
 
         this.service.onChanged((collectionId) => this.notifier.notify('collections:changed', { collectionId }));
     }

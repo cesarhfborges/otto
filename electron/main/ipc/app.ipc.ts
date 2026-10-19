@@ -22,6 +22,8 @@ export class AppIpcModule implements IIpcModule {
 
         ipc.handle('dialog:pick-certificate', () => this.dialogs.pickCertificateFile());
 
+        ipc.handle('dialog:pick-file', (_event, title) => this.dialogs.pickFile(typeof title === 'string' && title.length <= 200 ? title : 'Select File'));
+
         ipc.handle('dialog:pick-collection-folder', () => this.dialogs.pickCollectionFolder());
 
         ipc.handle('dialog:pick-collection-archive', () => this.dialogs.pickCollectionArchive());

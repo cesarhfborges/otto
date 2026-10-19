@@ -116,3 +116,19 @@ body {
 .otto-method-panel .p-select-option.p-select-option-selected.p-focus {
     background: var(--p-select-option-focus-background);
 }
+
+/* <select> nativo com a aparência dos inputs do PrimeNG (usado dentro de tabelas, onde é mais leve que o p-select). */
+.otto-native-select {
+    height: 2rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--p-inputtext-border-color);
+    border-radius: var(--p-inputtext-border-radius);
+    background: var(--p-inputtext-background);
+    color: var(--p-inputtext-color);
+    font-size: 0.875rem;
+}
+
+.otto-native-select:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 1px;
+}

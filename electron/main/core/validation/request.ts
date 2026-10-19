@@ -1,4 +1,4 @@
-import { AUTH_TYPES, BODY_TYPES, HTTP_METHODS, type KeyValue, type RequestAuth, type RequestBody, type RequestDefinition } from '../../../shared/models';
+import { AUTH_TYPES, BODY_TYPES, HTTP_METHODS, type KeyValue, type MultipartField, type RequestAuth, type RequestBody, type RequestDefinition } from '../../../shared/models';
 import { requireArray, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
 export const MAX_KEY_VALUES = 500;
@@ -14,12 +14,21 @@ export function parseKeyValues(raw: unknown, field: string): KeyValue[] {
     return requireArray(raw, field, MAX_KEY_VALUES).map((item, i) => {
         const entry = requireRecord(item, `${field}[${i}]`);
 
+        const description = text(entry['description'], `${field}[${i}].description`, 2_000);
+
         return {
             key: text(entry['key'], `${field}[${i}].key`, 1_000),
             value: text(entry['value'], `${field}[${i}].value`),
-            enabled: entry['enabled'] === undefined ? true : requireBoolean(entry['enabled'], `${field}[${i}].enabled`)
+            enabled: entry['enabled'] === undefined ? true : requireBoolean(entry['enabled'], `${field}[${i}].enabled`),
+            ...(description && { description })
         };
     });
+}
+
+function parseMultipartFields(raw: unknown, field: string): MultipartField[] {
+    const kinds = raw === undefined || raw === null ? [] : requireArray(raw, field, MAX_KEY_VALUES).map((item, i) => requireRecord(item, `${field}[${i}]`)['kind']);
+
+    return parseKeyValues(raw, field).map((entry, i) => ({ ...entry, kind: kinds[i] === undefined ? 'text' : requireOneOf(kinds[i], ['text', 'file'] as const, `${field}[${i}].kind`) }));
 }
 
 export function parseRequestAuth(raw: unknown): RequestAuth {
@@ -40,6 +49,8 @@ export function parseRequestAuth(raw: unknown): RequestAuth {
             return { type, username: text(auth['username'], 'auth.username'), password: text(auth['password'], 'auth.password') };
         case 'apikey':
             return { type, key: text(auth['key'], 'auth.key', 1_000), value: text(auth['value'], 'auth.value'), in: auth['in'] === undefined ? 'header' : requireOneOf(auth['in'], ['header', 'query'] as const, 'auth.in') };
+        case 'wsse':
+            return { type, username: text(auth['username'], 'auth.username'), password: text(auth['password'], 'auth.password') };
     }
 }
 
@@ -60,6 +71,10 @@ export function parseRequestBody(raw: unknown): RequestBody {
             return { type, content: text(body['content'], 'body.content', MAX_BODY_LENGTH) };
         case 'form-urlencoded':
             return { type, fields: parseKeyValues(body['fields'], 'body.fields') };
+        case 'multipart-form':
+            return { type, fields: parseMultipartFields(body['fields'], 'body.fields') };
+        case 'binary':
+            return { type, file: text(body['file'], 'body.file', 4_096) };
     }
 }
 
@@ -80,7 +95,8 @@ export function parseRequestDefinition(raw: unknown): RequestDefinition {
         headers: parseKeyValues(request['headers'], 'request.headers'),
         auth: parseRequestAuth(request['auth']),
         body: parseRequestBody(request['body']),
-        docs: text(request['docs'], 'request.docs', 1_000_000)
+        docs: text(request['docs'], 'request.docs', 1_000_000),
+        ...(typeof request['operation'] === 'string' && request['operation'].trim() && { operation: request['operation'].trim().slice(0, 2_000) })
     };
 }
 

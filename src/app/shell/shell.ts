@@ -8,6 +8,7 @@ import { CollectionsState } from '../core/state/collections.state';
 import { TabsState } from '../core/state/tabs.state';
 import { UiState } from '../core/state/ui.state';
 import { WorkspacesState } from '../core/state/workspaces.state';
+import { RequestDraftsState } from '../core/state/request-drafts.state';
 import { ThemeService } from '../core/theme/theme.service';
 import { CollectionsSidebar } from '../features/collections/collections-sidebar';
 import { NewCollectionDialog } from '../features/collections/new-collection-dialog';
@@ -153,6 +154,8 @@ export class Shell {
     private readonly theme = inject(ThemeService);
     private readonly messages = inject(MessageService);
     private readonly workspaces = inject(WorkspacesState);
+    /** Também registra a confirmação ao fechar abas com alterações não salvas. */
+    private readonly drafts = inject(RequestDraftsState);
 
     constructor() {
         void this.workspaces.load();
@@ -183,12 +186,24 @@ export class Shell {
         const visible = this.tabs.visibleTabs();
         const index = visible.findIndex((tab) => tab.id === this.tabs.activeId());
 
-        if (mod && event.key.toLowerCase() === 'w' && index >= 0) {
+        if (mod && event.key.toLowerCase() === 's') {
+            // O acelerador do menu nativo também dispara `save`; salvar duas vezes não tem efeito.
+            event.preventDefault();
+            void this.saveActive();
+        } else if (mod && event.key.toLowerCase() === 'w' && index >= 0) {
             event.preventDefault();
             this.tabs.close(visible[index]!.id);
         } else if (event.ctrlKey && event.key === 'Tab' && visible.length > 1) {
             event.preventDefault();
             this.tabs.activate(visible[(index + (event.shiftKey ? -1 : 1) + visible.length) % visible.length]!.id);
+        }
+    }
+
+    private async saveActive(): Promise<void> {
+        try {
+            await this.drafts.saveTab(this.tabs.active());
+        } catch (error) {
+            this.messages.add({ severity: 'error', summary: 'Could not save the request', detail: error instanceof Error ? error.message : String(error), life: 6000 });
         }
     }
 
@@ -218,7 +233,7 @@ export class Shell {
                 break;
             }
             case 'save':
-                // Edição de requisições chega com o editor (Etapa 7).
+                void this.saveActive();
                 break;
         }
     }

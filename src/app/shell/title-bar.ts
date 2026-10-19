@@ -31,15 +31,8 @@ import { WorkspacesState } from '../core/state/workspaces.state';
         </div>
 
         <div class="app-no-drag ml-auto flex items-center gap-0.5">
-
             <div class="flex items-center gap-1 mr-2">
-                <button
-                    type="button"
-                    class="otto-icon-button w-auto! max-w-64 gap-1.5 px-2!  text-sm font-semibold text-color!"
-                    aria-haspopup="menu"
-                    [attr.aria-label]="'Workspace: ' + workspaces.activeName()"
-                    (click)="workspaceMenu.toggle($event)"
-                >
+                <button type="button" class="otto-icon-button w-auto! max-w-64 gap-1.5 px-2!  text-sm font-semibold text-color!" aria-haspopup="menu" [attr.aria-label]="'Workspace: ' + workspaces.activeName()" (click)="workspaceMenu.toggle($event)">
                     <span class="truncate">{{ workspaces.activeName() }}</span>
                     @if (workspaces.busy()) {
                         <i class="pi pi-spin pi-spinner text-xs text-muted-color" aria-hidden="true"></i>

@@ -27,7 +27,11 @@ import type {
     WindowState,
     LoadedWorkspace,
     Workspace,
-    WorkspaceSummary
+    WorkspaceSummary,
+    CollectionManifest,
+    CollectionManifestPatch,
+    OpenApiConfig,
+    OpenApiStatus
 } from './models';
 
 export interface IpcInvokeContract {
@@ -43,6 +47,7 @@ export interface IpcInvokeContract {
     'http:send': { args: [request: HttpRequest]; result: HttpResult };
     'http:cancel': { args: [id: string]; result: boolean };
     'dialog:pick-certificate': { args: []; result: string | null };
+    'dialog:pick-file': { args: [title: string]; result: string | null };
     'dialog:pick-collection-folder': { args: []; result: string | null };
     'dialog:pick-collection-archive': { args: []; result: string | null };
     'dialog:save-collection-archive': { args: [defaultName: string]; result: string | null };
@@ -78,6 +83,14 @@ export interface IpcInvokeContract {
     'collections:export': { args: [id: EntityId, file: string]; result: void };
     'collections:close': { args: [id: EntityId]; result: void };
     'collections:tree': { args: [id: EntityId]; result: CollectionTree };
+    'collections:manifest': { args: [id: EntityId]; result: CollectionManifest };
+    'collections:update-manifest': { args: [id: EntityId, patch: CollectionManifestPatch]; result: CollectionManifest };
+    'openapi:status': { args: [collectionId: EntityId, refresh?: boolean]; result: OpenApiStatus };
+    'openapi:connect': { args: [collectionId: EntityId, config: OpenApiConfig]; result: OpenApiStatus };
+    'openapi:disconnect': { args: [collectionId: EntityId]; result: void };
+    'openapi:spec': { args: [collectionId: EntityId]; result: string };
+    'openapi:sync': { args: [collectionId: EntityId, keys: string[]]; result: OpenApiStatus };
+    'openapi:revert': { args: [collectionId: EntityId, keys: string[]]; result: OpenApiStatus };
     'collection-files:read-request': { args: [collectionId: EntityId, path: string]; result: RequestDefinition };
     'collection-files:save-request': { args: [collectionId: EntityId, path: string, request: RequestDefinition]; result: void };
     'collection-files:create-request': { args: [collectionId: EntityId, folder: string, request: RequestDefinition]; result: string };
