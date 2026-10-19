@@ -1,14 +1,15 @@
 import * as path from 'node:path';
 import type { CollectionSource, NewCollectionMetadata } from '../../../shared/models';
-import { optionalString, pickDefined, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
+import { optionalString, requireBoolean, pickDefined, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
 const SOURCE_KINDS = ['openapi'] as const;
 
-function parseCollectionPath(raw: unknown): string {
-    const value = requireString(raw, 'collection.path', { maxLength: 4_096 });
+/** Caminho absoluto de pasta (raiz de coleção ou pasta-mãe), normalizado. */
+export function parseCollectionPath(raw: unknown, field = 'collection.path'): string {
+    const value = requireString(raw, field, { maxLength: 4_096 });
 
     if (!path.isAbsolute(value)) {
-        throw new ValidationError('collection.path', 'must be an absolute path');
+        throw new ValidationError(field, 'must be an absolute path');
     }
 
     return path.normalize(value);
@@ -40,15 +41,17 @@ export function parseNewCollection(raw: unknown): NewCollectionMetadata {
         name: parseName(input['name']),
         path: parseCollectionPath(input['path']),
         source: parseCollectionSource(input['source']),
-        lastOpenedAt: parseLastOpenedAt(input['lastOpenedAt'])
+        lastOpenedAt: parseLastOpenedAt(input['lastOpenedAt']),
+        open: input['open'] === undefined ? false : requireBoolean(input['open'], 'collection.open')
     };
 }
 
 export function parseCollectionPatch(raw: unknown): Partial<NewCollectionMetadata> {
     return pickDefined<NewCollectionMetadata>(requireRecord(raw, 'patch'), {
         name: parseName,
-        path: parseCollectionPath,
+        path: (v) => parseCollectionPath(v),
         source: parseCollectionSource,
-        lastOpenedAt: parseLastOpenedAt
+        lastOpenedAt: parseLastOpenedAt,
+        open: (v) => requireBoolean(v, 'patch.open')
     });
 }

@@ -1,6 +1,9 @@
 import { app } from 'electron';
 import * as path from 'node:path';
 import type { ICollectionMetadataRepository, IEnvironmentRepository, IHistoryRepository, IHttpExecutor, IIpcModule, ISettingsService, ITabRepository } from './core/contracts';
+import { FsCollectionStore } from './infra/collections/fs-collection-store';
+import { FsCollectionWatcher } from './infra/collections/fs-collection-watcher';
+import { YamlCollectionFormat } from './infra/collections/yaml-collection-format';
 import { MigrationRunner } from './infra/database/migration-runner';
 import { MIGRATIONS } from './infra/database/migrations';
 import { openDatabase } from './infra/database/sqlite';
@@ -10,8 +13,10 @@ import { SqliteHistoryRepository } from './infra/repositories/sqlite-history.rep
 import { SqliteSettingsStore } from './infra/repositories/sqlite-settings.store';
 import { SqliteTabRepository } from './infra/repositories/sqlite-tab.repository';
 import { importLegacySettings } from './infra/settings/legacy-settings-import';
+import { electronTrash } from './infra/system/electron-trash';
 import { systemClock, uuidGenerator } from './infra/system/system';
 import { AppIpcModule } from './ipc/app.ipc';
+import { CollectionFilesIpcModule } from './ipc/collection-files.ipc';
 import { CollectionsIpcModule } from './ipc/collections.ipc';
 import { EnvironmentsIpcModule } from './ipc/environments.ipc';
 import { HistoryIpcModule } from './ipc/history.ipc';
@@ -19,6 +24,8 @@ import { HttpIpcModule } from './ipc/http.ipc';
 import { SettingsIpcModule } from './ipc/settings.ipc';
 import { ThemeIpcModule } from './ipc/theme.ipc';
 import { TabsIpcModule } from './ipc/tabs.ipc';
+import { WindowIpcModule } from './ipc/window.ipc';
+import { CollectionService } from './services/collections/collection.service';
 import { FetchHttpExecutor } from './services/http/fetch-http-executor';
 import { ImporterRegistry } from './services/import/importer-registry';
 import { SettingsService } from './services/settings/settings.service';
@@ -35,6 +42,7 @@ export interface Container {
     tabs: ITabRepository;
     environments: IEnvironmentRepository;
     collections: ICollectionMetadataRepository;
+    collectionService: CollectionService;
     http: IHttpExecutor;
     importers: ImporterRegistry;
     window: WindowManager;
@@ -71,6 +79,7 @@ export function createContainer(): Container {
     const tabs = new SqliteTabRepository(db);
     const environments = new SqliteEnvironmentRepository(db, systemClock, uuidGenerator);
     const collections = new SqliteCollectionMetadataRepository(db, systemClock, uuidGenerator);
+    const collectionService = new CollectionService(new FsCollectionStore(electronTrash), new YamlCollectionFormat(), collections, new FsCollectionWatcher(), systemClock);
     const http = new FetchHttpExecutor(() => settings.get().http);
     const importers = new ImporterRegistry();
     const window = new WindowManager(settings, settingsStore);
@@ -86,6 +95,7 @@ export function createContainer(): Container {
         tabs,
         environments,
         collections,
+        collectionService,
         http,
         importers,
         window,
@@ -93,15 +103,18 @@ export function createContainer(): Container {
         tray,
         ipcModules: [
             new AppIpcModule(dialogs),
+            new WindowIpcModule(window),
             new SettingsIpcModule(settings, window),
             new ThemeIpcModule(theme),
             new HttpIpcModule(http),
             new HistoryIpcModule(history),
             new TabsIpcModule(tabs),
             new EnvironmentsIpcModule(environments),
-            new CollectionsIpcModule(collections)
+            new CollectionsIpcModule(collections, collectionService, window),
+            new CollectionFilesIpcModule(collectionService)
         ],
         dispose: () => {
+            collectionService.closeAll();
             if (db.isOpen) {
                 db.close();
             }

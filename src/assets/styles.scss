@@ -1,4 +1,102 @@
-/* You can add global styles to this file, and also import other style files */
 @use 'primeicons/primeicons.css';
-@use '@/assets/layout/layout.scss';
-@use '@/assets/demo/demo.scss';
+
+/* Densidade de aplicativo desktop: os componentes do PrimeNG usam `rem`. */
+:root {
+    font-size: 14px;
+    color-scheme: light;
+
+    /* Métodos HTTP: tons 700 do Tailwind (contraste AA sobre fundo claro). */
+    --otto-method-get: #15803d;
+    --otto-method-post: #1d4ed8;
+    --otto-method-put: #b45309;
+    --otto-method-patch: #6d28d9;
+    --otto-method-delete: #b91c1c;
+    --otto-method-other: #0e7490;
+}
+
+/* Tons 400 (contraste AA sobre as superfícies escuras). */
+:root.app-dark {
+    color-scheme: dark;
+    --otto-method-get: #4ade80;
+    --otto-method-post: #60a5fa;
+    --otto-method-put: #fbbf24;
+    --otto-method-patch: #a78bfa;
+    --otto-method-delete: #f87171;
+    --otto-method-other: #22d3ee;
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    font-family:
+        system-ui,
+        -apple-system,
+        'Segoe UI',
+        Roboto,
+        'Helvetica Neue',
+        Arial,
+        sans-serif;
+    background: var(--p-content-background);
+    color: var(--p-text-color);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Janela sem moldura: áreas que movem a janela e as que recebem cliques. */
+.app-drag {
+    -webkit-app-region: drag;
+    user-select: none;
+}
+
+.app-no-drag {
+    -webkit-app-region: no-drag;
+}
+
+/* Barras de rolagem discretas, no estilo de editores. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--p-surface-300) transparent;
+}
+
+.app-dark * {
+    scrollbar-color: var(--p-surface-700) transparent;
+}
+
+/* Foco visível para navegação por teclado (WCAG 2.4.7). */
+:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 1px;
+}
+
+/* Botão de ícone compacto (barra de título, barra lateral, abas). */
+.otto-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.875rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--p-text-muted-color);
+    cursor: pointer;
+
+    &:hover {
+        background: var(--p-content-hover-background);
+        color: var(--p-text-color);
+    }
+
+    &[aria-pressed='true'] {
+        color: var(--p-primary-color);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+}

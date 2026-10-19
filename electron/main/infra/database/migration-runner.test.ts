@@ -15,11 +15,11 @@ describe('MigrationRunner', () => {
 
         assert.deepEqual(
             runner.migrate().map((m) => m.version),
-            [1]
+            [1, 2]
         );
         assert.deepEqual(tables(db), ['collections_metadata', 'environments', 'history', 'schema_migrations', 'settings', 'tabs']);
         assert.deepEqual(runner.migrate(), []);
-        assert.equal(runner.applied().length, 1);
+        assert.equal(runner.applied().length, 2);
     });
 
     it('aplica em ordem e faz rollback de migração com erro', () => {

@@ -2,6 +2,8 @@ Atue como Engenheiro de Software Sênior especialista em Electron, Angular e Nod
 
 Quero construir do zero um cliente de API desktop (alternativa offline ao Postman/Insomnia/Bruno) focado em controle de versão, arquitetura robusta e privacidade total.
 
+vamos ignorar os testes unitários por enquanto para focar no desenvolvimento dos recursos principais.
+
 ---
 
 ### Premissas e Arquitetura

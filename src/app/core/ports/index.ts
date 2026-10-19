@@ -3,11 +3,40 @@
  * abstratas, usadas como tokens de DI. As implementações concretas (adapters)
  * são registradas em `provideOttoCore()`.
  */
-import type { AppApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, SettingsApi, TabsApi, ThemeApi } from '@shared/api';
-import type { AppInfo, CollectionMetadata, EntityId, Environment, HistoryEntry, HistoryQuery, HttpRequest, HttpResult, MenuAction, NewCollectionMetadata, NewEnvironment, OttoSettings, SettingsPatch, TabState, ThemeState } from '@shared/models';
+import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, SettingsApi, TabsApi, ThemeApi, WindowApi } from '@shared/api';
+import type {
+    AppInfo,
+    CollectionMetadata,
+    CollectionTree,
+    OpenedCollection,
+    RequestDefinition,
+    EntityId,
+    Environment,
+    HistoryEntry,
+    HistoryQuery,
+    HttpRequest,
+    HttpResult,
+    MenuAction,
+    NewCollectionMetadata,
+    NewEnvironment,
+    OttoSettings,
+    SettingsPatch,
+    TabState,
+    ThemeState,
+    WindowState
+} from '@shared/models';
 
 export abstract class AppInfoGateway implements AppApi {
     abstract info(): Promise<AppInfo>;
+}
+
+export abstract class WindowGateway implements WindowApi {
+    abstract state(): Promise<WindowState>;
+    abstract minimize(): Promise<void>;
+    abstract toggleMaximize(): Promise<void>;
+    abstract close(): Promise<void>;
+    abstract showAppMenu(x: number, y: number): Promise<void>;
+    abstract onStateChanged(listener: (state: WindowState) => void): () => void;
 }
 
 export abstract class SettingsGateway implements SettingsApi {
@@ -29,6 +58,7 @@ export abstract class HttpGateway implements HttpApi {
 export abstract class DialogGateway implements DialogApi {
     abstract openCollection(): Promise<string | null>;
     abstract pickCertificate(): Promise<string | null>;
+    abstract chooseCollectionLocation(): Promise<string | null>;
 }
 
 export abstract class MenuEventsGateway implements EventsApi {
@@ -60,4 +90,18 @@ export abstract class CollectionsGateway implements CollectionsApi {
     abstract create(input: NewCollectionMetadata): Promise<CollectionMetadata>;
     abstract update(id: EntityId, patch: Partial<NewCollectionMetadata>): Promise<CollectionMetadata | null>;
     abstract delete(id: EntityId): Promise<boolean>;
+    abstract open(directory: string): Promise<OpenedCollection>;
+    abstract createOnDisk(parentDirectory: string, name: string): Promise<OpenedCollection>;
+    abstract close(id: EntityId): Promise<void>;
+    abstract tree(id: EntityId): Promise<CollectionTree>;
+    abstract onChanged(listener: (event: { collectionId: EntityId }) => void): () => void;
+}
+
+export abstract class CollectionFilesGateway implements CollectionFilesApi {
+    abstract readRequest(collectionId: EntityId, path: string): Promise<RequestDefinition>;
+    abstract saveRequest(collectionId: EntityId, path: string, request: RequestDefinition): Promise<void>;
+    abstract createRequest(collectionId: EntityId, folder: string, request: RequestDefinition): Promise<string>;
+    abstract createFolder(collectionId: EntityId, parent: string, name: string): Promise<string>;
+    abstract move(collectionId: EntityId, from: string, to: string): Promise<void>;
+    abstract remove(collectionId: EntityId, path: string): Promise<void>;
 }

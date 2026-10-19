@@ -100,7 +100,7 @@ describe('SqliteHistoryRepository', () => {
 
     it('filtra por coleção, remove e limpa', () => {
         const { history, collections } = setup();
-        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null });
+        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null, open: false });
         const entry = history.add(historyEntry({ collectionId: collection.id }));
 
         history.add(historyEntry());
@@ -117,7 +117,7 @@ describe('SqliteHistoryRepository', () => {
 
     it('mantém o histórico ao remover a coleção (ON DELETE SET NULL)', () => {
         const { history, collections } = setup();
-        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null });
+        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null, open: false });
 
         history.add(historyEntry({ collectionId: collection.id }));
         collections.delete(collection.id);
@@ -129,7 +129,7 @@ describe('SqliteHistoryRepository', () => {
 describe('SqliteTabRepository', () => {
     it('substitui o conjunto de abas e lista por posição', () => {
         const { tabs } = setup();
-        const tab = (id: string, position: number, active = false): TabState => ({ id, kind: 'request', title: id, resourceRef: `${id}.yaml`, position, active, draft: null });
+        const tab = (id: string, position: number, active = false): TabState => ({ id, kind: 'request', title: id, collectionId: null, resourceRef: `${id}.yaml`, position, active, draft: null });
 
         tabs.replaceAll([tab('b', 1, true), tab('a', 0)]);
         assert.deepEqual(
@@ -147,9 +147,26 @@ describe('SqliteTabRepository', () => {
         );
     });
 
+    it('vincula abas a coleções e as remove junto com a coleção', () => {
+        const { tabs, collections } = setup();
+        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null, open: true });
+
+        tabs.replaceAll([
+            { id: 'w', kind: 'overview', title: 'Overview', collectionId: null, resourceRef: null, position: 0, active: false, draft: null },
+            { id: 'r', kind: 'request', title: 'Login', collectionId: collection.id, resourceRef: 'auth/login.yaml', position: 1, active: true, draft: null }
+        ]);
+        assert.equal(tabs.list()[1]!.collectionId, collection.id);
+
+        collections.delete(collection.id);
+        assert.deepEqual(
+            tabs.list().map((t) => t.id),
+            ['w']
+        );
+    });
+
     it('não altera nada se a gravação falhar no meio', () => {
         const { tabs } = setup();
-        const tab: TabState = { id: 'a', kind: 'request', title: 'a', resourceRef: null, position: 0, active: false, draft: null };
+        const tab: TabState = { id: 'a', kind: 'request', title: 'a', collectionId: null, resourceRef: null, position: 0, active: false, draft: null };
 
         tabs.replaceAll([tab]);
         assert.throws(() => tabs.replaceAll([tab, { ...tab }]), /UNIQUE/);
@@ -163,7 +180,7 @@ describe('SqliteTabRepository', () => {
 describe('SqliteEnvironmentRepository', () => {
     it('faz CRUD e separa ambientes globais dos de coleção', () => {
         const { environments, collections } = setup();
-        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null });
+        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null, open: false });
         const global = environments.create({ collectionId: null, name: 'Global', variables: [] });
         const dev = environments.create({ collectionId: collection.id, name: 'dev', variables: [{ key: 'baseUrl', value: 'http://localhost', enabled: true, secret: false }] });
 
@@ -186,7 +203,7 @@ describe('SqliteEnvironmentRepository', () => {
 
     it('remove os ambientes junto com a coleção (ON DELETE CASCADE)', () => {
         const { environments, collections } = setup();
-        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null });
+        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null, open: false });
 
         environments.create({ collectionId: collection.id, name: 'dev', variables: [] });
         collections.delete(collection.id);
@@ -199,31 +216,34 @@ describe('SqliteCollectionMetadataRepository', () => {
     it('faz CRUD, serializa a origem e busca por caminho', () => {
         const { collections } = setup();
         const source = { kind: 'openapi' as const, location: 'https://example.com/openapi.json', lastHash: null, lastCheckedAt: null };
-        const created = collections.create({ name: 'Petstore', path: '/tmp/petstore', source, lastOpenedAt: null });
+        const created = collections.create({ name: 'Petstore', path: '/tmp/petstore', source, lastOpenedAt: null, open: false });
 
         assert.deepEqual(collections.findById(created.id)?.source, source);
         assert.equal(collections.findByPath('/tmp/petstore')?.id, created.id);
         assert.equal(collections.update(created.id, { name: 'Pets' })?.name, 'Pets');
+        assert.equal(collections.findById(created.id)?.open, false);
+        assert.equal(collections.update(created.id, { open: true })?.open, true);
+        assert.equal(collections.findById(created.id)?.open, true);
         assert.equal(collections.delete(created.id), true);
         assert.equal(collections.findById(created.id), null);
     });
 
     it('impede duas coleções no mesmo caminho', () => {
         const { collections } = setup();
-        const a = collections.create({ name: 'A', path: '/tmp/a', source: null, lastOpenedAt: null });
+        const a = collections.create({ name: 'A', path: '/tmp/a', source: null, lastOpenedAt: null, open: false });
 
-        collections.create({ name: 'B', path: '/tmp/b', source: null, lastOpenedAt: null });
+        collections.create({ name: 'B', path: '/tmp/b', source: null, lastOpenedAt: null, open: false });
 
-        assert.throws(() => collections.create({ name: 'A2', path: '/tmp/a', source: null, lastOpenedAt: null }), /already registered/);
+        assert.throws(() => collections.create({ name: 'A2', path: '/tmp/a', source: null, lastOpenedAt: null, open: false }), /already registered/);
         assert.throws(() => collections.update(a.id, { path: '/tmp/b' }), /already registered/);
     });
 
     it('ordena pelas abertas mais recentemente', () => {
         const { collections } = setup();
 
-        collections.create({ name: 'never', path: '/tmp/1', source: null, lastOpenedAt: null });
-        collections.create({ name: 'old', path: '/tmp/2', source: null, lastOpenedAt: '2025-01-01T00:00:00.000Z' });
-        collections.create({ name: 'recent', path: '/tmp/3', source: null, lastOpenedAt: '2026-01-01T00:00:00.000Z' });
+        collections.create({ name: 'never', path: '/tmp/1', source: null, lastOpenedAt: null, open: false });
+        collections.create({ name: 'old', path: '/tmp/2', source: null, lastOpenedAt: '2025-01-01T00:00:00.000Z', open: false });
+        collections.create({ name: 'recent', path: '/tmp/3', source: null, lastOpenedAt: '2026-01-01T00:00:00.000Z', open: false });
 
         assert.deepEqual(
             collections.findAll().map((c) => c.name),

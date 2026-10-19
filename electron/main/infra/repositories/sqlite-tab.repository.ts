@@ -7,6 +7,7 @@ interface TabRow {
     id: string;
     kind: string;
     title: string;
+    collection_id: string | null;
     resource_ref: string | null;
     position: number;
     active: number;
@@ -17,6 +18,7 @@ const toTab = (row: TabRow): TabState => ({
     id: row.id,
     kind: row.kind as TabKind,
     title: row.title,
+    collectionId: row.collection_id,
     resourceRef: row.resource_ref,
     position: row.position,
     active: row.active === 1,
@@ -36,10 +38,10 @@ export class SqliteTabRepository implements ITabRepository {
         transaction(this.db, () => {
             this.db.exec('DELETE FROM tabs');
 
-            const insert = this.db.prepare('INSERT INTO tabs (id, kind, title, resource_ref, position, active, draft) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            const insert = this.db.prepare('INSERT INTO tabs (id, kind, title, collection_id, resource_ref, position, active, draft) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
 
             for (const tab of tabs) {
-                insert.run(tab.id, tab.kind, tab.title, toSqlNullable(tab.resourceRef), tab.position, toSqlBool(tab.active), toSqlNullable(tab.draft));
+                insert.run(tab.id, tab.kind, tab.title, toSqlNullable(tab.collectionId), toSqlNullable(tab.resourceRef), tab.position, toSqlBool(tab.active), toSqlNullable(tab.draft));
             }
         });
     }

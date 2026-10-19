@@ -2,10 +2,42 @@
  * API exposta em `window.otto` pelo preload, segregada por responsabilidade (ISP):
  * cada consumidor no Angular depende apenas da fatia que usa.
  */
-import type { AppInfo, CollectionMetadata, EntityId, Environment, HistoryEntry, HistoryQuery, HttpRequest, HttpResult, MenuAction, NewCollectionMetadata, NewEnvironment, OttoSettings, SettingsPatch, TabState, ThemeState } from './models';
+import type {
+    AppInfo,
+    CollectionMetadata,
+    CollectionTree,
+    OpenedCollection,
+    RequestDefinition,
+    EntityId,
+    Environment,
+    HistoryEntry,
+    HistoryQuery,
+    HttpRequest,
+    HttpResult,
+    MenuAction,
+    NewCollectionMetadata,
+    NewEnvironment,
+    OttoSettings,
+    SettingsPatch,
+    TabState,
+    ThemeState,
+    WindowState
+} from './models';
 
 export interface AppApi {
     info(): Promise<AppInfo>;
+}
+
+/** Controles da janela para a barra de título própria. */
+export interface WindowApi {
+    state(): Promise<WindowState>;
+    minimize(): Promise<void>;
+    toggleMaximize(): Promise<void>;
+    /** Equivale ao botão fechar nativo (respeita "manter na bandeja"). */
+    close(): Promise<void>;
+    /** Abre o menu da aplicação na posição indicada (coordenadas da janela). */
+    showAppMenu(x: number, y: number): Promise<void>;
+    onStateChanged(listener: (state: WindowState) => void): () => void;
 }
 
 export interface SettingsApi {
@@ -32,6 +64,8 @@ export interface DialogApi {
     openCollection(): Promise<string | null>;
     /** Seletor de arquivo de certificado (PEM/CRT). */
     pickCertificate(): Promise<string | null>;
+    /** Escolhe a pasta onde uma nova coleção será criada. */
+    chooseCollectionLocation(): Promise<string | null>;
 }
 
 export interface HistoryApi {
@@ -61,7 +95,28 @@ export interface CollectionsApi {
     get(id: EntityId): Promise<CollectionMetadata | null>;
     create(input: NewCollectionMetadata): Promise<CollectionMetadata>;
     update(id: EntityId, patch: Partial<NewCollectionMetadata>): Promise<CollectionMetadata | null>;
+    /** Esquece a coleção (não apaga nada do disco). */
     delete(id: EntityId): Promise<boolean>;
+    /** Abre uma pasta que contenha `otto.yaml`, registrando-a no banco. */
+    open(directory: string): Promise<OpenedCollection>;
+    /** Cria `parentDirectory/<nome>` com o manifesto e abre a coleção. */
+    createOnDisk(parentDirectory: string, name: string): Promise<OpenedCollection>;
+    close(id: EntityId): Promise<void>;
+    tree(id: EntityId): Promise<CollectionTree>;
+    /** Disparado quando arquivos da coleção mudam (pelo app, git, editor...). */
+    onChanged(listener: (event: { collectionId: EntityId }) => void): () => void;
+}
+
+/** Arquivos dentro de uma coleção. Caminhos são relativos à raiz e usam `/`. */
+export interface CollectionFilesApi {
+    readRequest(collectionId: EntityId, path: string): Promise<RequestDefinition>;
+    saveRequest(collectionId: EntityId, path: string, request: RequestDefinition): Promise<void>;
+    /** Cria um arquivo com nome derivado de `request.name`; retorna o caminho criado. */
+    createRequest(collectionId: EntityId, folder: string, request: RequestDefinition): Promise<string>;
+    createFolder(collectionId: EntityId, parent: string, name: string): Promise<string>;
+    move(collectionId: EntityId, from: string, to: string): Promise<void>;
+    /** Envia para a lixeira do sistema. */
+    remove(collectionId: EntityId, path: string): Promise<void>;
 }
 
 export interface EventsApi {
@@ -73,6 +128,7 @@ export interface OttoApi extends EventsApi {
     readonly isElectron: true;
     readonly platform: string;
     readonly app: AppApi;
+    readonly window: WindowApi;
     readonly settings: SettingsApi;
     readonly theme: ThemeApi;
     readonly http: HttpApi;
@@ -81,4 +137,5 @@ export interface OttoApi extends EventsApi {
     readonly tabs: TabsApi;
     readonly environments: EnvironmentsApi;
     readonly collections: CollectionsApi;
+    readonly collectionFiles: CollectionFilesApi;
 }

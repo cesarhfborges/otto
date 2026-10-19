@@ -1,18 +1,20 @@
-import { Component, effect, inject, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors, type ValidatorFn } from '@angular/forms';
-import { MAX_TIMEOUT_MS, type OttoSettings, type ThemeMode } from '@shared/models';
+import { MAX_TIMEOUT_MS, type AppInfo, type OttoSettings, type ThemeMode } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
-import { DialogGateway } from '../../core/ports';
+import { AppInfoGateway, DialogGateway } from '../../core/ports';
 import { SettingsState } from '../../core/state/settings.state';
 import { ThemeService } from '../../core/theme/theme.service';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+type PreferencesSection = 'general' | 'themes' | 'proxy' | 'certificates' | 'about';
 
 /** Aceita vazio (validado em conjunto com `enabled`) ou uma URL http(s). */
 const proxyUrlValidator: ValidatorFn = (control: AbstractControl<string>): ValidationErrors | null => {
@@ -41,13 +43,24 @@ const proxyRequiresUrl: ValidatorFn = (group: AbstractControl): ValidationErrors
     selector: 'app-settings-page',
     imports: [ReactiveFormsModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
     templateUrl: './settings.page.html',
-    host: { class: 'block' }
+    host: { class: 'flex h-full min-h-0' }
 })
 export class SettingsPage {
     private readonly settingsState = inject(SettingsState);
     private readonly dialogs = inject(DialogGateway);
     protected readonly theme = inject(ThemeService);
 
+    protected readonly sections: Array<{ id: PreferencesSection; label: string; icon: string }> = [
+        { id: 'general', label: 'General', icon: 'pi pi-cog' },
+        { id: 'themes', label: 'Themes', icon: 'pi pi-palette' },
+        { id: 'proxy', label: 'Proxy', icon: 'pi pi-server' },
+        { id: 'certificates', label: 'Certificates', icon: 'pi pi-shield' },
+        { id: 'about', label: 'About', icon: 'pi pi-info-circle' }
+    ];
+
+    protected readonly section = signal<PreferencesSection>('general');
+    protected readonly currentLabel = computed(() => `${this.sections.find((s) => s.id === this.section())?.label} settings`);
+    protected readonly appInfo = signal<AppInfo | null>(null);
     protected readonly maxTimeoutMs = MAX_TIMEOUT_MS;
     protected readonly persistent = this.settingsState.persistent;
     protected readonly status = signal<SaveStatus>('idle');
@@ -84,6 +97,13 @@ export class SettingsPage {
     });
 
     constructor() {
+        inject(AppInfoGateway)
+            .info()
+            .then(
+                (info) => this.appInfo.set(info),
+                () => undefined
+            );
+
         // Reflete o estado do main (carga inicial e mudanças vindas do tray) sem disparar novo salvamento.
         effect(() => {
             const settings = this.settingsState.settings();

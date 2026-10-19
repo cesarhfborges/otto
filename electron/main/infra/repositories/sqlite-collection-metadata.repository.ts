@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { CollectionMetadata, CollectionSource, EntityId, NewCollectionMetadata } from '../../../shared/models';
 import type { IClock, ICollectionMetadataRepository, IIdGenerator } from '../../core/contracts';
-import { fromSqlJson, toSqlJson, toSqlNullable } from '../database/sqlite';
+import { fromSqlJson, toSqlBool, toSqlJson, toSqlNullable } from '../database/sqlite';
 
 interface CollectionRow {
     id: string;
@@ -9,6 +9,7 @@ interface CollectionRow {
     path: string;
     source: string | null;
     last_opened_at: string | null;
+    is_open: number;
     created_at: string;
     updated_at: string;
 }
@@ -19,6 +20,7 @@ const toCollection = (row: CollectionRow): CollectionMetadata => ({
     path: row.path,
     source: fromSqlJson<CollectionSource | null>(row.source, null),
     lastOpenedAt: row.last_opened_at,
+    open: row.is_open === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at
 });
@@ -58,8 +60,8 @@ export class SqliteCollectionMetadataRepository implements ICollectionMetadataRe
         const created: CollectionMetadata = { ...input, id: this.ids.next(), createdAt: now, updatedAt: now };
 
         this.db
-            .prepare('INSERT INTO collections_metadata (id, name, path, source, last_opened_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-            .run(created.id, created.name, created.path, toSqlJson(created.source), toSqlNullable(created.lastOpenedAt), created.createdAt, created.updatedAt);
+            .prepare('INSERT INTO collections_metadata (id, name, path, source, last_opened_at, is_open, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(created.id, created.name, created.path, toSqlJson(created.source), toSqlNullable(created.lastOpenedAt), toSqlBool(created.open), created.createdAt, created.updatedAt);
 
         return created;
     }
@@ -79,8 +81,8 @@ export class SqliteCollectionMetadataRepository implements ICollectionMetadataRe
         }
 
         this.db
-            .prepare('UPDATE collections_metadata SET name = ?, path = ?, source = ?, last_opened_at = ?, updated_at = ? WHERE id = ?')
-            .run(updated.name, updated.path, toSqlJson(updated.source), toSqlNullable(updated.lastOpenedAt), updated.updatedAt, id);
+            .prepare('UPDATE collections_metadata SET name = ?, path = ?, source = ?, last_opened_at = ?, is_open = ?, updated_at = ? WHERE id = ?')
+            .run(updated.name, updated.path, toSqlJson(updated.source), toSqlNullable(updated.lastOpenedAt), toSqlBool(updated.open), updated.updatedAt, id);
 
         return updated;
     }

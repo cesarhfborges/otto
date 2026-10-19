@@ -17,6 +17,18 @@ export class DialogService {
         return result.canceled ? null : (result.filePaths[0] ?? null);
     }
 
+    async chooseCollectionLocation(): Promise<string | null> {
+        const options: Electron.OpenDialogOptions = {
+            title: 'Choose where to create the collection',
+            buttonLabel: 'Choose',
+            properties: ['openDirectory', 'createDirectory']
+        };
+        const win = this.parent();
+        const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+    }
+
     async pickCertificateFile(): Promise<string | null> {
         const options: Electron.OpenDialogOptions = {
             title: 'Select CA Certificate',

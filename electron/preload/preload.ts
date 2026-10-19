@@ -27,6 +27,14 @@ const api: OttoApi = {
     app: {
         info: () => invoke('app:info')
     },
+    window: {
+        state: () => invoke('window:get-state'),
+        minimize: () => invoke('window:minimize'),
+        toggleMaximize: () => invoke('window:toggle-maximize'),
+        close: () => invoke('window:close'),
+        showAppMenu: (x, y) => invoke('window:show-app-menu', x, y),
+        onStateChanged: (listener) => subscribe('window:state-changed', listener)
+    },
     settings: {
         get: () => invoke('settings:get'),
         set: (patch) => invoke('settings:set', patch),
@@ -42,7 +50,8 @@ const api: OttoApi = {
     },
     dialog: {
         openCollection: () => invoke('dialog:open-collection'),
-        pickCertificate: () => invoke('dialog:pick-certificate')
+        pickCertificate: () => invoke('dialog:pick-certificate'),
+        chooseCollectionLocation: () => invoke('dialog:choose-collection-location')
     },
     history: {
         list: (query) => invoke('history:list', query),
@@ -65,7 +74,20 @@ const api: OttoApi = {
         get: (id) => invoke('collections:get', id),
         create: (input) => invoke('collections:create', input),
         update: (id, patch) => invoke('collections:update', id, patch),
-        delete: (id) => invoke('collections:delete', id)
+        delete: (id) => invoke('collections:delete', id),
+        open: (directory) => invoke('collections:open', directory),
+        createOnDisk: (parentDirectory, name) => invoke('collections:new', parentDirectory, name),
+        close: (id) => invoke('collections:close', id),
+        tree: (id) => invoke('collections:tree', id),
+        onChanged: (listener) => subscribe('collections:changed', listener)
+    },
+    collectionFiles: {
+        readRequest: (collectionId, path) => invoke('collection-files:read-request', collectionId, path),
+        saveRequest: (collectionId, path, request) => invoke('collection-files:save-request', collectionId, path, request),
+        createRequest: (collectionId, folder, request) => invoke('collection-files:create-request', collectionId, folder, request),
+        createFolder: (collectionId, parent, name) => invoke('collection-files:create-folder', collectionId, parent, name),
+        move: (collectionId, from, to) => invoke('collection-files:move', collectionId, from, to),
+        remove: (collectionId, path) => invoke('collection-files:remove', collectionId, path)
     },
     onMenuAction: (listener) => subscribe('menu:action', listener)
 };

@@ -1,5 +1,5 @@
 import { TAB_KINDS, type TabState } from '../../../shared/models';
-import { optionalString, parseEntityId, requireArray, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
+import { optionalString, parseEntityId, parseNullableEntityId, requireArray, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
 export const MAX_TABS = 200;
 /** Rascunhos guardam o estado não salvo da aba (corpo da requisição etc.). */
@@ -13,6 +13,7 @@ export function parseTabs(raw: unknown): TabState[] {
             id: parseEntityId(tab['id'], `tabs[${i}].id`),
             kind: requireOneOf(tab['kind'], TAB_KINDS, `tabs[${i}].kind`),
             title: requireString(tab['title'], `tabs[${i}].title`, { allowEmpty: true, maxLength: 500 }),
+            collectionId: parseNullableEntityId(tab['collectionId'], `tabs[${i}].collectionId`),
             resourceRef: optionalString(tab['resourceRef'], `tabs[${i}].resourceRef`),
             position: requireInteger(tab['position'], `tabs[${i}].position`, 0),
             active: requireBoolean(tab['active'], `tabs[${i}].active`),

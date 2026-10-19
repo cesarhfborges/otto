@@ -1,6 +1,11 @@
 import type { EntityId } from './common';
 
-export const TAB_KINDS = ['request', 'collection', 'environment', 'settings', 'history'] as const;
+/**
+ * - `overview` / `environments`: abas do workspace (sem coleção).
+ * - `settings`: preferências globais.
+ * - `collection`: detalhes da coleção (Etapa 8); `request`: arquivo de requisição.
+ */
+export const TAB_KINDS = ['overview', 'environments', 'settings', 'collection', 'request', 'environment', 'history'] as const;
 
 export type TabKind = (typeof TAB_KINDS)[number];
 
@@ -9,7 +14,9 @@ export interface TabState {
     id: EntityId;
     kind: TabKind;
     title: string;
-    /** Referência ao recurso aberto (caminho do arquivo da requisição, id da coleção etc.). */
+    /** Coleção dona da aba (`null` para abas do workspace). */
+    collectionId: EntityId | null;
+    /** Recurso aberto dentro do contexto (ex.: caminho relativo da requisição). */
     resourceRef: string | null;
     position: number;
     active: boolean;

@@ -1,6 +1,25 @@
-<div class="card max-w-3xl">
+<nav aria-label="Preferences sections" class="w-52 shrink-0 border-r border-surface-200 p-2 dark:border-surface-700">
+    <ul class="m-0 flex list-none flex-col gap-0.5 p-0">
+        @for (item of sections; track item.id) {
+        <li>
+            <button
+                type="button"
+                class="flex w-full cursor-pointer items-center gap-2.5 rounded-md border-0 px-3 py-2 text-left text-sm"
+                [class]="section() === item.id ? 'bg-surface-100 font-medium text-color dark:bg-surface-800' : 'bg-transparent text-muted-color hover:bg-surface-100 hover:text-color dark:hover:bg-surface-800'"
+                [attr.aria-current]="section() === item.id ? 'page' : null"
+                (click)="section.set(item.id)"
+            >
+                <i [class]="item.icon" aria-hidden="true"></i>
+                {{ item.label }}
+            </button>
+        </li>
+        }
+    </ul>
+</nav>
+
+<div class="min-w-0 flex-1 overflow-auto p-6">
     <header class="mb-6 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 class="m-0 text-2xl font-semibold">Settings</h1>
+        <h2 class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">{{ currentLabel() }}</h2>
         <p class="m-0 text-sm text-muted-color" role="status" aria-live="polite">
             @switch (status()) { @case ('saving') { Saving… } @case ('saved') {
             <i class="pi pi-check mr-1" aria-hidden="true"></i>All changes saved } }
@@ -15,9 +34,25 @@
     </p-message>
     }
 
-    <form [formGroup]="form" (submit)="$event.preventDefault()" class="flex flex-col gap-8">
-        <section aria-labelledby="appearance-heading" class="flex flex-col gap-3">
-            <h2 id="appearance-heading" class="m-0 text-lg font-semibold">Appearance</h2>
+    <form [formGroup]="form" (submit)="$event.preventDefault()" class="flex max-w-2xl flex-col gap-5">
+        @switch (section()) { @case ('general') {
+        <div class="flex items-center gap-3">
+            <p-toggleswitch formControlName="minimizeToTray" inputId="minimize-to-tray" ariaLabelledBy="minimize-to-tray-label" />
+            <label id="minimize-to-tray-label" for="minimize-to-tray">Keep running in the system tray when the window is closed</label>
+        </div>
+        <ng-container formGroupName="http">
+            <div class="flex items-center gap-3">
+                <p-toggleswitch formControlName="followRedirects" inputId="follow-redirects" ariaLabelledBy="follow-redirects-label" />
+                <label id="follow-redirects-label" for="follow-redirects">Follow redirects automatically</label>
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="timeout" class="font-medium">Request timeout (ms)</label>
+                <p-inputnumber formControlName="timeoutMs" inputId="timeout" [min]="0" [max]="maxTimeoutMs" [useGrouping]="false" [invalid]="controlInvalid('http.timeoutMs')" ariaDescribedBy="timeout-help" class="w-full sm:w-48" />
+                <small id="timeout-help" class="text-muted-color">Use 0 to disable the timeout. Maximum {{ maxTimeoutMs }} ms (1 hour).</small>
+            </div>
+        </ng-container>
+        } @case ('themes') {
+        <div class="flex flex-col gap-3">
             <span id="theme-label" class="font-medium">Theme</span>
             <p-selectbutton formControlName="theme" [options]="themeOptions" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="theme-label">
                 <ng-template #item let-option>
@@ -26,32 +61,11 @@
                 </ng-template>
             </p-selectbutton>
             <small class="text-muted-color"> Auto follows your operating system. @if (theme.mode() === 'auto') { Currently using the {{ theme.effective() }} theme. } </small>
-        </section>
-
-        <section aria-labelledby="general-heading" class="flex flex-col gap-3">
-            <h2 id="general-heading" class="m-0 text-lg font-semibold">General</h2>
-            <div class="flex items-center gap-3">
-                <p-toggleswitch formControlName="minimizeToTray" inputId="minimize-to-tray" ariaLabelledBy="minimize-to-tray-label" />
-                <label id="minimize-to-tray-label" for="minimize-to-tray">Keep running in the system tray when the window is closed</label>
-            </div>
-        </section>
-
-        <section aria-labelledby="http-heading" class="flex flex-col gap-4" formGroupName="http">
-            <h2 id="http-heading" class="m-0 text-lg font-semibold">Requests</h2>
-
-            <div class="flex flex-col gap-2">
-                <label for="timeout" class="font-medium">Default timeout (ms)</label>
-                <p-inputnumber formControlName="timeoutMs" inputId="timeout" [min]="0" [max]="maxTimeoutMs" [useGrouping]="false" [invalid]="controlInvalid('http.timeoutMs')" ariaDescribedBy="timeout-help" class="w-full sm:w-64" />
-                <small id="timeout-help" class="text-muted-color">Use 0 to disable the timeout. Maximum {{ maxTimeoutMs }} ms (1 hour).</small>
-            </div>
-
-            <div class="flex items-center gap-3">
-                <p-toggleswitch formControlName="followRedirects" inputId="follow-redirects" ariaLabelledBy="follow-redirects-label" />
-                <label id="follow-redirects-label" for="follow-redirects">Follow redirects automatically</label>
-            </div>
-
-            <fieldset formGroupName="proxy" class="m-0 flex flex-col gap-3 border-0 p-0">
-                <legend class="mb-2 p-0 text-base font-semibold">Proxy</legend>
+        </div>
+        } @case ('proxy') {
+        <ng-container formGroupName="http">
+            <fieldset formGroupName="proxy" class="m-0 flex flex-col gap-4 border-0 p-0">
+                <legend class="sr-only">Proxy</legend>
                 <div class="flex items-center gap-3">
                     <p-toggleswitch formControlName="enabled" inputId="proxy-enabled" ariaLabelledBy="proxy-enabled-label" />
                     <label id="proxy-enabled-label" for="proxy-enabled">Use a proxy server</label>
@@ -71,7 +85,7 @@
                         aria-describedby="proxy-url-help proxy-url-error"
                     />
                     <small id="proxy-url-help" class="text-muted-color">Only HTTP and HTTPS proxies are supported.</small>
-                    <small id="proxy-url-error" class="text-red-600 dark:text-red-400" aria-live="polite">
+                    <small id="proxy-url-error" class="text-red-700 dark:text-red-400" aria-live="polite">
                         @if (proxyErrors?.['proxyUrl']) { Enter a valid URL, for example http://proxy.local:3128. } @else if (proxyErrors?.['proxyProtocol']) { The proxy URL must start with http:// or https://. } @else if
                         (proxyErrors?.['proxyUrlRequired']) { Enter the proxy URL or turn the proxy off. }
                     </small>
@@ -82,12 +96,15 @@
                     <small id="proxy-bypass-help" class="text-muted-color">Comma-separated hosts, for example localhost, *.internal.</small>
                 </div>
             </fieldset>
-
-            <fieldset formGroupName="ssl" class="m-0 flex flex-col gap-3 border-0 p-0">
-                <legend class="mb-2 p-0 text-base font-semibold">SSL / TLS</legend>
+        </ng-container>
+        <p-message severity="secondary" size="small">Proxy options are saved but not yet applied to requests.</p-message>
+        } @case ('certificates') {
+        <ng-container formGroupName="http">
+            <fieldset formGroupName="ssl" class="m-0 flex flex-col gap-4 border-0 p-0">
+                <legend class="sr-only">SSL/TLS certificates</legend>
                 <div class="flex items-center gap-3">
                     <p-toggleswitch formControlName="verifyCertificates" inputId="verify-certificates" ariaLabelledBy="verify-certificates-label" />
-                    <label id="verify-certificates-label" for="verify-certificates">Verify SSL certificates</label>
+                    <label id="verify-certificates-label" for="verify-certificates">SSL/TLS certificate verification</label>
                 </div>
                 @if (!form.controls.http.controls.ssl.controls.verifyCertificates.value) {
                 <p-message severity="warn" size="small">Certificate verification is off. Use this only with trusted development servers.</p-message>
@@ -104,7 +121,7 @@
                             readonly
                             aria-describedby="ca-certificate-help"
                         />
-                        <p-button label="Browse…" icon="pi pi-folder-open" severity="secondary" [disabled]="!persistent()" (onClick)="browseCertificate()" />
+                        <p-button label="Select File" icon="pi pi-folder-open" severity="secondary" [disabled]="!persistent()" (onClick)="browseCertificate()" />
                         @if (form.controls.http.controls.ssl.controls.caCertificatePath.value) {
                         <p-button label="Clear" icon="pi pi-times" severity="secondary" [text]="true" (onClick)="clearCertificate()" />
                         }
@@ -112,8 +129,25 @@
                     <small id="ca-certificate-help" class="text-muted-color">PEM file trusted in addition to the system certificates.</small>
                 </div>
             </fieldset>
-
-            <p class="m-0 text-sm text-muted-color">Proxy and SSL options are saved but not yet applied to requests.</p>
-        </section>
+        </ng-container>
+        <p-message severity="secondary" size="small">SSL options are saved but not yet applied to requests.</p-message>
+        } @case ('about') { @if (appInfo(); as info) {
+        <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+            <dt class="text-muted-color">Version</dt>
+            <dd class="m-0">{{ info.name }} {{ info.version }}</dd>
+            <dt class="text-muted-color">Electron</dt>
+            <dd class="m-0">{{ info.versions.electron }}</dd>
+            <dt class="text-muted-color">Chromium</dt>
+            <dd class="m-0">{{ info.versions.chrome }}</dd>
+            <dt class="text-muted-color">Node.js</dt>
+            <dd class="m-0">{{ info.versions.node }}</dd>
+            <dt class="text-muted-color">Platform</dt>
+            <dd class="m-0">{{ info.platform }}</dd>
+        </dl>
+        } @else {
+        <p class="m-0 text-sm text-muted-color">Version information is only available in the desktop app.</p>
+        }
+        <p class="m-0 text-sm text-muted-color">Open-source, offline-first API client. No accounts, no telemetry.</p>
+        } }
     </form>
 </div>

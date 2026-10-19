@@ -1,8 +1,8 @@
-import { BrowserWindow, nativeTheme, screen, shell, type Rectangle } from 'electron';
+import { BrowserWindow, Menu, nativeTheme, screen, shell, type Rectangle } from 'electron';
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 import type { IpcEventChannel, IpcEventContract } from '../../shared/ipc';
-import type { MenuAction } from '../../shared/models';
+import type { MenuAction, WindowState } from '../../shared/models';
 import { APP_NAME, assetPath, isDev, isMac, rendererIndexPath, rendererUrl } from '../config';
 import type { IRendererNotifier, ISettingsStore, IWindowStateStore } from '../core/contracts';
 import { WINDOW_BACKGROUND } from './theme';
@@ -53,7 +53,10 @@ export class WindowManager implements IRendererNotifier {
             title: APP_NAME,
             icon: assetPath('icons', 'icon.png'),
             show: false,
-            autoHideMenuBar: false,
+            // Sem moldura nativa: a barra de título é desenhada pelo Angular (estilo Bruno).
+            // No macOS mantemos os botões "semáforo" nativos sobre a nossa barra.
+            ...(isMac ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 12, y: 12 } } : { frame: false }),
+            autoHideMenuBar: true,
             backgroundColor: nativeTheme.shouldUseDarkColors ? WINDOW_BACKGROUND.dark : WINDOW_BACKGROUND.light,
             webPreferences: {
                 // Lido pelo preload para aplicar o tema escuro antes do Angular inicializar.
@@ -100,6 +103,10 @@ export class WindowManager implements IRendererNotifier {
             }
         });
 
+        for (const evt of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen'] as const) {
+            win.on(evt as 'maximize', () => this.notify('window:state-changed', this.state()));
+        }
+
         win.on('closed', () => {
             this.window = null;
             this.events.emit('visibility-changed');
@@ -133,6 +140,40 @@ export class WindowManager implements IRendererNotifier {
             this.window.hide();
         } else {
             this.show();
+        }
+    }
+
+    state(): WindowState {
+        return { maximized: !!this.window?.isMaximized(), fullScreen: !!this.window?.isFullScreen() };
+    }
+
+    minimize(): void {
+        this.window?.minimize();
+    }
+
+    toggleMaximize(): void {
+        if (!this.window) {
+            return;
+        }
+
+        if (this.window.isMaximized()) {
+            this.window.unmaximize();
+        } else {
+            this.window.maximize();
+        }
+    }
+
+    /** Mesmo caminho do botão nativo: dispara `close`, que respeita "manter na bandeja". */
+    close(): void {
+        this.window?.close();
+    }
+
+    /** Menu da aplicação (com os atalhos) como popup, já que a janela não tem barra de menu. */
+    showAppMenu(x: number, y: number): void {
+        const win = this.window;
+
+        if (win) {
+            Menu.getApplicationMenu()?.popup({ window: win, x: Math.round(x), y: Math.round(y) });
         }
     }
 

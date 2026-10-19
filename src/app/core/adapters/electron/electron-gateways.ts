@@ -1,7 +1,27 @@
 import { inject, Injectable } from '@angular/core';
-import type { AppInfo, CollectionMetadata, EntityId, Environment, HistoryEntry, HistoryQuery, HttpRequest, HttpResult, MenuAction, NewCollectionMetadata, NewEnvironment, OttoSettings, SettingsPatch, TabState, ThemeState } from '@shared/models';
+import type {
+    AppInfo,
+    CollectionMetadata,
+    CollectionTree,
+    OpenedCollection,
+    RequestDefinition,
+    EntityId,
+    Environment,
+    HistoryEntry,
+    HistoryQuery,
+    HttpRequest,
+    HttpResult,
+    MenuAction,
+    NewCollectionMetadata,
+    NewEnvironment,
+    OttoSettings,
+    SettingsPatch,
+    TabState,
+    ThemeState,
+    WindowState
+} from '@shared/models';
 import { OTTO_API, requireOttoApi } from '../../bridge/otto-api.token';
-import { AppInfoGateway, CollectionsGateway, DialogGateway, EnvironmentsGateway, HistoryGateway, HttpGateway, MenuEventsGateway, SettingsGateway, TabsGateway, ThemeGateway } from '../../ports';
+import { AppInfoGateway, CollectionFilesGateway, CollectionsGateway, DialogGateway, EnvironmentsGateway, HistoryGateway, HttpGateway, MenuEventsGateway, SettingsGateway, TabsGateway, ThemeGateway, WindowGateway } from '../../ports';
 
 /*
  * Adapters que delegam para `window.otto` (IPC). Fora do Electron, chamadas
@@ -14,6 +34,35 @@ export class ElectronAppInfoGateway extends AppInfoGateway {
 
     info(): Promise<AppInfo> {
         return requireOttoApi(this.api).app.info();
+    }
+}
+
+@Injectable()
+export class ElectronWindowGateway extends WindowGateway {
+    private readonly api = inject(OTTO_API);
+
+    state(): Promise<WindowState> {
+        return requireOttoApi(this.api).window.state();
+    }
+
+    minimize(): Promise<void> {
+        return requireOttoApi(this.api).window.minimize();
+    }
+
+    toggleMaximize(): Promise<void> {
+        return requireOttoApi(this.api).window.toggleMaximize();
+    }
+
+    close(): Promise<void> {
+        return requireOttoApi(this.api).window.close();
+    }
+
+    showAppMenu(x: number, y: number): Promise<void> {
+        return requireOttoApi(this.api).window.showAppMenu(x, y);
+    }
+
+    onStateChanged(listener: (state: WindowState) => void): () => void {
+        return this.api?.window.onStateChanged(listener) ?? (() => undefined);
     }
 }
 
@@ -70,6 +119,10 @@ export class ElectronDialogGateway extends DialogGateway {
 
     pickCertificate(): Promise<string | null> {
         return requireOttoApi(this.api).dialog.pickCertificate();
+    }
+
+    chooseCollectionLocation(): Promise<string | null> {
+        return requireOttoApi(this.api).dialog.chooseCollectionLocation();
     }
 }
 
@@ -159,5 +212,54 @@ export class ElectronCollectionsGateway extends CollectionsGateway {
 
     delete(id: EntityId): Promise<boolean> {
         return requireOttoApi(this.api).collections.delete(id);
+    }
+
+    open(directory: string): Promise<OpenedCollection> {
+        return requireOttoApi(this.api).collections.open(directory);
+    }
+
+    createOnDisk(parentDirectory: string, name: string): Promise<OpenedCollection> {
+        return requireOttoApi(this.api).collections.createOnDisk(parentDirectory, name);
+    }
+
+    close(id: EntityId): Promise<void> {
+        return requireOttoApi(this.api).collections.close(id);
+    }
+
+    tree(id: EntityId): Promise<CollectionTree> {
+        return requireOttoApi(this.api).collections.tree(id);
+    }
+
+    onChanged(listener: (event: { collectionId: EntityId }) => void): () => void {
+        return this.api?.collections.onChanged(listener) ?? (() => undefined);
+    }
+}
+
+@Injectable()
+export class ElectronCollectionFilesGateway extends CollectionFilesGateway {
+    private readonly api = inject(OTTO_API);
+
+    readRequest(collectionId: EntityId, path: string): Promise<RequestDefinition> {
+        return requireOttoApi(this.api).collectionFiles.readRequest(collectionId, path);
+    }
+
+    saveRequest(collectionId: EntityId, path: string, request: RequestDefinition): Promise<void> {
+        return requireOttoApi(this.api).collectionFiles.saveRequest(collectionId, path, request);
+    }
+
+    createRequest(collectionId: EntityId, folder: string, request: RequestDefinition): Promise<string> {
+        return requireOttoApi(this.api).collectionFiles.createRequest(collectionId, folder, request);
+    }
+
+    createFolder(collectionId: EntityId, parent: string, name: string): Promise<string> {
+        return requireOttoApi(this.api).collectionFiles.createFolder(collectionId, parent, name);
+    }
+
+    move(collectionId: EntityId, from: string, to: string): Promise<void> {
+        return requireOttoApi(this.api).collectionFiles.move(collectionId, from, to);
+    }
+
+    remove(collectionId: EntityId, path: string): Promise<void> {
+        return requireOttoApi(this.api).collectionFiles.remove(collectionId, path);
     }
 }

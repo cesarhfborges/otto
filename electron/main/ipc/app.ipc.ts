@@ -21,5 +21,7 @@ export class AppIpcModule implements IIpcModule {
         ipc.handle('dialog:open-collection', () => this.dialogs.pickCollectionFolder());
 
         ipc.handle('dialog:pick-certificate', () => this.dialogs.pickCertificateFile());
+
+        ipc.handle('dialog:choose-collection-location', () => this.dialogs.chooseCollectionLocation());
     }
 }

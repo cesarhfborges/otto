@@ -76,7 +76,7 @@ describe('parseHistoryQuery', () => {
 });
 
 describe('parseTabs', () => {
-    const tab = { id: 't1', kind: 'request', title: 'Get users', resourceRef: 'users/list.yaml', position: 0, active: true, draft: null };
+    const tab = { id: 't1', kind: 'request', title: 'Get users', collectionId: 'c1', resourceRef: 'users/list.yaml', position: 0, active: true, draft: null };
 
     it('aceita abas válidas', () => {
         assert.deepEqual(parseTabs([tab]), [tab]);
@@ -109,7 +109,7 @@ describe('parseNewEnvironment / parseEnvironmentPatch', () => {
 
 describe('parseNewCollection / parseCollectionPatch', () => {
     it('exige caminho absoluto e normaliza', () => {
-        assert.deepEqual(parseNewCollection({ name: 'API', path: '/tmp/a/../api' }), { name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null });
+        assert.deepEqual(parseNewCollection({ name: 'API', path: '/tmp/a/../api' }), { name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null, open: false });
         assert.throws(() => parseNewCollection({ name: 'API', path: 'relative/dir' }), /absolute path/);
     });
 
