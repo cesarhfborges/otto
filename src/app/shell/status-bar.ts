@@ -31,7 +31,7 @@ export class StatusBar {
         tooltipLabel: 'Preferences',
         positionLeft: -30,
         positionTop: -32,
-        tooltipEvent: 'focus',
+        tooltipEvent: 'hover',
         tooltipPosition: 'top'
         // tooltipZIndex: '99999',
         // appendTo: 'body'

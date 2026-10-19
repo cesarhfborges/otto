@@ -1,4 +1,5 @@
-import { Component, DestroyRef, effect, inject } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import type { MenuAction } from '@shared/models';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
@@ -21,6 +22,21 @@ import { StatusBar } from './status-bar';
 import { TabHost } from './tab-host';
 import { TabStrip } from './tab-strip';
 import { TitleBar } from './title-bar';
+import { SplitterModule } from 'primeng/splitter';
+import type { SplitterPassThrough, SplitterResizeEndEvent } from 'primeng/types/splitter';
+
+const SIDEBAR_SPLITTER_KEY = 'otto.splitter.sidebar';
+
+/** Primeiro tamanho (%) salvo pelo `stateKey` do splitter; `localStorage` pode estar indisponível. */
+function savedSplitterSize(key: string, fallback: number): number {
+    try {
+        const sizes: unknown = JSON.parse(localStorage.getItem(key) ?? 'null');
+
+        return Array.isArray(sizes) && typeof sizes[0] === 'number' ? sizes[0] : fallback;
+    } catch {
+        return fallback;
+    }
+}
 
 /**
  * Layout principal (estilo Bruno): barra de título, coleções à esquerda e, à
@@ -28,20 +44,65 @@ import { TitleBar } from './title-bar';
  */
 @Component({
     selector: 'app-shell',
-    imports: [TitleBar, CollectionsSidebar, ContextHeader, TabStrip, TabHost, StatusBar, NewCollectionDialog, NewRequestDialog, NewFolderDialog, NewWorkspaceDialog, ImportWorkspaceDialog, ImportCollectionDialog, ConfirmHost, ToastModule],
+    imports: [
+        TitleBar,
+        CollectionsSidebar,
+        ContextHeader,
+        TabStrip,
+        TabHost,
+        StatusBar,
+        NewCollectionDialog,
+        NewRequestDialog,
+        NewFolderDialog,
+        NewWorkspaceDialog,
+        ImportWorkspaceDialog,
+        ImportCollectionDialog,
+        ConfirmHost,
+        ToastModule,
+        SplitterModule,
+        NgTemplateOutlet
+    ],
     providers: [MessageService],
     template: `
         <app-title-bar />
-        <div class="flex min-h-0 flex-1">
-            @if (ui.sidebarVisible()) {
-                <app-collections-sidebar class="w-72 shrink-0" />
-            }
-            <main class="flex min-w-0 flex-1 flex-col bg-surface-0 dark:bg-surface-950">
+        <!-- Barra lateral redimensionável; oculta, o conteúdo ocupa tudo (o splitter sempre tem 2 painéis). -->
+        @if (ui.sidebarVisible()) {
+            <!--
+                O <main> envolve o splitter: o divisor entre a barra lateral e o conteúdo precisa estar
+                dentro de um landmark (axe "region"), e um <header> interno não vira banner.
+            -->
+            <main class="flex min-h-0 flex-1">
+                <p-splitter
+                    [pt]="sidebarSplitterPt()"
+                    [panelSizes]="sidebarSizes"
+                    [minSizes]="[15, 40]"
+                    [stateKey]="sidebarStateKey"
+                    stateStorage="local"
+                    (onResizeEnd)="sidebarSize.set(firstSize($event))"
+                    class="min-h-0 min-w-0 flex-1"
+                    styleClass="h-full !rounded-none !border-0 !bg-transparent [&>.p-splitterpanel]:min-h-0 [&>.p-splitterpanel]:min-w-0 [&>.p-splitterpanel]:overflow-hidden"
+                >
+                    <ng-template #panel>
+                        <app-collections-sidebar class="h-full w-full !border-r-0" />
+                    </ng-template>
+                    <ng-template #panel>
+                        <ng-container *ngTemplateOutlet="mainContent" />
+                    </ng-template>
+                </p-splitter>
+            </main>
+        } @else {
+            <main class="flex min-h-0 flex-1">
+                <ng-container *ngTemplateOutlet="mainContent" />
+            </main>
+        }
+
+        <ng-template #mainContent>
+            <div class="flex h-full min-w-0 flex-1 flex-col bg-surface-0 dark:bg-surface-950">
                 <app-context-header />
                 <app-tab-strip />
                 <app-tab-host />
-            </main>
-        </div>
+            </div>
+        </ng-template>
         <app-status-bar />
 
         <app-new-collection-dialog />
@@ -60,6 +121,22 @@ import { TitleBar } from './title-bar';
 })
 export class Shell {
     protected readonly ui = inject(UiState);
+
+    protected readonly sidebarStateKey = SIDEBAR_SPLITTER_KEY;
+    protected readonly sidebarSizes = [22, 78];
+    /** Largura da barra lateral (%), para o `aria-valuenow` do divisor; começa pelo tamanho salvo. */
+    protected readonly sidebarSize = signal(savedSplitterSize(SIDEBAR_SPLITTER_KEY, this.sidebarSizes[0]!));
+    /**
+     * O PrimeNG põe `role="separator"` no divisor e o foco/teclado no puxador interno, que só
+     * recebe `aria-valuenow` durante o arraste (axe). O puxador vira o separador acessível.
+     */
+    protected readonly firstSize = (event: SplitterResizeEndEvent): number => Number(event.sizes[0]);
+    protected readonly sidebarSplitterPt = computed<SplitterPassThrough>(() => ({
+        panel: {},
+        gutter: { role: 'none' },
+        gutterHandle: { role: 'separator', 'aria-label': 'Resize sidebar', 'aria-orientation': 'vertical', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(this.sidebarSize()) }
+    }));
+
     private readonly tabs = inject(TabsState);
     private readonly collections = inject(CollectionsState);
     private readonly theme = inject(ThemeService);

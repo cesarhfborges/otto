@@ -1,11 +1,12 @@
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors, type ValidatorFn } from '@angular/forms';
-import { MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, type AppInfo, type OttoSettings, type ThemeMode } from '@shared/models';
+import { MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, type AppInfo, type OttoSettings, type ThemeMode, type RequestLayout } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { AppInfoGateway, DialogGateway } from '../../core/ports';
@@ -14,7 +15,7 @@ import { ThemeService } from '../../core/theme/theme.service';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
-type PreferencesSection = 'general' | 'themes' | 'proxy' | 'certificates' | 'about';
+type PreferencesSection = 'general' | 'themes' | 'appearance' | 'proxy' | 'certificates' | 'about';
 
 /** Aceita vazio (validado em conjunto com `enabled`) ou uma URL http(s). */
 const proxyUrlValidator: ValidatorFn = (control: AbstractControl<string>): ValidationErrors | null => {
@@ -41,7 +42,7 @@ const proxyRequiresUrl: ValidatorFn = (group: AbstractControl): ValidationErrors
 
 @Component({
     selector: 'app-settings-page',
-    imports: [ReactiveFormsModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
+    imports: [ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
     templateUrl: './settings.page.html',
     host: { class: 'flex h-full min-h-0' }
 })
@@ -53,6 +54,7 @@ export class SettingsPage {
     protected readonly sections: Array<{ id: PreferencesSection; label: string; icon: string }> = [
         { id: 'general', label: 'General', icon: 'pi pi-cog' },
         { id: 'themes', label: 'Themes', icon: 'pi pi-palette' },
+        { id: 'appearance', label: 'Appearance', icon: 'pi pi-desktop' },
         { id: 'proxy', label: 'Proxy', icon: 'pi pi-server' },
         { id: 'certificates', label: 'Certificates', icon: 'pi pi-shield' },
         { id: 'about', label: 'About', icon: 'pi pi-info-circle' }
@@ -66,6 +68,11 @@ export class SettingsPage {
     protected readonly persistent = this.settingsState.persistent;
     protected readonly status = signal<SaveStatus>('idle');
     protected readonly errorMessage = signal<string | null>(null);
+
+    protected readonly requestLayoutOptions: Array<{ label: string; value: RequestLayout }> = [
+        { label: 'Side by side (request | response)', value: 'horizontal' },
+        { label: 'Stacked (request above response)', value: 'vertical' }
+    ];
 
     protected readonly themeOptions: Array<{ label: string; value: ThemeMode; icon: string }> = [
         { label: 'Light', value: 'light', icon: 'pi pi-sun' },
@@ -94,6 +101,9 @@ export class SettingsPage {
                 verifyCertificates: this.fb.control(true),
                 caCertificatePath: this.fb.control<string | null>(null)
             })
+        }),
+        appearance: this.fb.group({
+            requestLayout: this.fb.control<RequestLayout>('horizontal')
         }),
         workspaces: this.fb.group({
             baseDirectory: this.fb.control('')

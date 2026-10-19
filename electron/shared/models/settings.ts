@@ -47,6 +47,15 @@ export interface WorkspaceSettings {
     baseDirectory: string;
 }
 
+/** Disposição dos painéis da requisição: lado a lado (`horizontal`) ou empilhados (`vertical`). */
+export const REQUEST_LAYOUTS = ['horizontal', 'vertical'] as const;
+
+export type RequestLayout = (typeof REQUEST_LAYOUTS)[number];
+
+export interface AppearanceSettings {
+    requestLayout: RequestLayout;
+}
+
 export interface OttoSettings {
     /** Ao fechar a janela, mantém o Otto rodando na bandeja do sistema. */
     minimizeToTray: boolean;
@@ -54,6 +63,7 @@ export interface OttoSettings {
     http: HttpSettings;
     history: HistorySettings;
     workspaces: WorkspaceSettings;
+    appearance: AppearanceSettings;
 }
 
 /** Alteração parcial, em qualquer nível de profundidade. */
@@ -68,6 +78,7 @@ export interface SettingsPatch {
     };
     history?: Partial<HistorySettings>;
     workspaces?: Partial<WorkspaceSettings>;
+    appearance?: Partial<AppearanceSettings>;
 }
 
 export const MAX_TIMEOUT_MS = 3_600_000;
@@ -83,5 +94,6 @@ export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
         ssl: { verifyCertificates: true, caCertificatePath: null }
     },
     history: { maxEntries: 500 },
-    workspaces: { baseDirectory: '' }
+    workspaces: { baseDirectory: '' },
+    appearance: { requestLayout: 'horizontal' }
 };

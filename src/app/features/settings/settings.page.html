@@ -78,6 +78,12 @@
             </p-selectbutton>
             <small class="text-muted-color"> Auto follows your operating system. @if (theme.mode() === 'auto') { Currently using the {{ theme.effective() }} theme. } </small>
         </div>
+        } @case ('appearance') {
+        <div formGroupName="appearance" class="flex flex-col gap-2">
+            <label for="request-layout" class="font-medium">Request and response panels</label>
+            <p-select formControlName="requestLayout" inputId="request-layout" [options]="requestLayoutOptions" optionLabel="label" optionValue="value" aria-describedby="request-layout-help" class="w-full sm:w-80" />
+            <small id="request-layout-help" class="text-muted-color">How the request tab splits the request editor and the response. The divider between them can still be dragged.</small>
+        </div>
         } @case ('proxy') {
         <ng-container formGroupName="http">
             <fieldset formGroupName="proxy" class="m-0 flex flex-col gap-4 border-0 p-0">

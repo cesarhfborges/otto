@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { DEFAULT_SETTINGS, MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, THEME_MODES, type OttoSettings, type SettingsPatch } from '../../../shared/models';
+import { DEFAULT_SETTINGS, MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, REQUEST_LAYOUTS, THEME_MODES, type OttoSettings, type SettingsPatch } from '../../../shared/models';
 import type { WindowBounds } from '../contracts';
 import { isRecord, optionalString, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
@@ -63,6 +63,7 @@ const leaf = (keyPath: string, parse: SettingLeaf['parse']): SettingLeaf => ({ p
 export const SETTING_LEAVES: readonly SettingLeaf[] = [
     leaf('minimizeToTray', requireBoolean),
     leaf('theme', (v, f) => requireOneOf(v, THEME_MODES, f)),
+    leaf('appearance.requestLayout', (v, f) => requireOneOf(v, REQUEST_LAYOUTS, f)),
     leaf('http.timeoutMs', parseTimeout),
     leaf('http.followRedirects', requireBoolean),
     leaf('http.proxy.enabled', requireBoolean),
