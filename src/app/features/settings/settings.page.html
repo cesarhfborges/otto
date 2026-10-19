@@ -1,0 +1,119 @@
+<div class="card max-w-3xl">
+    <header class="mb-6 flex flex-wrap items-baseline justify-between gap-2">
+        <h1 class="m-0 text-2xl font-semibold">Settings</h1>
+        <p class="m-0 text-sm text-muted-color" role="status" aria-live="polite">
+            @switch (status()) { @case ('saving') { Saving… } @case ('saved') {
+            <i class="pi pi-check mr-1" aria-hidden="true"></i>All changes saved } }
+        </p>
+    </header>
+
+    @if (!persistent()) {
+    <p-message severity="warn" styleClass="mb-4">Running outside the desktop app: changes are kept only until you reload.</p-message>
+    } @if (errorMessage(); as message) {
+    <p-message severity="error" styleClass="mb-4">
+        <span role="alert">Could not save settings: {{ message }}</span>
+    </p-message>
+    }
+
+    <form [formGroup]="form" (submit)="$event.preventDefault()" class="flex flex-col gap-8">
+        <section aria-labelledby="appearance-heading" class="flex flex-col gap-3">
+            <h2 id="appearance-heading" class="m-0 text-lg font-semibold">Appearance</h2>
+            <span id="theme-label" class="font-medium">Theme</span>
+            <p-selectbutton formControlName="theme" [options]="themeOptions" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="theme-label">
+                <ng-template #item let-option>
+                    <i [class]="option.icon" aria-hidden="true"></i>
+                    <span>{{ option.label }}</span>
+                </ng-template>
+            </p-selectbutton>
+            <small class="text-muted-color"> Auto follows your operating system. @if (theme.mode() === 'auto') { Currently using the {{ theme.effective() }} theme. } </small>
+        </section>
+
+        <section aria-labelledby="general-heading" class="flex flex-col gap-3">
+            <h2 id="general-heading" class="m-0 text-lg font-semibold">General</h2>
+            <div class="flex items-center gap-3">
+                <p-toggleswitch formControlName="minimizeToTray" inputId="minimize-to-tray" ariaLabelledBy="minimize-to-tray-label" />
+                <label id="minimize-to-tray-label" for="minimize-to-tray">Keep running in the system tray when the window is closed</label>
+            </div>
+        </section>
+
+        <section aria-labelledby="http-heading" class="flex flex-col gap-4" formGroupName="http">
+            <h2 id="http-heading" class="m-0 text-lg font-semibold">Requests</h2>
+
+            <div class="flex flex-col gap-2">
+                <label for="timeout" class="font-medium">Default timeout (ms)</label>
+                <p-inputnumber formControlName="timeoutMs" inputId="timeout" [min]="0" [max]="maxTimeoutMs" [useGrouping]="false" [invalid]="controlInvalid('http.timeoutMs')" ariaDescribedBy="timeout-help" class="w-full sm:w-64" />
+                <small id="timeout-help" class="text-muted-color">Use 0 to disable the timeout. Maximum {{ maxTimeoutMs }} ms (1 hour).</small>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <p-toggleswitch formControlName="followRedirects" inputId="follow-redirects" ariaLabelledBy="follow-redirects-label" />
+                <label id="follow-redirects-label" for="follow-redirects">Follow redirects automatically</label>
+            </div>
+
+            <fieldset formGroupName="proxy" class="m-0 flex flex-col gap-3 border-0 p-0">
+                <legend class="mb-2 p-0 text-base font-semibold">Proxy</legend>
+                <div class="flex items-center gap-3">
+                    <p-toggleswitch formControlName="enabled" inputId="proxy-enabled" ariaLabelledBy="proxy-enabled-label" />
+                    <label id="proxy-enabled-label" for="proxy-enabled">Use a proxy server</label>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label for="proxy-url" class="font-medium">Proxy URL</label>
+                    <input
+                        pInputText
+                        id="proxy-url"
+                        type="url"
+                        formControlName="url"
+                        placeholder="http://proxy.local:3128"
+                        autocomplete="off"
+                        spellcheck="false"
+                        [invalid]="controlInvalid('http.proxy.url') || (form.controls.http.controls.proxy.invalid && form.controls.http.controls.proxy.touched)"
+                        [attr.aria-invalid]="!!(proxyErrors?.['proxyUrl'] || proxyErrors?.['proxyProtocol'] || proxyErrors?.['proxyUrlRequired'])"
+                        aria-describedby="proxy-url-help proxy-url-error"
+                    />
+                    <small id="proxy-url-help" class="text-muted-color">Only HTTP and HTTPS proxies are supported.</small>
+                    <small id="proxy-url-error" class="text-red-600 dark:text-red-400" aria-live="polite">
+                        @if (proxyErrors?.['proxyUrl']) { Enter a valid URL, for example http://proxy.local:3128. } @else if (proxyErrors?.['proxyProtocol']) { The proxy URL must start with http:// or https://. } @else if
+                        (proxyErrors?.['proxyUrlRequired']) { Enter the proxy URL or turn the proxy off. }
+                    </small>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label for="proxy-bypass" class="font-medium">Bypass proxy for</label>
+                    <input pInputText id="proxy-bypass" formControlName="bypass" autocomplete="off" spellcheck="false" aria-describedby="proxy-bypass-help" />
+                    <small id="proxy-bypass-help" class="text-muted-color">Comma-separated hosts, for example localhost, *.internal.</small>
+                </div>
+            </fieldset>
+
+            <fieldset formGroupName="ssl" class="m-0 flex flex-col gap-3 border-0 p-0">
+                <legend class="mb-2 p-0 text-base font-semibold">SSL / TLS</legend>
+                <div class="flex items-center gap-3">
+                    <p-toggleswitch formControlName="verifyCertificates" inputId="verify-certificates" ariaLabelledBy="verify-certificates-label" />
+                    <label id="verify-certificates-label" for="verify-certificates">Verify SSL certificates</label>
+                </div>
+                @if (!form.controls.http.controls.ssl.controls.verifyCertificates.value) {
+                <p-message severity="warn" size="small">Certificate verification is off. Use this only with trusted development servers.</p-message>
+                }
+                <div class="flex flex-col gap-2">
+                    <label for="ca-certificate" class="font-medium">Custom CA certificate</label>
+                    <div class="flex flex-wrap gap-2">
+                        <input
+                            pInputText
+                            id="ca-certificate"
+                            class="min-w-0 flex-1"
+                            [value]="form.controls.http.controls.ssl.controls.caCertificatePath.value ?? ''"
+                            placeholder="No certificate selected"
+                            readonly
+                            aria-describedby="ca-certificate-help"
+                        />
+                        <p-button label="Browse…" icon="pi pi-folder-open" severity="secondary" [disabled]="!persistent()" (onClick)="browseCertificate()" />
+                        @if (form.controls.http.controls.ssl.controls.caCertificatePath.value) {
+                        <p-button label="Clear" icon="pi pi-times" severity="secondary" [text]="true" (onClick)="clearCertificate()" />
+                        }
+                    </div>
+                    <small id="ca-certificate-help" class="text-muted-color">PEM file trusted in addition to the system certificates.</small>
+                </div>
+            </fieldset>
+
+            <p class="m-0 text-sm text-muted-color">Proxy and SSL options are saved but not yet applied to requests.</p>
+        </section>
+    </form>
+</div>

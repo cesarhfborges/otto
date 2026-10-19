@@ -9,6 +9,7 @@ import Nora from '@primeuix/themes/nora';
 import { PrimeNG } from 'primeng/config';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { LayoutService } from '@/app/layout/service/layout.service';
+import { ACCESSIBLE_TOKENS } from '@/app/core/theme/accessible-tokens';
 
 const presets = {
     Aura,
@@ -437,7 +438,7 @@ export class AppConfigurator {
         this.layoutService.layoutConfig.update((state) => ({ ...state, preset: event }));
         const preset = presets[event as KeyOfType<typeof presets>];
         const surfacePalette = this.surfaces.find((s) => s.name === this.selectedSurfaceColor())?.palette;
-        $t().preset(preset).preset(this.getPresetExt()).surfacePalette(surfacePalette).use({ useDefaultOptions: true });
+        $t().preset(preset).preset(this.getPresetExt()).preset(ACCESSIBLE_TOKENS).surfacePalette(surfacePalette).use({ useDefaultOptions: true });
     }
 
     onMenuModeChange(event: string) {

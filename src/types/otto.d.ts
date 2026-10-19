@@ -1,4 +1,4 @@
-import type { OttoApi } from '../../electron/shared/contract';
+import type { OttoApi } from '@shared/api';
 
 declare global {
     interface Window {

@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { StyleClassModule } from 'primeng/styleclass';
 import { AppConfigurator } from './app.configurator';
 import { LayoutService } from '@/app/layout/service/layout.service';
+import { ThemeService } from '@/app/core/theme/theme.service';
 
 @Component({
     selector: 'app-topbar',
@@ -39,9 +40,18 @@ import { LayoutService } from '@/app/layout/service/layout.service';
 
         <div class="layout-topbar-actions">
             <div class="layout-config-menu">
-                <button type="button" class="layout-topbar-action" (click)="toggleDarkMode()">
-                    <i [ngClass]="{ 'pi ': true, 'pi-moon': layoutService.isDarkTheme(), 'pi-sun': !layoutService.isDarkTheme() }"></i>
+                <button
+                    type="button"
+                    class="layout-topbar-action"
+                    (click)="toggleDarkMode()"
+                    [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
+                    [attr.title]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
+                >
+                    <i class="pi" [class.pi-moon]="theme.isDark()" [class.pi-sun]="!theme.isDark()" aria-hidden="true"></i>
                 </button>
+                <a class="layout-topbar-action" routerLink="/settings" aria-label="Settings" title="Settings">
+                    <i class="pi pi-cog" aria-hidden="true"></i>
+                </a>
                 <div class="relative">
                     <button
                         class="layout-topbar-action layout-topbar-action-highlight"
@@ -86,10 +96,9 @@ export class AppTopbar {
 
     layoutService = inject(LayoutService);
 
+    protected readonly theme = inject(ThemeService);
+
     toggleDarkMode() {
-        this.layoutService.layoutConfig.update((state) => ({
-            ...state,
-            darkTheme: !state.darkTheme
-        }));
+        void this.theme.toggle();
     }
 }

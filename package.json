@@ -9,7 +9,10 @@
     },
     "license": "MIT",
     "private": true,
-    "main": "dist/electron/main.js",
+    "engines": {
+        "node": ">=22.12.0"
+    },
+    "main": "dist/electron/main/main.js",
     "scripts": {
         "ng": "ng",
         "start": "npm run electron:dev",
@@ -18,16 +21,18 @@
         "web:watch": "ng build --watch --configuration development",
         "electron:compile": "tsc -p electron/tsconfig.json",
         "electron:watch": "tsc -p electron/tsconfig.json --watch --preserveWatchOutput",
-        "electron:dev": "concurrently -k -n NG,TSC,ELECTRON -c magenta,blue,green \"ng serve\" \"npm run electron:watch\" \"wait-on tcp:4200 dist/electron/main.js && cross-env NODE_ENV=development node scripts/run-electron.mjs\"",
+        "electron:dev": "concurrently -k -n NG,TSC,ELECTRON -c magenta,blue,green \"ng serve\" \"npm run electron:watch\" \"wait-on tcp:4200 dist/electron/main/main.js && cross-env NODE_ENV=development node scripts/run-electron.mjs\"",
         "electron:start": "npm run build && node scripts/run-electron.mjs",
         "clean": "rimraf dist release",
         "build": "npm run clean && ng build && npm run electron:compile",
+        "typecheck": "tsc -p electron/tsconfig.json --noEmit && tsc -p tsconfig.app.json --noEmit",
         "dist": "npm run build && electron-builder",
         "dist:linux": "npm run build && electron-builder --linux",
         "dist:win": "npm run build && electron-builder --win",
         "dist:mac": "npm run build && electron-builder --mac",
         "format": "prettier --write \"**/*.{js,mjs,ts,mts,d.ts,html}\" --cache",
-        "test": "ng test"
+        "test": "ng test",
+        "test:electron": "npm run electron:compile && node --disable-warning=ExperimentalWarning --test \"dist/electron/**/*.test.js\""
     },
     "build": {
         "appId": "dev.otto.app",
@@ -41,7 +46,9 @@
             "dist/otto/browser/**/*",
             "assets/**/*",
             "package.json",
-            "!**/*.map"
+            "!**/*.map",
+            "!dist/electron/**/*.test.js",
+            "!dist/electron/main/testing/**"
         ],
         "linux": {
             "target": [
@@ -70,7 +77,9 @@
             "icon": "build/icon.png"
         }
     },
-    "dependencies": {},
+    "dependencies": {
+        "yaml": "^2.9.1"
+    },
     "devDependencies": {
         "@angular-devkit/build-angular": "^21",
         "@angular/cli": "^21",

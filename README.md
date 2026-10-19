@@ -74,7 +74,9 @@ O `npm start` sobe o `ng serve` (porta 4200), compila o processo main em modo wa
 | `npm run dist:linux`       | Gera `AppImage` e `.deb`                                            |
 | `npm run dist:win`         | Gera instalador `NSIS` (`.exe`)                                     |
 | `npm run dist:mac`         | Gera `.dmg`                                                         |
-| `npm test`                 | Testes unitários (Karma/Jasmine)                                    |
+| `npm run typecheck`        | Checagem de tipos do main/preload e do Angular                      |
+| `npm test`                 | Testes unitários do Angular (Karma/Jasmine)                         |
+| `npm run test:electron`    | Testes unitários do processo main (`node --test`)                   |
 | `npm run format`           | Formata o código com Prettier                                       |
 
 > **Dependências:** o Angular já é empacotado em `dist/otto`, então todos os pacotes ficam em `devDependencies` e não entram no instalador. Use `dependencies` apenas para módulos que o processo main (`electron/`) precisa em tempo de execução.
@@ -83,18 +85,21 @@ O `npm start` sobe o `ng serve` (porta 4200), compila o processo main em modo wa
 
 ```
 otto/
-├── electron/                 # Processo main do Electron (TypeScript)
-│   ├── main.ts               # Ciclo de vida do app, instância única
-│   ├── window.ts             # Janela principal, posição/tamanho, minimizar para o tray
-│   ├── menu.ts               # Menu da aplicação (File, Edit, View, Window, Help)
-│   ├── tray.ts               # Ícone e menu da bandeja do sistema
-│   ├── preload.ts            # Expõe a API segura `window.otto` ao Angular
-│   ├── settings.ts           # Preferências persistidas em JSON (userData)
-│   ├── ipc/                  # Handlers IPC (http, app, settings, diálogos)
-│   └── shared/contract.ts    # Tipos compartilhados entre Electron e Angular
+├── electron/
+│   ├── main/                 # Processo main do Electron (Node.js)
+│   │   ├── main.ts           # Ciclo de vida do app, instância única
+│   │   ├── container.ts      # Composition root: liga contratos às implementações
+│   │   ├── core/contracts/   # Interfaces (executor HTTP, repositórios, stores, importadores, IPC)
+│   │   ├── services/         # Regras de negócio (HTTP, importação)
+│   │   ├── infra/            # SQLite (conexão, migrações, repositórios)
+│   │   ├── ipc/              # Um módulo IPC por responsabilidade + validação de entrada
+│   │   └── ui/               # Janela, menu, tray e diálogos nativos
+│   ├── preload/preload.ts    # Expõe a API segura `window.otto` ao Angular
+│   └── shared/               # Tipos compartilhados: contrato IPC, API e modelos
 ├── src/                      # Aplicação Angular (renderer)
-│   ├── app/core/electron.service.ts
+│   ├── app/core/             # Ports (gateways abstratos), adapters Electron e providers
 │   └── types/otto.d.ts       # Tipagem de window.otto
+├── docs/                     # Plano de implementação e PROGRESS.md
 ├── assets/icons/             # Ícones usados em tempo de execução (janela e tray)
 ├── build/                    # Recursos do electron-builder (icon.png, icon.ico)
 └── scripts/run-electron.mjs  # Launcher do Electron usado pelos scripts npm
@@ -110,7 +115,7 @@ otto/
 ```
 
 - O renderer roda com `contextIsolation`, `sandbox` e sem `nodeIntegration`.
-- Toda comunicação passa pelo contrato tipado em [`electron/shared/contract.ts`](electron/shared/contract.ts).
+- Toda comunicação passa pelo contrato tipado em [`electron/shared/ipc.ts`](electron/shared/ipc.ts).
 - O main só aceita IPC vindo do próprio app (dev server ou `file://`).
 
 ### Tray e menu

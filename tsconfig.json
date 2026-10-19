@@ -19,9 +19,8 @@
         "module": "ES2022",
         "baseUrl": "./",
         "paths": {
-            "@/*": [
-                "src/*"
-            ]
+            "@/*": ["src/*"],
+            "@shared/*": ["electron/shared/*"]
         }
     },
     "angularCompilerOptions": {
