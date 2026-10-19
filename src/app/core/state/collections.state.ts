@@ -38,21 +38,10 @@ export class CollectionsState {
         return collection ? countRequests(collection.tree.children) : 0;
     }
 
-    /** Reabre as coleções que estavam abertas quando o app foi fechado. */
-    async restore(): Promise<void> {
-        await this.loadKnown();
-
-        for (const collection of this.knownState().filter((c) => c.open)) {
-            try {
-                this.track(await this.gateway.open(collection.path));
-            } catch (error) {
-                // Pasta removida/renomeada fora do app: fecha para não insistir a cada início.
-                console.warn(`[otto] could not reopen "${collection.path}":`, error);
-                await this.gateway.close(collection.id).catch(() => undefined);
-            }
-        }
-
-        await this.loadKnown();
+    /** Substitui as coleções abertas pelas do workspace carregado. */
+    replace(collections: OpenedCollection[]): void {
+        this.openedState.set(collections);
+        void this.loadKnown();
     }
 
     async loadKnown(): Promise<void> {
@@ -63,18 +52,25 @@ export class CollectionsState {
         }
     }
 
-    /** Abre a pasta indicada (ex.: vinda do menu ou da lista) ou pergunta ao usuário. */
-    async open(directory?: string): Promise<OpenedCollection | null> {
-        return this.run(async () => {
-            const target = directory ?? (await this.dialogs.openCollection());
-
-            return target ? this.track(await this.gateway.open(target)) : null;
-        });
+    /** Cria `<workspace>/collections/<slug do nome>`. Lança o erro para o diálogo exibir. */
+    async create(name: string): Promise<OpenedCollection> {
+        return this.track(await this.gateway.createOnDisk(name));
     }
 
-    /** Cria `<parentDirectory>/<slug do nome>` com o manifesto e abre a coleção. */
-    async create(parentDirectory: string, name: string): Promise<OpenedCollection | null> {
-        return this.run(async () => this.track(await this.gateway.createOnDisk(parentDirectory, name)));
+    /** Copia uma coleção (pasta ou .zip) para o workspace ativo. Lança o erro para o diálogo exibir. */
+    async import(source: string): Promise<OpenedCollection> {
+        return this.track(await this.gateway.import(source));
+    }
+
+    /** Pergunta o destino e exporta como .zip. Retorna o arquivo, ou `null` se cancelado. */
+    async export(collection: CollectionMetadata): Promise<string | null> {
+        const file = await this.dialogs.saveCollectionArchive(`${collection.name}.zip`);
+
+        if (file) {
+            await this.gateway.export(collection.id, file);
+        }
+
+        return file;
     }
 
     async close(id: EntityId): Promise<void> {
@@ -83,7 +79,7 @@ export class CollectionsState {
         await this.loadKnown();
     }
 
-    /** Remove a coleção do workspace (não apaga nada do disco). */
+    /** Esquece a coleção no app (não apaga nada do disco). */
     async forget(id: EntityId): Promise<void> {
         await this.gateway.delete(id);
         this.openedState.update((list) => list.filter((c) => c.metadata.id !== id));

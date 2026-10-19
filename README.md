@@ -182,6 +182,7 @@ Campos com valor padrão (lista vazia, `auth: none`, `body: none`, sem docs) sã
 - [x] Tray icon e menu da aplicação
 - [x] Execução de requisições HTTP no processo main (sem CORS, com cancelamento e timeout)
 - [x] Banco local (SQLite), configurações (tema Light/Dark/Auto, timeout, redirects) e coleções em disco (YAML)
+- [x] Proxy HTTP/HTTPS com exceções, verificação SSL e CA personalizada (além das CAs do sistema), métricas da resposta e histórico com retenção configurável
 - [ ] **MVP:** editor de requisição (método, URL, params, headers, body), visualização da resposta (status, tempo, tamanho, headers, JSON formatado), environments e variáveis
 - [ ] Autenticação (Basic, Bearer, API Key), multipart/upload de arquivos, histórico, múltiplas abas, editor com syntax highlight
 - [ ] Importar coleções do Postman, Insomnia e OpenAPI; gerar código (cURL, fetch)

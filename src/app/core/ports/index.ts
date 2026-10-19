@@ -3,7 +3,7 @@
  * abstratas, usadas como tokens de DI. As implementações concretas (adapters)
  * são registradas em `provideOttoCore()`.
  */
-import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, SettingsApi, TabsApi, ThemeApi, WindowApi } from '@shared/api';
+import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi } from '@shared/api';
 import type {
     AppInfo,
     CollectionMetadata,
@@ -23,7 +23,10 @@ import type {
     SettingsPatch,
     TabState,
     ThemeState,
-    WindowState
+    WindowState,
+    LoadedWorkspace,
+    Workspace,
+    WorkspaceSummary
 } from '@shared/models';
 
 export abstract class AppInfoGateway implements AppApi {
@@ -56,9 +59,13 @@ export abstract class HttpGateway implements HttpApi {
 }
 
 export abstract class DialogGateway implements DialogApi {
-    abstract openCollection(): Promise<string | null>;
     abstract pickCertificate(): Promise<string | null>;
-    abstract chooseCollectionLocation(): Promise<string | null>;
+    abstract pickCollectionFolder(): Promise<string | null>;
+    abstract pickCollectionArchive(): Promise<string | null>;
+    abstract saveCollectionArchive(defaultName: string): Promise<string | null>;
+    abstract pickWorkspaceArchive(): Promise<string | null>;
+    abstract saveWorkspaceArchive(defaultName: string): Promise<string | null>;
+    abstract chooseBaseDirectory(current?: string): Promise<string | null>;
 }
 
 export abstract class MenuEventsGateway implements EventsApi {
@@ -69,11 +76,25 @@ export abstract class HistoryGateway implements HistoryApi {
     abstract list(query?: HistoryQuery): Promise<HistoryEntry[]>;
     abstract delete(id: EntityId): Promise<boolean>;
     abstract clear(): Promise<number>;
+    abstract onChanged(listener: () => void): () => void;
 }
 
 export abstract class TabsGateway implements TabsApi {
-    abstract list(): Promise<TabState[]>;
-    abstract save(tabs: TabState[]): Promise<void>;
+    abstract list(workspaceId: EntityId): Promise<TabState[]>;
+    abstract save(workspaceId: EntityId, tabs: TabState[]): Promise<void>;
+}
+
+export abstract class WorkspacesGateway implements WorkspacesApi {
+    abstract list(): Promise<WorkspaceSummary[]>;
+    abstract load(): Promise<LoadedWorkspace>;
+    abstract switch(id: EntityId): Promise<Workspace>;
+    abstract create(name: string): Promise<Workspace>;
+    abstract rename(id: EntityId, name: string): Promise<Workspace>;
+    abstract remove(id: EntityId): Promise<void>;
+    abstract export(id: EntityId, file: string): Promise<void>;
+    abstract import(file: string): Promise<Workspace>;
+    abstract reveal(id: EntityId): Promise<void>;
+    abstract onChanged(listener: () => void): () => void;
 }
 
 export abstract class EnvironmentsGateway implements EnvironmentsApi {
@@ -90,8 +111,9 @@ export abstract class CollectionsGateway implements CollectionsApi {
     abstract create(input: NewCollectionMetadata): Promise<CollectionMetadata>;
     abstract update(id: EntityId, patch: Partial<NewCollectionMetadata>): Promise<CollectionMetadata | null>;
     abstract delete(id: EntityId): Promise<boolean>;
-    abstract open(directory: string): Promise<OpenedCollection>;
-    abstract createOnDisk(parentDirectory: string, name: string): Promise<OpenedCollection>;
+    abstract createOnDisk(name: string): Promise<OpenedCollection>;
+    abstract import(source: string): Promise<OpenedCollection>;
+    abstract export(id: EntityId, file: string): Promise<void>;
     abstract close(id: EntityId): Promise<void>;
     abstract tree(id: EntityId): Promise<CollectionTree>;
     abstract onChanged(listener: (event: { collectionId: EntityId }) => void): () => void;

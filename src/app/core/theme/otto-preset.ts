@@ -22,6 +22,26 @@ const ACCESSIBLE_TOKENS = {
                     icon: { color: '{surface.600}' }
                 }
             }
+        },
+        // Botões vermelhos sem fundo (Delete): red.500 sobre branco dá 3.8:1; 700 passa de 6:1.
+        button: {
+            colorScheme: {
+                light: {
+                    text: { danger: { color: '{red.700}' } },
+                    outlined: { danger: { color: '{red.700}', borderColor: '{red.300}' } }
+                }
+            }
+        },
+        // Texto das mensagens no tema claro: o Aura usa tons 600 sobre fundo 50 (red 4.44:1, green ~3:1, yellow ~2.8:1).
+        message: {
+            colorScheme: {
+                light: {
+                    info: { color: '{blue.700}' },
+                    success: { color: '{green.700}' },
+                    warn: { color: '{yellow.800}' },
+                    error: { color: '{red.700}' }
+                }
+            }
         }
     }
 };

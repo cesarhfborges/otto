@@ -11,14 +11,15 @@ import { CollectionFilesGateway } from '../../core/ports';
 import { CollectionsState } from '../../core/state/collections.state';
 import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
+import { EnterSubmit } from '../../shared/enter-submit.directive';
 
 /** Cria um arquivo de requisição na pasta escolhida e abre em uma aba. */
 @Component({
     selector: 'app-new-request-dialog',
-    imports: [DialogModule, ReactiveFormsModule, InputTextModule, SelectModule, ButtonModule, MessageModule],
+    imports: [DialogModule, ReactiveFormsModule, EnterSubmit, InputTextModule, SelectModule, ButtonModule, MessageModule],
     template: `
-        <p-dialog header="New Request" [modal]="true" [visible]="!!ui.newRequestDialog()" (visibleChange)="!$event && close()" [style]="{ width: '36rem' }" [draggable]="false" appendTo="body">
-            <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" id="new-request-form">
+        <p-dialog closeAriaLabel="Close" header="New Request" [modal]="true" [visible]="!!ui.newRequestDialog()" (visibleChange)="!$event && close()" [style]="{ width: '36rem' }" [draggable]="false" appendTo="body">
+            <form [formGroup]="form" appEnterSubmit (ngSubmit)="submit()" class="flex flex-col gap-4" id="new-request-form">
                 <p class="m-0 text-sm text-muted-color">
                     In <strong class="text-color">{{ location() }}</strong>
                 </p>
@@ -41,7 +42,7 @@ import { UiState } from '../../core/state/ui.state';
             </form>
             <ng-template #footer>
                 <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="close()" />
-                <p-button type="submit" form="new-request-form" label="Create" icon="pi pi-check" [loading]="busy()" [disabled]="form.invalid" />
+                <p-button label="Create" (onClick)="submit()" icon="pi pi-check" [loading]="busy()" [disabled]="form.invalid" />
             </ng-template>
         </p-dialog>
     `

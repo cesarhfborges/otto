@@ -51,9 +51,13 @@ export function requireBoolean(value: unknown, field: string): boolean {
     return value;
 }
 
-export function requireInteger(value: unknown, field: string, min = Number.MIN_SAFE_INTEGER): number {
+export function requireInteger(value: unknown, field: string, min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER): number {
     if (typeof value !== 'number' || !Number.isInteger(value) || value < min) {
         throw new ValidationError(field, `expected an integer >= ${min}`);
+    }
+
+    if (value > max) {
+        throw new ValidationError(field, `must be at most ${max}`);
     }
 
     return value;

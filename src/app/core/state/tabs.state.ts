@@ -32,7 +32,8 @@ export class TabsState {
     /** Última aba ativa de cada contexto (chave `''` = workspace). */
     private readonly activeByContext = signal<Record<string, EntityId>>({});
     private saveTimer: ReturnType<typeof setTimeout> | undefined;
-    private restored = false;
+    /** Workspace dono das abas atuais; `null` até a restauração (nada é salvo antes disso). */
+    private workspaceId: EntityId | null = null;
 
     readonly tabs = this.tabsState.asReadonly();
     readonly context = this.contextState.asReadonly();
@@ -44,24 +45,41 @@ export class TabsState {
     });
     readonly active = computed(() => this.tabsState().find((tab) => tab.id === this.activeId()) ?? null);
 
-    /** Restaura as abas salvas, descartando as de coleções que não estão mais abertas. */
-    async restore(openCollectionIds: ReadonlySet<EntityId>): Promise<void> {
+    /**
+     * Carrega as abas salvas do workspace, descartando as de coleções que não estão
+     * mais nele. Chamado ao iniciar e ao trocar de workspace (após `flush`).
+     */
+    async restore(workspaceId: EntityId, openCollectionIds: ReadonlySet<EntityId>): Promise<void> {
+        clearTimeout(this.saveTimer);
+        this.workspaceId = null;
+        this.tabsState.set([]);
+        this.activeByContext.set({});
+        this.contextState.set(null);
+
         try {
-            const saved = (await this.gateway.list()).filter((tab) => tab.collectionId === null || openCollectionIds.has(tab.collectionId));
-            const active = saved.find((tab) => tab.active);
+            const saved = (await this.gateway.list(workspaceId)).filter((tab) => tab.collectionId === null || openCollectionIds.has(tab.collectionId));
 
             this.tabsState.set(saved);
             this.activeByContext.set(Object.fromEntries(saved.map((tab) => [tab.collectionId ?? '', tab.id])));
+            this.contextState.set(saved.find((tab) => tab.active)?.collectionId ?? null);
+
+            const active = saved.find((tab) => tab.active);
 
             if (active) {
-                this.activate(active.id);
+                this.activeByContext.update((map) => ({ ...map, [active.collectionId ?? '']: active.id }));
             }
         } catch {
             // Fora do Electron não há persistência.
         }
 
-        this.restored = true;
+        this.workspaceId = workspaceId;
         this.ensureWorkspaceTab();
+    }
+
+    /** Grava imediatamente o que estiver pendente (antes de trocar de workspace). */
+    async flush(): Promise<void> {
+        clearTimeout(this.saveTimer);
+        await this.save();
     }
 
     open(spec: TabSpec): TabState {
@@ -158,16 +176,24 @@ export class TabsState {
     }
 
     private scheduleSave(): void {
-        if (!this.restored) {
+        if (this.workspaceId === null) {
             return;
         }
 
         clearTimeout(this.saveTimer);
-        this.saveTimer = setTimeout(() => {
-            const activeId = this.activeId();
-            const tabs = this.tabsState().map((tab, position) => ({ ...tab, position, active: tab.id === activeId }));
+        this.saveTimer = setTimeout(() => void this.save(), SAVE_DELAY_MS);
+    }
 
-            this.gateway.save(tabs).catch((error: unknown) => console.warn('[otto] failed to save tabs', error));
-        }, SAVE_DELAY_MS);
+    private async save(): Promise<void> {
+        const workspaceId = this.workspaceId;
+
+        if (workspaceId === null) {
+            return;
+        }
+
+        const activeId = this.activeId();
+        const tabs = this.tabsState().map((tab, position) => ({ ...tab, position, active: tab.id === activeId }));
+
+        await this.gateway.save(workspaceId, tabs).catch((error: unknown) => console.warn('[otto] failed to save tabs', error));
     }
 }

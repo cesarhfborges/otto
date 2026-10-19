@@ -75,7 +75,7 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
                             <span class="sr-only">(invalid file: {{ node.data.error }})</span>
                         }
                         <!-- Atalho de mouse para o menu de contexto; teclado usa a tecla de menu/Shift+F10. -->
-                        <span class="otto-icon-button invisible !h-5 !w-5 group-hover:visible" aria-hidden="true" (click)="openMenuFor(node, $event)">
+                        <span class="otto-icon-button justify-self-end invisible !h-5 !w-5 group-hover:visible" aria-hidden="true" (click)="openMenuFor(node, $event)">
                             <i class="pi pi-ellipsis-h text-xs"></i>
                         </span>
                     </span>
@@ -84,10 +84,10 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
         } @else {
             <div class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
                 <i class="pi pi-box !text-3xl text-muted-color" aria-hidden="true"></i>
-                <p class="m-0 text-sm text-muted-color">No collections open yet.</p>
+                <p class="m-0 text-sm text-muted-color">This workspace has no collections yet.</p>
                 <div class="flex flex-col gap-2">
                     <p-button label="Create Collection" icon="pi pi-plus" size="small" (onClick)="ui.newCollectionDialog.set(true)" />
-                    <p-button label="Open Collection" icon="pi pi-folder-open" size="small" severity="secondary" [outlined]="true" (onClick)="collections.open()" />
+                    <p-button label="Import Collection" icon="pi pi-download" size="small" severity="secondary" [outlined]="true" (onClick)="ui.importCollectionDialog.set(true)" />
                 </div>
             </div>
         }
@@ -124,12 +124,12 @@ export class CollectionsSidebar {
 
     protected readonly addItems: MenuItem[] = [
         { label: 'Create Collection', icon: 'pi pi-plus', command: () => this.ui.newCollectionDialog.set(true) },
-        { label: 'Open Collection', icon: 'pi pi-folder-open', command: () => void this.collections.open() }
+        { label: 'Import Collection', icon: 'pi pi-download', command: () => this.ui.importCollectionDialog.set(true) }
     ];
 
     protected readonly moreItems = computed<MenuItem[]>(() => [
         { label: 'Collapse All', icon: 'pi pi-minus', command: () => this.expanded.set(new Set()), disabled: !this.expanded().size },
-        { label: 'Close All Collections', icon: 'pi pi-times', command: () => void this.closeAll(), disabled: !this.collections.opened().length }
+        { label: 'Remove All from Workspace', icon: 'pi pi-times', command: () => void this.closeAll(), disabled: !this.collections.opened().length }
     ]);
 
     protected readonly contextItems = computed<MenuItem[]>(() => {
@@ -150,7 +150,10 @@ export class CollectionsSidebar {
                     ...create,
                     { separator: true },
                     { label: 'Overview', icon: 'pi pi-info-circle', command: () => this.openCollectionTab(target.collectionId) },
-                    { label: 'Close Collection', icon: 'pi pi-times', command: () => void this.close(target.collectionId) }
+                    { label: 'Environments', icon: 'pi pi-globe', command: () => this.tabs.open({ kind: 'environments', title: 'Environments', collectionId: target.collectionId }) },
+                    { label: 'Export Collection', icon: 'pi pi-upload', command: () => void this.exportCollection(target.collectionId) },
+                    { separator: true },
+                    { label: 'Remove from Workspace', icon: 'pi pi-times', command: () => void this.close(target.collectionId) }
                 ];
             case 'folder':
                 return [...create, { separator: true }, { label: 'Delete', icon: 'pi pi-trash', command: () => void this.confirmDelete(target) }];
@@ -238,6 +241,24 @@ export class CollectionsSidebar {
         const label = findNode(this.nodes(), nodeKey(data))?.label ?? data.path;
 
         this.tabs.open({ kind: 'request', title: label, collectionId: data.collectionId, resourceRef: data.path });
+    }
+
+    private async exportCollection(collectionId: string): Promise<void> {
+        const collection = this.collections.find(collectionId);
+
+        if (!collection) {
+            return;
+        }
+
+        try {
+            const file = await this.collections.export(collection.metadata);
+
+            if (file) {
+                this.messages.add({ severity: 'success', summary: 'Collection exported', detail: file, life: 5000 });
+            }
+        } catch (error) {
+            this.messages.add({ severity: 'error', summary: 'Could not export the collection', detail: ipcErrorMessage(error), life: 6000 });
+        }
     }
 
     private openCollectionTab(collectionId: string): void {

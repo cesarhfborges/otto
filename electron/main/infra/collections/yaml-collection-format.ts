@@ -1,26 +1,10 @@
-import { parse, stringify, YAMLParseError } from 'yaml';
 import { COLLECTION_FORMAT_VERSION, type CollectionManifest, type KeyValue, type RequestDefinition } from '../../../shared/models';
 import type { ICollectionFormat } from '../../core/contracts';
 import { parseRequestDefinition, requireInteger, requireRecord, requireString } from '../../core/validation';
+import { parseYaml, toYaml } from '../yaml';
 
 const MANIFEST_FILE = 'otto.yaml';
 const REQUEST_EXTENSION = '.yaml';
-const MAX_FILE_LENGTH = 20_000_000;
-
-function parseYaml(content: string): unknown {
-    if (content.length > MAX_FILE_LENGTH) {
-        throw new Error('File is too large');
-    }
-
-    try {
-        // `yaml` não executa tags customizadas; `maxAliasCount` protege contra "billion laughs".
-        return parse(content, { maxAliasCount: 100, uniqueKeys: true });
-    } catch (error) {
-        throw new Error(error instanceof YAMLParseError ? `Invalid YAML: ${error.message.split('\n')[0]}` : String(error));
-    }
-}
-
-const toYaml = (value: unknown): string => stringify(value, { lineWidth: 0, indent: 2 });
 
 /** Só grava `enabled` quando for `false`, deixando os arquivos enxutos. */
 const compactKeyValues = (items: KeyValue[]) => items.map(({ key, value, enabled }) => (enabled ? { key, value } : { key, value, enabled }));

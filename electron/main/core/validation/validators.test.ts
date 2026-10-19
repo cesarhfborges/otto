@@ -9,6 +9,14 @@ describe('parseHttpRequest', () => {
         assert.deepEqual(request, { id: '1', method: 'POST', url: 'https://example.com', headers: { 'X-Test': 'a' }, body: '{}', timeoutMs: 500 });
     });
 
+    it('aceita a origem (coleção + arquivo) da requisição', () => {
+        const request = parseHttpRequest({ id: '1', method: 'GET', url: 'http://x', source: { collectionId: 'c1', requestPath: 'users/list.yaml' } });
+
+        assert.deepEqual(request.source, { collectionId: 'c1', requestPath: 'users/list.yaml' });
+        assert.throws(() => parseHttpRequest({ id: '1', method: 'GET', url: 'http://x', source: { collectionId: 'c1' } }), /request.source.requestPath/);
+        assert.throws(() => parseHttpRequest({ id: '1', method: 'GET', url: 'http://x', source: 'c1' }), /request.source/);
+    });
+
     it('descarta body e timeout inválidos', () => {
         const request = parseHttpRequest({ id: '1', method: 'GET', url: 'http://x', body: 42, timeoutMs: -1 });
 
@@ -20,7 +28,7 @@ describe('parseHttpRequest', () => {
         assert.throws(() => parseHttpRequest(null), /"request": expected an object/);
         assert.throws(() => parseHttpRequest([]), /"request": expected an object/);
         assert.throws(() => parseHttpRequest({ method: 'GET', url: 'x' }), /"request.id"/);
-        assert.throws(() => parseHttpRequest({ id: '1', method: 'TRACE', url: 'x' }), /"request.method"/);
+        assert.throws(() => parseHttpRequest({ id: '1', method: 'TRACK', url: 'x' }), /"request.method"/);
         assert.throws(() => parseHttpRequest({ id: '1', method: 'GET' }), /"request.url"/);
     });
 });
@@ -51,6 +59,8 @@ describe('parseSettingsPatch / parseWindowBounds', () => {
         assert.throws(() => parseSettingsPatch({ http: { proxy: { url: 'socks5://p:1080' } } }), /only http/);
         assert.throws(() => parseSettingsPatch({ http: { proxy: { url: 'not a url' } } }), /valid URL/);
         assert.throws(() => parseSettingsPatch({ http: { ssl: { caCertificatePath: 'ca.pem' } } }), /absolute path/);
+        assert.throws(() => parseSettingsPatch({ history: { maxEntries: 10_001 } }), /settings.history.maxEntries.*at most/);
+        assert.throws(() => parseSettingsPatch({ history: { maxEntries: 1.5 } }), /settings.history.maxEntries/);
     });
 
     it('normaliza o caminho do certificado e aceita limpar', () => {
@@ -109,7 +119,7 @@ describe('parseNewEnvironment / parseEnvironmentPatch', () => {
 
 describe('parseNewCollection / parseCollectionPatch', () => {
     it('exige caminho absoluto e normaliza', () => {
-        assert.deepEqual(parseNewCollection({ name: 'API', path: '/tmp/a/../api' }), { name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null, open: false });
+        assert.deepEqual(parseNewCollection({ name: 'API', path: '/tmp/a/../api' }), { name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null });
         assert.throws(() => parseNewCollection({ name: 'API', path: 'relative/dir' }), /absolute path/);
     });
 

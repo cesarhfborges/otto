@@ -1,11 +1,12 @@
 import { NgOptimizedImage } from '@angular/common';
-import { Component, inject } from '@angular/core';
-import type { MenuItem } from 'primeng/api';
+import { Component, computed, inject } from '@angular/core';
+import { MessageService, type MenuItem } from 'primeng/api';
 import { MenuModule } from 'primeng/menu';
 import { TooltipModule } from 'primeng/tooltip';
 import { TabsState } from '../core/state/tabs.state';
 import { UiState } from '../core/state/ui.state';
 import { WindowControlsState } from '../core/state/window-controls.state';
+import { WorkspacesState } from '../core/state/workspaces.state';
 
 /**
  * Barra de título própria (a janela não tem moldura nativa): menu da aplicação,
@@ -24,11 +25,15 @@ import { WindowControlsState } from '../core/state/window-controls.state';
             <button type="button" class="otto-icon-button" aria-label="Workspace home" pTooltip="Home" tooltipPosition="bottom" (click)="goHome()">
                 <i class="pi pi-home" aria-hidden="true"></i>
             </button>
-            <button type="button" class="otto-icon-button !w-auto gap-1.5 px-2 text-sm font-semibold !text-color" aria-haspopup="menu" (click)="workspaceMenu.toggle($event)">
-                My Workspace
-                <i class="pi pi-chevron-down text-xs text-muted-color" aria-hidden="true"></i>
+            <button type="button" class="otto-icon-button !w-auto max-w-64 gap-1.5 px-2 text-sm font-semibold !text-color" aria-haspopup="menu" [attr.aria-label]="'Workspace: ' + workspaces.activeName()" (click)="workspaceMenu.toggle($event)">
+                <span class="truncate">{{ workspaces.activeName() }}</span>
+                @if (workspaces.busy()) {
+                    <i class="pi pi-spin pi-spinner text-xs text-muted-color" aria-hidden="true"></i>
+                } @else {
+                    <i class="pi pi-chevron-down text-xs text-muted-color" aria-hidden="true"></i>
+                }
             </button>
-            <p-menu #workspaceMenu [model]="workspaceItems" [popup]="true" appendTo="body" />
+            <p-menu #workspaceMenu [model]="workspaceItems()" [popup]="true" [style]="{ minWidth: '16rem' }" />
         </div>
 
         <div class="pointer-events-none absolute inset-x-0 mx-auto flex w-fit items-center gap-2 text-sm font-semibold" aria-hidden="true">
@@ -64,14 +69,27 @@ import { WindowControlsState } from '../core/state/window-controls.state';
 export class TitleBar {
     protected readonly windowControls = inject(WindowControlsState);
     protected readonly ui = inject(UiState);
+    protected readonly workspaces = inject(WorkspacesState);
     private readonly tabs = inject(TabsState);
+    private readonly messages = inject(MessageService);
 
-    protected readonly workspaceItems: MenuItem[] = [
-        { label: 'Overview', icon: 'pi pi-home', command: () => this.tabs.open({ kind: 'overview', title: 'Overview', collectionId: null }) },
-        { label: 'Environments', icon: 'pi pi-globe', command: () => this.tabs.open({ kind: 'environments', title: 'Environments', collectionId: null }) },
+    /** Workspaces conhecidos (o ativo marcado) seguidos das ações. */
+    protected readonly workspaceItems = computed<MenuItem[]>(() => [
+        ...this.workspaces.list().map(
+            (workspace, _, all): MenuItem => ({
+                // Nomes repetidos (ex.: o mesmo workspace importado duas vezes) ganham a pasta onde estão.
+                label: all.filter((w) => w.name === workspace.name).length > 1 && workspace.path ? `${workspace.name} (${workspace.path.split(/[\\/]/).at(-2)})` : workspace.name,
+                icon: workspace.active ? 'pi pi-check' : workspace.path ? 'pi pi-folder' : 'pi pi-desktop',
+                title: workspace.path ?? 'Local workspace',
+                disabled: workspace.missing,
+                command: () => void this.workspaces.switch(workspace.id)
+            })
+        ),
         { separator: true },
-        { label: 'Preferences', icon: 'pi pi-cog', command: () => this.tabs.open({ kind: 'settings', title: 'Preferences', collectionId: null }) }
-    ];
+        { label: 'New Workspace', icon: 'pi pi-plus', command: () => this.ui.newWorkspaceDialog.set(true) },
+        { label: 'Import Workspace', icon: 'pi pi-download', command: () => this.ui.importWorkspaceDialog.set(true) },
+        { label: 'Manage Workspaces', icon: 'pi pi-cog', command: () => this.tabs.open({ kind: 'workspaces', title: 'Workspaces', collectionId: null }) }
+    ]);
 
     protected goHome(): void {
         this.tabs.setContext(null);

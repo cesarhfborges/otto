@@ -7,14 +7,15 @@ import { MessageModule } from 'primeng/message';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { CollectionFilesGateway } from '../../core/ports';
 import { UiState } from '../../core/state/ui.state';
+import { EnterSubmit } from '../../shared/enter-submit.directive';
 
 /** Cria uma pasta dentro da coleção (agrupamento de requisições). */
 @Component({
     selector: 'app-new-folder-dialog',
-    imports: [DialogModule, ReactiveFormsModule, InputTextModule, ButtonModule, MessageModule],
+    imports: [DialogModule, ReactiveFormsModule, EnterSubmit, InputTextModule, ButtonModule, MessageModule],
     template: `
-        <p-dialog header="New Folder" [modal]="true" [visible]="!!ui.newFolderDialog()" (visibleChange)="!$event && close()" [style]="{ width: '28rem' }" [draggable]="false" appendTo="body">
-            <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" id="new-folder-form">
+        <p-dialog closeAriaLabel="Close" header="New Folder" [modal]="true" [visible]="!!ui.newFolderDialog()" (visibleChange)="!$event && close()" [style]="{ width: '28rem' }" [draggable]="false" appendTo="body">
+            <form [formGroup]="form" appEnterSubmit (ngSubmit)="submit()" class="flex flex-col gap-4" id="new-folder-form">
                 <div class="flex flex-col gap-2">
                     <label for="folder-name" class="font-medium">Name</label>
                     <input pInputText id="folder-name" formControlName="name" autocomplete="off" placeholder="users" aria-describedby="folder-name-help" />
@@ -28,7 +29,7 @@ import { UiState } from '../../core/state/ui.state';
             </form>
             <ng-template #footer>
                 <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="close()" />
-                <p-button type="submit" form="new-folder-form" label="Create" icon="pi pi-check" [loading]="busy()" [disabled]="form.invalid" />
+                <p-button label="Create" (onClick)="submit()" icon="pi pi-check" [loading]="busy()" [disabled]="form.invalid" />
             </ng-template>
         </p-dialog>
     `

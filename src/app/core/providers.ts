@@ -11,9 +11,10 @@ import {
     ElectronSettingsGateway,
     ElectronTabsGateway,
     ElectronThemeGateway,
-    ElectronWindowGateway
+    ElectronWindowGateway,
+    ElectronWorkspacesGateway
 } from './adapters/electron/electron-gateways';
-import { AppInfoGateway, CollectionFilesGateway, CollectionsGateway, DialogGateway, EnvironmentsGateway, HistoryGateway, HttpGateway, MenuEventsGateway, SettingsGateway, TabsGateway, ThemeGateway, WindowGateway } from './ports';
+import { AppInfoGateway, CollectionFilesGateway, CollectionsGateway, DialogGateway, EnvironmentsGateway, HistoryGateway, HttpGateway, MenuEventsGateway, SettingsGateway, TabsGateway, ThemeGateway, WindowGateway, WorkspacesGateway } from './ports';
 import { ThemeService } from './theme/theme.service';
 
 /** Liga os ports do renderer às implementações sobre o IPC do Electron. */
@@ -28,6 +29,7 @@ export function provideOttoCore(): EnvironmentProviders {
         { provide: MenuEventsGateway, useClass: ElectronMenuEventsGateway },
         { provide: HistoryGateway, useClass: ElectronHistoryGateway },
         { provide: TabsGateway, useClass: ElectronTabsGateway },
+        { provide: WorkspacesGateway, useClass: ElectronWorkspacesGateway },
         { provide: EnvironmentsGateway, useClass: ElectronEnvironmentsGateway },
         { provide: CollectionsGateway, useClass: ElectronCollectionsGateway },
         { provide: CollectionFilesGateway, useClass: ElectronCollectionFilesGateway },

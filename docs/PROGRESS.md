@@ -3,7 +3,7 @@
 > Fonte da verdade sobre o estado atual do software. Atualizado a cada entrega.
 > Plano original: [PLANO_IMPLEMENTACAO.md](PLANO_IMPLEMENTACAO.md).
 
-**Última atualização:** 2026-10-19 — Etapa 6 (layout estilo Bruno) adiantada e concluída a pedido; próxima: Etapa 5.
+**Última atualização:** 2026-10-19 — Pasta base de workspaces, entrada só por importação e cadastro de ambientes; próxima: Etapa 7.
 
 ## Visão geral
 
@@ -13,9 +13,9 @@
 | 2     | Banco de dados embutido (SQLite)                       | ✅ Concluída    |
 | 3     | Configuração geral do sistema e temas                  | ✅ Concluída    |
 | 4     | Ponte IPC e sistema de arquivos (local-first)          | ✅ Concluída    |
-| 5     | Motor de requisições HTTP + histórico/métricas         | ⏳ Próxima — 🟡 Parcial (executor com timeout/redirects das preferências e repositório de histórico prontos; faltam proxy/SSL e gravar histórico) |
+| 5     | Motor de requisições HTTP + histórico/métricas         | ✅ Concluída    |
 | 6     | Interface Angular (layout base e abas)                 | ✅ Concluída (adiantada, antes da 5) |
-| 7     | Editor de requisição, resposta e interpolação          | 🟡 Parcial (aba de requisição em modo leitura) |
+| 7     | Editor de requisição, resposta e interpolação          | ⏳ Próxima — 🟡 Parcial (requisição em modo leitura, mas já envia; painel de resposta básico) |
 | 8     | Collections (estilo Bruno), importação e sync OpenAPI  | 🟡 Parcial (só contratos + registry) |
 
 ## Stack efetiva
@@ -29,6 +29,8 @@
 | TypeScript    | 5.9                            | `strict` em ambos os projetos. |
 | SQLite        | `node:sqlite` (SQLite 3.53)    | Validado dentro do Electron 44; sem módulo nativo. |
 | YAML          | `yaml` 2.9 (dependência de runtime) | Formato das coleções em disco. JS puro, sem dependências; confirmado dentro do `app.asar`. |
+| ZIP           | `fflate` 0.8.2 (dependência de runtime, versão fixa) | Exportar/importar workspaces. JS puro, sem dependências. |
+| HTTP          | `undici` 7.30 (dependência de runtime, versão fixa) | `fetch` + `Agent`/`EnvHttpProxyAgent` próprios (proxy, exceções, CAs). JS puro; confirmado dentro do `app.asar`. |
 
 ## Arquitetura de pastas
 
@@ -55,7 +57,9 @@ otto/
 │   │   │   ├── request.ts        # RequestDefinition, caminhos relativos e nomes de entrada
 │   │   │   └── settings.ts       # SETTING_LEAVES: esquema das preferências (parse de patch e leitura do banco)
 │   │   ├── services/
-│   │   │   ├── http/fetch-http-executor.ts   # fetch nativo (undici), timeout, cancelamento
+│   │   │   ├── http/fetch-http-executor.ts   # fetch do undici: timeout, cancelamento, métricas, limite de tamanho
+│   │   │   ├── http/dispatcher-provider.ts   # Agent/EnvHttpProxyAgent conforme proxy e SSL (cacheado)
+│   │   │   ├── http/history-recording-executor.ts  # Decorator: grava histórico + retenção
 │   │   │   ├── collections/collection.service.ts  # Disco ↔ banco: abrir/criar, árvore, CRUD de arquivos, watcher
 │   │   │   ├── collections/slug.ts           # Nomes de arquivo seguros
 │   │   │   ├── import/importer-registry.ts   # Registro de importadores (OCP)
@@ -77,11 +81,12 @@ otto/
 │   │       ├── menu.ts           # buildAppMenu(commands)
 │   │       ├── commands.ts       # AppCommands (compartilhado por menu e tray)
 │   │       └── dialogs.ts        # DialogService
-│   │   └── testing/fixtures.ts   # fakeClock, sequentialIds, migratedMemoryDb (fora do instalador)
+│   │   └── testing/              # fixtures.ts (fakeClock, sequentialIds, migratedMemoryDb) e tls.ts (certificado de teste); fora do instalador
 │   ├── preload/preload.ts        # contextBridge → window.otto (só `import type` locais)
 │   └── shared/                   # Tipos compartilhados main ↔ preload ↔ renderer
 │       ├── ipc.ts                # IpcInvokeContract (canal → args/result), IpcEventContract
 │       ├── api.ts                # OttoApi segregada: AppApi, SettingsApi, HttpApi, DialogApi, EventsApi
+│       ├── http/build-request.ts # RequestDefinition → HttpRequest (params, headers, auth, corpo); usado pelo renderer
 │       └── models/               # Entidades: http, request, settings, history, tab, environment, collection, app, common
 └── src/                          # Renderer (Angular)
     ├── types/otto.d.ts           # window.otto
@@ -139,6 +144,18 @@ Alias TypeScript no Angular: `@shared/*` → `electron/shared/*`.
 27. **Contornos de acessibilidade no PrimeNG 21** (todos validados com axe): `ConfirmDialog` deixa `role="alertdialog"` sem nome no DOM mesmo fechado → `ConfirmState` + `ConfirmHost` sobre `p-dialog`; `Splitter` gera `role=separator` sem `aria-valuenow` → grid CSS; `Tree` não aplica `togglerAriaLabel` e o `pt` só vale no 1º nível → diretiva `TreeToggleLabel` (MutationObserver); cor primária emerald-500 tem 2,53:1 em texto no tema claro → `primary.700`.
 28. **Faixa de abas acessível**: padrão WAI-ARIA tabs com foco itinerante (setas/Home/End), `Delete` e `Ctrl+W` fecham, `Ctrl+Tab` alterna, clique do meio fecha; o "×" é atalho de mouse fora da ordem de tabulação (evita controle aninhado em `role=tab`).
 29. **Testes do main** com `node --test` sobre o JS compilado (`npm run test:electron`). Código testado não pode importar `electron`. Arquivos `*.test.js` são excluídos do instalador.
+30. **Motor HTTP com `undici` explícito** (não o `fetch` global): só assim dá para passar um `dispatcher` próprio. `DispatcherProvider` mantém um único pool de conexões enquanto proxy/SSL não mudam (a chave inclui o `mtime` do arquivo de CA); ao mudar, o anterior fecha depois que suas requisições terminam.
+31. **Proxy** via `EnvHttpProxyAgent` com `httpProxy`/`httpsProxy`/`noProxy` passados explicitamente (nunca lê `HTTP_PROXY`/`NO_PROXY` do ambiente). Exceções aceitam `host`, `.dominio`, `*.dominio` e `host:porta`. HTTP passa pelo proxy com URI absoluta (`proxyTunnel: false`); HTTPS usa túnel `CONNECT`. Credenciais podem ir na URL do proxy (`http://user:pass@proxy:3128`).
+32. **Certificados**: o Otto confia nas CAs embutidas no Node **e nas do sistema operacional** (`tls.getCACertificates('system')`), para funcionar atrás de proxies corporativos sem configuração. A CA personalizada é somada a essas (a opção `ca` do Node substitui a lista; por isso a soma). Arquivo ausente ou que não seja PEM vira erro claro na resposta; erros de certificado incluem a dica de onde ajustar.
+33. **Resposta**: corpo lido em streaming e cortado em 50 MB (`MAX_RESPONSE_BYTES`, `truncated: true`); texto decodificado pelo `charset`; conteúdo binário (imagens, PDF) vai em base64 (`bodyEncoding`). Métricas: TTFB (inclui DNS/conexão/TLS/proxy, que o `fetch` não separa), download, total, tamanho do corpo e dos headers. `User-Agent: Otto/<versão>` quando a requisição não define um.
+34. **Histórico por decorator** (`HistoryRecordingExecutor` sobre `IHttpExecutor`): grava toda execução, inclusive erros e cancelamentos (status `null`), com a origem (`collectionId` + arquivo). Remove usuário/senha embutidos na URL; se a coleção de origem sumiu, grava sem vínculo; falha ao gravar nunca afeta a resposta. Retenção em `history.maxEntries` (padrão 500, máx. 10 000, `0` desliga), aplicada a cada gravação; emite `history:changed`.
+35. **Montagem da requisição em `electron/shared/http`** (função pura, testada com `node --test` e usada pelo renderer): params/headers habilitados, headers sem diferenciar maiúsculas (o último vence), auth Bearer/Basic (UTF-8)/API key em header ou query, `Content-Type` padrão por tipo de corpo sem sobrescrever o informado, `http://` quando falta o esquema. Variáveis `{{x}}` não resolvidas na URL bloqueiam o envio com mensagem (interpolação na Etapa 7).
+36. **Respostas em memória** (`ResponsesState`, por arquivo): sobrevivem à troca de abas, guardam as 20 mais recentes e ignoram resultados de execuções substituídas. `Ctrl+Enter` envia; durante o envio o botão vira Cancel.
+37. **Workspaces = pastas no disco** (decisão do usuário, estilo Bruno): `workspace.yaml` com `version`, `name` e `collections: [{ path }]` (relativo com `/` quando a coleção está dentro do workspace, absoluto fora). Novas coleções vão por padrão para `<workspace>/collections`. O workspace padrão ("My Workspace", id `default`) não tem pasta, vive só no banco e não pode ser removido. O ativo é o aberto por último (`last_opened_at`).
+38. **O `workspace.yaml` é a fonte da verdade** da lista de coleções; a tabela `workspace_collections` (migração `003`) é a cópia usada pela barra lateral e é refeita ao carregar o workspace (pega mudanças do Git). Ao incluir/tirar coleções o arquivo é relido e editado, **preservando entradas que não existem neste computador** (de colegas); essas aparecem como aviso ao carregar. `collections_metadata.is_open` foi removido: abrir/criar coleção inclui no workspace ativo, fechar tira (sem apagar a pasta).
+39. **Abas e ambientes globais por workspace** (colunas `workspace_id`). `tabs:list|save` recebem o workspace explicitamente e o `TabsState` grava pendências (`flush`) antes de trocar, para nunca salvar abas no workspace errado.
+40. **Exportação/importação .zip** (`fflate`): o .zip é autocontido (`workspace.yaml` + `collections/<pasta>/…`, inclusive coleções de fora da pasta; ignora ocultos como `.git`). A importação recusa caminhos perigosos (absolutos, `..`, `\` — zip-slip), limita 500 MB / 20 mil arquivos, aceita uma pasta raiz única dentro do .zip, extrai para `<destino>/<slug do nome>` (precisa estar vazio) e descarta do manifesto coleções que apontariam para fora.
+41. **Diálogos com botão no rodapé**: o `p-button` não repassa o atributo `form`, então `type="submit" form="…"` no rodapé do `p-dialog` (fora do `<form>`) não fazia nada — causa do bug "Create não cria". Os botões chamam `submit()` direto e a diretiva `EnterSubmit` faz Enter num campo enviar o formulário. Todos os `p-dialog` usam `closeAriaLabel="Close"` (o botão de fechar não tinha nome acessível).
 
 ## Etapa 1 — Concluída
 
@@ -193,11 +210,51 @@ Pedido do usuário: layout semelhante ao Bruno (5 telas de referência) antes da
 - [x] Árvore revela automaticamente a requisição ativa (expande coleção e pastas)
 - [x] Verificação: `typecheck` ✅, `ng build` sem avisos ✅, `test:electron` ✅ (69 testes), E2E no Electron real via CDP (restauração da coleção após reload, clique na árvore, abas por contexto, setas do teclado, Preferences pela status bar, troca de tema, maximizar/restaurar, persistência e **restauração após reiniciar**) ✅, **axe-core sem violações** em 5 cenários (requisição e Preferences nos temas claro/escuro + Overview restaurado) ✅
 
+## Etapa 5 — Concluída
+
+- [x] `undici` 7.30 como dependência de runtime (versão fixa); `DispatcherProvider` (Agent × EnvHttpProxyAgent, CAs do sistema + CA personalizada, verificação de certificado)
+- [x] `FetchHttpExecutor` reescrito: proxy/SSL das preferências, métricas (`timings`, `headersSize`), limite de 50 MB com streaming, base64 para binários, `charset`, URL final/`redirected`, dicas em erros de certificado, `User-Agent`, `dispose()` ao encerrar
+- [x] `HistoryRecordingExecutor` (decorator) + `IHistoryRepository.prune` + preferência `history.maxEntries` (tela General) + evento `history:changed` (`HistoryApi.onChanged`)
+- [x] `HttpRequest.source` validado no IPC; `buildHttpRequest` compartilhado
+- [x] Renderer: Send habilitado (botão e `Ctrl+Enter`), Cancel durante o envio, `ResponsePanel` (status colorido, tempo, tamanho, redirecionamento, Body com JSON formatado e imagens, Headers, Timings, aviso de corte), avisos de "não aplicado" removidos de Proxy/Certificates
+- [x] `OttoPreset`: texto das mensagens (`p-message`) no tema claro em tons 700/800 — o Aura dá 4,44:1 no erro e menos em sucesso/aviso
+- [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (**93 testes**, incluindo HTTPS com certificado autoassinado recusado/aceito/CA adicional, proxy HTTP com URI absoluta, túnel CONNECT, exceções do proxy, proxy fora do ar, truncamento, binário, charset, retenção do histórico), E2E no Electron real via CDP contra servidor local (GET com params/headers, POST com Bearer e JSON via `Ctrl+Enter`, cancelamento, imagem, variável não resolvida, resposta mantida ao trocar de aba, histórico gravado com origem) ✅, **axe-core sem violações em 13 cenários** (corpo, headers, tempos, enviando, erro e imagem nos temas claro/escuro + Preferences) ✅, `electron-builder --dir` inclui `undici` e exclui testes ✅
+
+## Workspaces e correções (pedido do usuário, antes da Etapa 7)
+
+- [x] Bug: Create Collection / New Request / New Folder não criavam nada (ver decisão 41); erro de criação agora aparece no próprio diálogo
+- [x] Seletor de workspace na barra de título: lista dinâmica (ativo marcado; nomes repetidos ganham a pasta) + New Workspace, Open Workspace, Import Workspace, Manage Workspaces. Overview fica no botão Home; Environments e Preferences continuam no "+" das abas e na barra de status
+- [x] Main: migração `003-workspaces`, `SqliteWorkspaceRepository`, `YamlWorkspaceFormat`, `WorkspaceService` (listar, carregar, trocar, criar, abrir, renomear, remover da lista, exportar/importar .zip), `WorkspacesIpcModule`, diálogos nativos de workspace
+- [x] Renderer: `WorkspacesState` (orquestra a troca), diálogos New/Import Workspace, aba Manage Workspaces (trocar, renomear, exportar, mostrar na pasta, remover da lista), Overview e cabeçalho mostram o workspace ativo, Create Collection sugere `<workspace>/collections`
+- [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (105), no app real: migração de um banco existente (coleção aberta continua no My Workspace), criar workspace, criar coleção dentro dele (`workspace.yaml` atualizado), trocar, exportar e importar ✅, axe sem violações (gerenciar nos dois temas, menu, diálogos) ✅
+
+## Método da requisição editável (pedido do usuário)
+
+- [x] O método virou um `p-select` na barra de URL (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD, TRACE, CONNECT); a troca grava o arquivo da requisição na hora (árvore e aba atualizam pelo watcher) e desfaz com mensagem se falhar
+- [x] `HTTP_METHODS` ganhou TRACE e CONNECT. O `fetch` proíbe os dois (especificação), então o executor tem três caminhos: `fetch` (demais métodos), `request` do undici (TRACE, sem seguir redirecionamentos) e `node:http(s)` para CONNECT (mostra status/headers da resposta do túnel e o fecha; o alvo é o caminho `host:porta` da URL ou o próprio host; as preferências de proxy não se aplicam)
+- [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (105), troca no app real gravando o YAML ✅, axe sem violações com a lista aberta e fechada ✅
+
+## Pasta base, importação e ambientes (pedido do usuário)
+
+- [x] Preferência **Workspaces folder** (`workspaces.baseDirectory`, Preferences → General); vazio = `Documentos/otto` (via `app.getPath('documents')`, informado em `AppInfo.defaultBaseDirectory`). Estrutura: `<base>/<workspace>/workspace.yaml` e `<base>/<workspace>/collections/<coleção>/otto.yaml` + requisições
+- [x] **New Workspace** e **Create Collection** pedem só o nome (o local vem da pasta base / do workspace ativo). Nome cujo slug já existe como pasta é recusado com mensagem
+- [x] **Sem "abrir"**: removidos Open Workspace, Open Collection (menu de workspace, Manage Workspaces, barra lateral, Overview, menu nativo, tray). Workspaces e coleções de fora entram só por **importação**, que **copia** para a pasta base: Import Workspace (.zip), Import Collection (.zip exportado ou pasta com `otto.yaml`; a origem não é alterada). Novo **Export Collection** (.zip). Menu nativo: `Ctrl+O` = Import Collection…
+- [x] O "My Workspace" antigo (sem pasta) ganha `<base>/my-workspace` ao carregar; as coleções que ele já tinha continuam onde estavam (caminhos absolutos no `workspace.yaml`) — nada é movido
+- [x] "Close Collection" virou **Remove from Workspace** (tira do workspace; a pasta continua no disco)
+- [x] **Cadastro de ambientes** (não existia — só listagem): aba Environments com lista (criar, duplicar, excluir com confirmação) e editor (nome; variáveis com habilitar, nome, valor, "secret" que oculta o valor; salvar/descartar, aviso de alterações não salvas). Serve para os globais do workspace (Overview → Environments, "+" das abas) e para os de cada coleção (botão ao lado do seletor de ambiente, menu da coleção). O seletor da coleção lista os ambientes criados; excluir o selecionado limpa a seleção
+- [x] `OttoPreset`: botões de texto/contorno "danger" em `red.700` no tema claro (o Aura dá 3,8:1)
+- [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (94; o teste do `WorkspaceService` foi removido por testar a API de "abrir"/escolher pasta que não existe mais — pedido de não escrever testes; uma expectativa de mensagem ajustada), no app real com `HOME` isolado: pasta padrão criada, diálogos só com nome, criar workspace/coleção na pasta base, exportar e importar coleção (.zip e pasta, duplicata recusada), menus sem "Open", ambientes de coleção e globais (criar, variáveis, secret, salvar, seletor) ✅, axe sem violações (ambientes claro/escuro) ✅
+
 ## Pendências e débitos conhecidos
 
-- **Proxy e SSL são salvos mas ainda não aplicados** às requisições (a tela avisa). Implementar na Etapa 5 com `undici` (`ProxyAgent`/`Agent` com `connect.rejectUnauthorized` e `ca`), o que exige `undici` como dependência de runtime do main.
-- Aba de requisição é **somente leitura** e o botão Send fica desabilitado (com tooltip) até as Etapas 5/7. Renomear/mover pela árvore, arrastar e soltar e redimensionar painéis (sidebar e requisição/resposta) ainda não existem.
-- Seleção de ambiente por coleção fica em `localStorage` (preferência visual); edição de ambientes chega na Etapa 7.
+- O `workspace.yaml` não é observado enquanto o app está aberto: mudanças externas (git pull) entram ao trocar de workspace ou reiniciar.
+- Ambientes de workspace ficam no SQLite (não vão no `workspace.yaml` nem no .zip exportado).
+
+- Aba de requisição é **somente leitura** (já envia; edição na Etapa 7). `auth: inherit` ainda não envia nada (depende da auth da coleção, Etapa 8). Sem tela de histórico (os dados e o evento `history:changed` já existem; o tipo de aba `history` está reservado).
+- Métricas não separam DNS/TCP/TLS (o `fetch` não expõe); dá para obter via `diagnostics_channel` do undici se for necessário. Proxy SOCKS não é suportado (a validação aceita só http/https). Sem certificado de cliente (mTLS).
+- Exibição do corpo limitada a 1 milhão de caracteres e sem syntax highlight (visualizador completo na Etapa 7). Renomear/mover pela árvore, arrastar e soltar e redimensionar painéis (sidebar e requisição/resposta) ainda não existem.
+- Seleção de ambiente por coleção fica em `localStorage` (preferência visual). A interpolação de `{{variáveis}}` no envio ainda é da Etapa 7.
+- Mudar a pasta base não move workspaces existentes (continuam onde foram criados).
 - O workspace é único ("My Workspace"); o menu dele leva às abas Overview/Environments/Preferences. Múltiplos workspaces não estão no plano.
 - Sem testes unitários do Angular (Karma precisa de Chrome; avaliar Vitest). Estados como `TabsState` são bons candidatos.
 - O estado expandido da árvore não é persistido (só é reconstruído a partir da aba ativa).

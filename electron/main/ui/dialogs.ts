@@ -5,32 +5,25 @@ import { APP_NAME, assetPath, REPOSITORY_URL } from '../config';
 export class DialogService {
     constructor(private readonly parent: () => BrowserWindow | null) {}
 
-    async pickCollectionFolder(): Promise<string | null> {
-        const options: Electron.OpenDialogOptions = {
-            title: 'Open Collection',
-            buttonLabel: 'Open',
-            properties: ['openDirectory', 'createDirectory']
-        };
-        const win = this.parent();
-        const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
-
-        return result.canceled ? null : (result.filePaths[0] ?? null);
+    /** Pasta de uma coleção a importar (será copiada para o workspace). */
+    pickCollectionFolder(): Promise<string | null> {
+        return this.pickPath({ title: 'Import Collection from Folder', buttonLabel: 'Import', properties: ['openDirectory'] });
     }
 
-    async chooseCollectionLocation(): Promise<string | null> {
-        const options: Electron.OpenDialogOptions = {
-            title: 'Choose where to create the collection',
-            buttonLabel: 'Choose',
-            properties: ['openDirectory', 'createDirectory']
-        };
-        const win = this.parent();
-        const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
-
-        return result.canceled ? null : (result.filePaths[0] ?? null);
+    pickCollectionArchive(): Promise<string | null> {
+        return this.pickPath({ title: 'Import Collection', buttonLabel: 'Import', properties: ['openFile'], filters: [{ name: 'Otto collection (ZIP)', extensions: ['zip'] }] });
     }
 
-    async pickCertificateFile(): Promise<string | null> {
-        const options: Electron.OpenDialogOptions = {
+    saveCollectionArchive(defaultName: string): Promise<string | null> {
+        return this.savePath('Export Collection', defaultName, 'Otto collection (ZIP)');
+    }
+
+    chooseBaseDirectory(defaultPath?: string): Promise<string | null> {
+        return this.pickPath({ title: 'Choose the base folder for workspaces', buttonLabel: 'Choose', properties: ['openDirectory', 'createDirectory'], ...(defaultPath && { defaultPath }) });
+    }
+
+    pickCertificateFile(): Promise<string | null> {
+        return this.pickPath({
             title: 'Select CA Certificate',
             buttonLabel: 'Select',
             properties: ['openFile'],
@@ -38,11 +31,15 @@ export class DialogService {
                 { name: 'Certificates', extensions: ['pem', 'crt', 'cer'] },
                 { name: 'All Files', extensions: ['*'] }
             ]
-        };
-        const win = this.parent();
-        const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+        });
+    }
 
-        return result.canceled ? null : (result.filePaths[0] ?? null);
+    pickWorkspaceArchive(): Promise<string | null> {
+        return this.pickPath({ title: 'Import Workspace', buttonLabel: 'Import', properties: ['openFile'], filters: [{ name: 'Otto workspace (ZIP)', extensions: ['zip'] }] });
+    }
+
+    saveWorkspaceArchive(defaultName: string): Promise<string | null> {
+        return this.savePath('Export Workspace', defaultName, 'Otto workspace (ZIP)');
     }
 
     /** Janela "Sobre" para Windows/Linux (no macOS usamos o painel nativo). */
@@ -58,5 +55,25 @@ export class DialogService {
         const win = this.parent();
 
         await (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options));
+    }
+
+    private async pickPath(options: Electron.OpenDialogOptions): Promise<string | null> {
+        const win = this.parent();
+        const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+    }
+
+    /** Salvar como .zip (acrescenta a extensão se o usuário não digitar). */
+    private async savePath(title: string, defaultName: string, filterName: string): Promise<string | null> {
+        const options: Electron.SaveDialogOptions = { title, buttonLabel: 'Export', defaultPath: defaultName, filters: [{ name: filterName, extensions: ['zip'] }] };
+        const win = this.parent();
+        const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+
+        if (result.canceled || !result.filePath) {
+            return null;
+        }
+
+        return result.filePath.toLowerCase().endsWith('.zip') ? result.filePath : `${result.filePath}.zip`;
     }
 }

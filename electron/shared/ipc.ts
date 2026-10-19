@@ -24,7 +24,10 @@ import type {
     SettingsPatch,
     TabState,
     ThemeState,
-    WindowState
+    WindowState,
+    LoadedWorkspace,
+    Workspace,
+    WorkspaceSummary
 } from './models';
 
 export interface IpcInvokeContract {
@@ -39,14 +42,27 @@ export interface IpcInvokeContract {
     'theme:get': { args: []; result: ThemeState };
     'http:send': { args: [request: HttpRequest]; result: HttpResult };
     'http:cancel': { args: [id: string]; result: boolean };
-    'dialog:open-collection': { args: []; result: string | null };
     'dialog:pick-certificate': { args: []; result: string | null };
-    'dialog:choose-collection-location': { args: []; result: string | null };
+    'dialog:pick-collection-folder': { args: []; result: string | null };
+    'dialog:pick-collection-archive': { args: []; result: string | null };
+    'dialog:save-collection-archive': { args: [defaultName: string]; result: string | null };
+    'dialog:pick-workspace-archive': { args: []; result: string | null };
+    'dialog:save-workspace-archive': { args: [defaultName: string]; result: string | null };
+    'dialog:choose-base-directory': { args: [current?: string]; result: string | null };
     'history:list': { args: [query?: HistoryQuery]; result: HistoryEntry[] };
     'history:delete': { args: [id: EntityId]; result: boolean };
     'history:clear': { args: []; result: number };
-    'tabs:list': { args: []; result: TabState[] };
-    'tabs:save': { args: [tabs: TabState[]]; result: void };
+    'tabs:list': { args: [workspaceId: EntityId]; result: TabState[] };
+    'tabs:save': { args: [workspaceId: EntityId, tabs: TabState[]]; result: void };
+    'workspaces:list': { args: []; result: WorkspaceSummary[] };
+    'workspaces:load': { args: []; result: LoadedWorkspace };
+    'workspaces:switch': { args: [id: EntityId]; result: Workspace };
+    'workspaces:create': { args: [name: string]; result: Workspace };
+    'workspaces:rename': { args: [id: EntityId, name: string]; result: Workspace };
+    'workspaces:remove': { args: [id: EntityId]; result: void };
+    'workspaces:export': { args: [id: EntityId, file: string]; result: void };
+    'workspaces:import': { args: [file: string]; result: Workspace };
+    'workspaces:reveal': { args: [id: EntityId]; result: void };
     'environments:list': { args: [collectionId: EntityId | null]; result: Environment[] };
     'environments:get': { args: [id: EntityId]; result: Environment | null };
     'environments:create': { args: [input: NewEnvironment]; result: Environment };
@@ -57,8 +73,9 @@ export interface IpcInvokeContract {
     'collections:create': { args: [input: NewCollectionMetadata]; result: CollectionMetadata };
     'collections:update': { args: [id: EntityId, patch: Partial<NewCollectionMetadata>]; result: CollectionMetadata | null };
     'collections:delete': { args: [id: EntityId]; result: boolean };
-    'collections:open': { args: [directory: string]; result: OpenedCollection };
-    'collections:new': { args: [parentDirectory: string, name: string]; result: OpenedCollection };
+    'collections:new': { args: [name: string]; result: OpenedCollection };
+    'collections:import': { args: [source: string]; result: OpenedCollection };
+    'collections:export': { args: [id: EntityId, file: string]; result: void };
     'collections:close': { args: [id: EntityId]; result: void };
     'collections:tree': { args: [id: EntityId]; result: CollectionTree };
     'collection-files:read-request': { args: [collectionId: EntityId, path: string]; result: RequestDefinition };
@@ -84,6 +101,10 @@ export interface IpcEventContract {
     'theme:changed': ThemeState;
     /** Conteúdo da coleção mudou no disco (pelo app ou externamente). */
     'collections:changed': { collectionId: EntityId };
+    /** Uma execução foi registrada no histórico (ou registros antigos foram apagados). */
+    'history:changed': null;
+    /** Lista de workspaces, ativo ou coleções de um workspace mudaram. */
+    'workspaces:changed': null;
 }
 
 export type IpcEventChannel = keyof IpcEventContract;

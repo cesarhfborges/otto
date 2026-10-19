@@ -49,18 +49,35 @@ const api: OttoApi = {
         cancel: (id) => invoke('http:cancel', id)
     },
     dialog: {
-        openCollection: () => invoke('dialog:open-collection'),
         pickCertificate: () => invoke('dialog:pick-certificate'),
-        chooseCollectionLocation: () => invoke('dialog:choose-collection-location')
+        pickCollectionFolder: () => invoke('dialog:pick-collection-folder'),
+        pickCollectionArchive: () => invoke('dialog:pick-collection-archive'),
+        saveCollectionArchive: (defaultName) => invoke('dialog:save-collection-archive', defaultName),
+        pickWorkspaceArchive: () => invoke('dialog:pick-workspace-archive'),
+        saveWorkspaceArchive: (defaultName) => invoke('dialog:save-workspace-archive', defaultName),
+        chooseBaseDirectory: (current) => invoke('dialog:choose-base-directory', current)
     },
     history: {
         list: (query) => invoke('history:list', query),
         delete: (id) => invoke('history:delete', id),
-        clear: () => invoke('history:clear')
+        clear: () => invoke('history:clear'),
+        onChanged: (listener) => subscribe('history:changed', () => listener())
     },
     tabs: {
-        list: () => invoke('tabs:list'),
-        save: (tabs) => invoke('tabs:save', tabs)
+        list: (workspaceId) => invoke('tabs:list', workspaceId),
+        save: (workspaceId, tabs) => invoke('tabs:save', workspaceId, tabs)
+    },
+    workspaces: {
+        list: () => invoke('workspaces:list'),
+        load: () => invoke('workspaces:load'),
+        switch: (id) => invoke('workspaces:switch', id),
+        create: (name) => invoke('workspaces:create', name),
+        rename: (id, name) => invoke('workspaces:rename', id, name),
+        remove: (id) => invoke('workspaces:remove', id),
+        export: (id, file) => invoke('workspaces:export', id, file),
+        import: (file) => invoke('workspaces:import', file),
+        reveal: (id) => invoke('workspaces:reveal', id),
+        onChanged: (listener) => subscribe('workspaces:changed', () => listener())
     },
     environments: {
         list: (collectionId) => invoke('environments:list', collectionId),
@@ -75,8 +92,9 @@ const api: OttoApi = {
         create: (input) => invoke('collections:create', input),
         update: (id, patch) => invoke('collections:update', id, patch),
         delete: (id) => invoke('collections:delete', id),
-        open: (directory) => invoke('collections:open', directory),
-        createOnDisk: (parentDirectory, name) => invoke('collections:new', parentDirectory, name),
+        createOnDisk: (name) => invoke('collections:new', name),
+        import: (source) => invoke('collections:import', source),
+        export: (id, file) => invoke('collections:export', id, file),
         close: (id) => invoke('collections:close', id),
         tree: (id) => invoke('collections:tree', id),
         onChanged: (listener) => subscribe('collections:changed', listener)

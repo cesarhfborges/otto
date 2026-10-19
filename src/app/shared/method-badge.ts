@@ -9,6 +9,9 @@ const COLORS: Partial<Record<HttpMethod, string>> = {
     DELETE: 'var(--otto-method-delete)'
 };
 
+/** Abreviações para a árvore (largura fixa). */
+const COMPACT_LABELS: Partial<Record<HttpMethod, string>> = { DELETE: 'DEL', OPTIONS: 'OPT', CONNECT: 'CONN' };
+
 /** Rótulo colorido do método HTTP (cores com contraste AA nos dois temas). */
 @Component({
     selector: 'app-method-badge',
@@ -28,7 +31,7 @@ export class MethodBadge {
     protected readonly label = computed(() => {
         const method = this.method();
 
-        return method === null ? '???' : this.compact() && method === 'DELETE' ? 'DEL' : this.compact() && method === 'OPTIONS' ? 'OPT' : method;
+        return method === null ? '???' : this.compact() ? (COMPACT_LABELS[method] ?? method) : method;
     });
 
     protected readonly color = computed(() => {

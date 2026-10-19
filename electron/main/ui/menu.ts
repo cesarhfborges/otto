@@ -31,7 +31,7 @@ export function buildAppMenu(commands: AppCommands): Menu {
             submenu: [
                 { label: 'New Request', accelerator: 'CmdOrCtrl+N', click: () => commands.newRequest() },
                 { label: 'New Collection', accelerator: 'CmdOrCtrl+Shift+N', click: () => commands.newCollection() },
-                { label: 'Open Collection…', accelerator: 'CmdOrCtrl+O', click: () => void commands.openCollection() },
+                { label: 'Import Collection…', accelerator: 'CmdOrCtrl+O', click: () => commands.importCollection() },
                 separator,
                 { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => commands.save() },
                 separator,

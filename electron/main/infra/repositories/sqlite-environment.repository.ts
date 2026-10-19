@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
-import type { EntityId, Environment, EnvironmentVariable, NewEnvironment } from '../../../shared/models';
+import { DEFAULT_WORKSPACE_ID, type EntityId, type Environment, type EnvironmentVariable, type NewEnvironment } from '../../../shared/models';
 import type { IClock, IEnvironmentRepository, IIdGenerator } from '../../core/contracts';
 import { fromSqlJson, toSqlNullable } from '../database/sqlite';
 
@@ -38,27 +38,27 @@ export class SqliteEnvironmentRepository implements IEnvironmentRepository {
         return (this.db.prepare('SELECT * FROM environments ORDER BY name COLLATE NOCASE, rowid').all() as unknown as EnvironmentRow[]).map(toEnvironment);
     }
 
-    findByCollection(collectionId: EntityId | null): Environment[] {
+    findByCollection(collectionId: EntityId | null, workspaceId: EntityId = DEFAULT_WORKSPACE_ID): Environment[] {
         const rows =
             collectionId === null
-                ? this.db.prepare('SELECT * FROM environments WHERE collection_id IS NULL ORDER BY name COLLATE NOCASE, rowid').all()
+                ? this.db.prepare('SELECT * FROM environments WHERE collection_id IS NULL AND workspace_id = ? ORDER BY name COLLATE NOCASE, rowid').all(workspaceId)
                 : this.db.prepare('SELECT * FROM environments WHERE collection_id = ? ORDER BY name COLLATE NOCASE, rowid').all(collectionId);
 
         return (rows as unknown as EnvironmentRow[]).map(toEnvironment);
     }
 
-    create(input: NewEnvironment): Environment {
+    create(input: NewEnvironment, workspaceId: EntityId = DEFAULT_WORKSPACE_ID): Environment {
         const now = this.clock.now();
         const created: Environment = { ...input, id: this.ids.next(), createdAt: now, updatedAt: now };
 
         this.db
-            .prepare('INSERT INTO environments (id, collection_id, name, variables, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-            .run(created.id, toSqlNullable(created.collectionId), created.name, JSON.stringify(created.variables), created.createdAt, created.updatedAt);
+            .prepare('INSERT INTO environments (id, collection_id, workspace_id, name, variables, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            .run(created.id, toSqlNullable(created.collectionId), created.collectionId === null ? workspaceId : null, created.name, JSON.stringify(created.variables), created.createdAt, created.updatedAt);
 
         return created;
     }
 
-    update(id: EntityId, patch: Partial<NewEnvironment>): Environment | null {
+    update(id: EntityId, patch: Partial<NewEnvironment>, workspaceId: EntityId = DEFAULT_WORKSPACE_ID): Environment | null {
         const current = this.findById(id);
 
         if (!current) {
@@ -67,7 +67,10 @@ export class SqliteEnvironmentRepository implements IEnvironmentRepository {
 
         const updated: Environment = { ...current, ...patch, id, updatedAt: this.clock.now() };
 
-        this.db.prepare('UPDATE environments SET collection_id = ?, name = ?, variables = ?, updated_at = ? WHERE id = ?').run(toSqlNullable(updated.collectionId), updated.name, JSON.stringify(updated.variables), updated.updatedAt, id);
+        // Ao virar global, o ambiente passa a pertencer ao workspace indicado; global que continua global mantém o seu.
+        this.db
+            .prepare('UPDATE environments SET collection_id = ?, workspace_id = CASE WHEN ? IS NOT NULL THEN NULL ELSE COALESCE(workspace_id, ?) END, name = ?, variables = ?, updated_at = ? WHERE id = ?')
+            .run(toSqlNullable(updated.collectionId), toSqlNullable(updated.collectionId), workspaceId, updated.name, JSON.stringify(updated.variables), updated.updatedAt, id);
 
         return updated;
     }

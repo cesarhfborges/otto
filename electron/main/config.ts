@@ -16,3 +16,6 @@ export const rendererUrl = process.env['OTTO_RENDERER_URL'] ?? 'http://localhost
 export const rendererIndexPath = (): string => path.join(app.getAppPath(), 'dist', 'otto', 'browser', 'index.html');
 
 export const assetPath = (...segments: string[]): string => path.join(app.getAppPath(), 'assets', ...segments);
+
+/** Pasta base padrão dos workspaces: `Documentos/otto` do usuário. */
+export const defaultBaseDirectory = (): string => path.join(app.getPath('documents'), 'otto');

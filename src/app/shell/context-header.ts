@@ -9,6 +9,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { CollectionsState } from '../core/state/collections.state';
 import { EnvironmentsState } from '../core/state/environments.state';
 import { TabsState } from '../core/state/tabs.state';
+import { WorkspacesState } from '../core/state/workspaces.state';
 import { UiState } from '../core/state/ui.state';
 
 /**
@@ -37,10 +38,13 @@ import { UiState } from '../core/state/ui.state';
                         <span class="flex items-center gap-2 text-sm"><i class="pi pi-globe text-xs" aria-hidden="true"></i>{{ option.label }}</span>
                     </ng-template>
                 </p-select>
+                <button type="button" class="otto-icon-button" aria-label="Manage environments" pTooltip="Manage environments" tooltipPosition="bottom" (click)="openEnvironments(current.metadata.id)">
+                    <i class="pi pi-sliders-h" aria-hidden="true"></i>
+                </button>
             </div>
         } @else {
             <i class="pi pi-th-large ml-2 text-muted-color" aria-hidden="true"></i>
-            <h1 class="m-0 text-base font-semibold">My Workspace</h1>
+            <h1 class="m-0 text-base font-semibold">{{ workspaces.activeName() }}</h1>
         }
     `,
     host: { class: 'flex h-11 shrink-0 items-center gap-2 px-2' }
@@ -48,6 +52,7 @@ import { UiState } from '../core/state/ui.state';
 export class ContextHeader {
     private readonly tabs = inject(TabsState);
     private readonly collections = inject(CollectionsState);
+    protected readonly workspaces = inject(WorkspacesState);
     private readonly environments = inject(EnvironmentsState);
     private readonly ui = inject(UiState);
 
@@ -78,9 +83,10 @@ export class ContextHeader {
             { label: 'Overview', icon: 'pi pi-info-circle', command: () => this.tabs.open({ kind: 'collection', title: 'Overview', collectionId: id }) },
             { label: 'New Request', icon: 'pi pi-file-plus', command: () => this.ui.newRequestDialog.set({ collectionId: id, folder: '' }) },
             { label: 'New Folder', icon: 'pi pi-folder-plus', command: () => this.ui.newFolderDialog.set({ collectionId: id, folder: '' }) },
+            { label: 'Environments', icon: 'pi pi-globe', command: () => this.openEnvironments(id) },
             { separator: true },
             {
-                label: 'Close Collection',
+                label: 'Remove from Workspace',
                 icon: 'pi pi-times',
                 command: () => {
                     this.tabs.closeCollection(id);
@@ -89,6 +95,10 @@ export class ContextHeader {
             }
         ];
     });
+
+    protected openEnvironments(collectionId: EntityId): void {
+        this.tabs.open({ kind: 'environments', title: 'Environments', collectionId });
+    }
 
     constructor() {
         // Ao entrar numa coleção: carrega seus ambientes e reflete o ambiente selecionado.

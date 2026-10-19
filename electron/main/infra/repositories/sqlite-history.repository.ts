@@ -69,4 +69,10 @@ export class SqliteHistoryRepository implements IHistoryRepository {
     clear(): number {
         return Number(this.db.prepare('DELETE FROM history').run().changes);
     }
+
+    prune(keep: number): number {
+        const offset = Math.max(0, Math.trunc(keep));
+
+        return Number(this.db.prepare('DELETE FROM history WHERE rowid IN (SELECT rowid FROM history ORDER BY executed_at DESC, rowid DESC LIMIT -1 OFFSET ?)').run(offset).changes);
+    }
 }

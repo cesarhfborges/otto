@@ -36,6 +36,17 @@
 
     <form [formGroup]="form" (submit)="$event.preventDefault()" class="flex max-w-2xl flex-col gap-5">
         @switch (section()) { @case ('general') {
+        <div formGroupName="workspaces" class="flex flex-col gap-2">
+            <label for="base-directory" class="font-medium">Workspaces folder</label>
+            <div class="flex flex-wrap gap-2">
+                <input pInputText id="base-directory" class="min-w-0 flex-1 font-mono text-sm" [value]="form.controls.workspaces.controls.baseDirectory.value || appInfo()?.defaultBaseDirectory || ''" readonly aria-describedby="base-directory-help" />
+                <p-button label="Change…" icon="pi pi-folder-open" severity="secondary" [disabled]="!persistent()" (onClick)="browseBaseDirectory()" />
+                @if (form.controls.workspaces.controls.baseDirectory.value) {
+                <p-button label="Use Default" severity="secondary" [text]="true" (onClick)="resetBaseDirectory()" />
+                }
+            </div>
+            <small id="base-directory-help" class="text-muted-color"> New and imported workspaces are created here: <code>&lt;folder&gt;/&lt;workspace&gt;/collections/&lt;collection&gt;</code>. Changing it does not move existing workspaces. </small>
+        </div>
         <div class="flex items-center gap-3">
             <p-toggleswitch formControlName="minimizeToTray" inputId="minimize-to-tray" ariaLabelledBy="minimize-to-tray-label" />
             <label id="minimize-to-tray-label" for="minimize-to-tray">Keep running in the system tray when the window is closed</label>
@@ -51,6 +62,11 @@
                 <small id="timeout-help" class="text-muted-color">Use 0 to disable the timeout. Maximum {{ maxTimeoutMs }} ms (1 hour).</small>
             </div>
         </ng-container>
+        <div formGroupName="history" class="flex flex-col gap-2">
+            <label for="history-max-entries" class="font-medium">Requests kept in history</label>
+            <p-inputnumber formControlName="maxEntries" inputId="history-max-entries" [min]="0" [max]="maxHistoryEntries" [useGrouping]="false" [invalid]="controlInvalid('history.maxEntries')" ariaDescribedBy="history-help" class="w-full sm:w-48" />
+            <small id="history-help" class="text-muted-color">Older entries are removed automatically. Use 0 to stop recording history. Maximum {{ maxHistoryEntries }}.</small>
+        </div>
         } @case ('themes') {
         <div class="flex flex-col gap-3">
             <span id="theme-label" class="font-medium">Theme</span>
@@ -97,7 +113,6 @@
                 </div>
             </fieldset>
         </ng-container>
-        <p-message severity="secondary" size="small">Proxy options are saved but not yet applied to requests.</p-message>
         } @case ('certificates') {
         <ng-container formGroupName="http">
             <fieldset formGroupName="ssl" class="m-0 flex flex-col gap-4 border-0 p-0">
@@ -126,11 +141,10 @@
                         <p-button label="Clear" icon="pi pi-times" severity="secondary" [text]="true" (onClick)="clearCertificate()" />
                         }
                     </div>
-                    <small id="ca-certificate-help" class="text-muted-color">PEM file trusted in addition to the system certificates.</small>
+                    <small id="ca-certificate-help" class="text-muted-color">PEM file trusted in addition to the built-in and operating system certificates.</small>
                 </div>
             </fieldset>
         </ng-container>
-        <p-message severity="secondary" size="small">SSL options are saved but not yet applied to requests.</p-message>
         } @case ('about') { @if (appInfo(); as info) {
         <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
             <dt class="text-muted-color">Version</dt>

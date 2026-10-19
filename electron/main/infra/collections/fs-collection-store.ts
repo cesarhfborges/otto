@@ -94,7 +94,13 @@ export class FsCollectionStore implements ICollectionStore {
         return fs.readFile(absolute, 'utf-8');
     }
 
-    async writeFile(root: string, relativePath: string, content: string, options: { createOnly?: boolean } = {}): Promise<void> {
+    async readBytes(root: string, relativePath: string): Promise<Uint8Array> {
+        const { absolute } = await resolveInside(root, relativePath);
+
+        return fs.readFile(absolute);
+    }
+
+    async writeFile(root: string, relativePath: string, content: string | Uint8Array, options: { createOnly?: boolean } = {}): Promise<void> {
         const { absolute, segments } = await resolveInside(root, relativePath);
 
         if (!segments.length) {
@@ -111,7 +117,7 @@ export class FsCollectionStore implements ICollectionStore {
         const temporary = `${absolute}.${randomBytes(6).toString('hex')}.tmp`;
 
         try {
-            await fs.writeFile(temporary, content, { encoding: 'utf-8', flag: 'wx' });
+            await fs.writeFile(temporary, content, typeof content === 'string' ? { encoding: 'utf-8', flag: 'wx' } : { flag: 'wx' });
             await fs.rename(temporary, absolute);
         } catch (error) {
             await fs.rm(temporary, { force: true });

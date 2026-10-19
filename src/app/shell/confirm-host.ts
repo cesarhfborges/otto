@@ -9,7 +9,7 @@ import { ConfirmState } from '../core/state/confirm.state';
     imports: [DialogModule, ButtonModule],
     template: `
         @if (confirm.pending(); as request) {
-            <p-dialog [header]="request.header" [modal]="true" [visible]="true" (visibleChange)="!$event && confirm.answer(false)" [style]="{ width: '28rem' }" [draggable]="false" appendTo="body">
+            <p-dialog closeAriaLabel="Close" [header]="request.header" [modal]="true" [visible]="true" (visibleChange)="!$event && confirm.answer(false)" [style]="{ width: '28rem' }" [draggable]="false" appendTo="body">
                 <p class="m-0 text-sm">{{ request.message }}</p>
                 <ng-template #footer>
                     <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="confirm.answer(false)" />

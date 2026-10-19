@@ -15,11 +15,55 @@ describe('MigrationRunner', () => {
 
         assert.deepEqual(
             runner.migrate().map((m) => m.version),
-            [1, 2]
+            [1, 2, 3]
         );
-        assert.deepEqual(tables(db), ['collections_metadata', 'environments', 'history', 'schema_migrations', 'settings', 'tabs']);
+        assert.deepEqual(tables(db), ['collections_metadata', 'environments', 'history', 'schema_migrations', 'settings', 'tabs', 'workspace_collections', 'workspaces']);
         assert.deepEqual(runner.migrate(), []);
-        assert.equal(runner.applied().length, 2);
+        assert.equal(runner.applied().length, 3);
+    });
+
+    it('003 leva coleções abertas, abas e ambientes globais para o workspace padrão', () => {
+        const db = openDatabase(':memory:');
+
+        new MigrationRunner(db, MIGRATIONS.slice(0, 2), fakeClock()).migrate();
+        db.exec(`
+            INSERT INTO collections_metadata (id, name, path, created_at, updated_at, is_open) VALUES ('c1', 'A', '/a', 'x', 'x', 1), ('c2', 'B', '/b', 'x', 'x', 0);
+            INSERT INTO tabs (id, kind, title, position, collection_id) VALUES ('t1', 'request', 'Login', 0, 'c1');
+            INSERT INTO environments (id, collection_id, name, created_at, updated_at) VALUES ('g', NULL, 'Global', 'x', 'x'), ('e', 'c1', 'dev', 'x', 'x');
+        `);
+        new MigrationRunner(db, MIGRATIONS, fakeClock()).migrate();
+
+        assert.deepEqual(
+            db
+                .prepare('SELECT id, name, path FROM workspaces')
+                .all()
+                .map((row) => ({ ...row })),
+            [{ id: 'default', name: 'My Workspace', path: null }]
+        );
+        assert.deepEqual(
+            db
+                .prepare('SELECT workspace_id, collection_id FROM workspace_collections')
+                .all()
+                .map((row) => ({ ...row })),
+            [{ workspace_id: 'default', collection_id: 'c1' }]
+        );
+        assert.equal((db.prepare('SELECT workspace_id FROM tabs').get() as { workspace_id: string }).workspace_id, 'default');
+        assert.deepEqual(
+            db
+                .prepare('SELECT id, workspace_id FROM environments ORDER BY id')
+                .all()
+                .map((row) => ({ ...row })),
+            [
+                { id: 'e', workspace_id: null },
+                { id: 'g', workspace_id: 'default' }
+            ]
+        );
+        assert.ok(
+            !db
+                .prepare('PRAGMA table_info(collections_metadata)')
+                .all()
+                .some((column) => (column as { name: string }).name === 'is_open')
+        );
     });
 
     it('aplica em ordem e faz rollback de migração com erro', () => {

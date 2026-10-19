@@ -1,4 +1,4 @@
-import type { CollectionManifest, RequestDefinition } from '../../../shared/models';
+import type { CollectionManifest, RequestDefinition, WorkspaceManifest } from '../../../shared/models';
 
 /** Entrada do sistema de arquivos dentro de uma coleção. `path` é relativo à raiz e usa `/`. */
 export interface CollectionEntry {
@@ -21,8 +21,10 @@ export interface ICollectionStore {
     list(root: string): Promise<CollectionEntry[]>;
     exists(root: string, relativePath: string): Promise<boolean>;
     readFile(root: string, relativePath: string): Promise<string>;
+    /** Conteúdo bruto (exportação de arquivos que não são texto). */
+    readBytes(root: string, relativePath: string): Promise<Uint8Array>;
     /** Escrita atômica (arquivo temporário + rename); cria as pastas intermediárias. */
-    writeFile(root: string, relativePath: string, content: string, options?: { createOnly?: boolean }): Promise<void>;
+    writeFile(root: string, relativePath: string, content: string | Uint8Array, options?: { createOnly?: boolean }): Promise<void>;
     createDirectory(root: string, relativePath: string): Promise<void>;
     /** Falha se o destino já existir. */
     move(root: string, from: string, to: string): Promise<void>;
@@ -54,4 +56,11 @@ export interface ICollectionWatcher {
 /** Lixeira do sistema operacional. */
 export interface ITrash {
     trash(absolutePath: string): Promise<void>;
+}
+
+/** Formato do arquivo de manifesto do workspace (`workspace.yaml`). */
+export interface IWorkspaceFormat {
+    readonly manifestFile: string;
+    parseManifest(content: string): WorkspaceManifest;
+    serializeManifest(manifest: WorkspaceManifest): string;
 }

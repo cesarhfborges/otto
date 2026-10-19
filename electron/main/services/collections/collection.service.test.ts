@@ -47,17 +47,13 @@ describe('CollectionService', () => {
         assert.equal(opened.manifest.name, 'Pet Store API');
         assert.equal(fs.readFileSync(path.join(root, 'otto.yaml'), 'utf-8'), 'version: 1\nname: Pet Store API\n');
         assert.equal(metadata.findByPath(root)?.lastOpenedAt, '2026-05-01T00:00:00.000Z');
-        assert.equal(metadata.findByPath(root)?.open, true);
-        service.closeAll();
-        assert.equal(metadata.findByPath(root)?.open, true, 'encerrar o app mantém a coleção marcada como aberta');
         service.close(opened.metadata.id);
-        assert.equal(metadata.findByPath(root)?.open, false);
         assert.deepEqual(
             watched.map((w) => w.root),
             [root]
         );
 
-        await assert.rejects(service.create(parent, 'Pet Store API'), /already an Otto collection/);
+        await assert.rejects(service.create(parent, 'Pet Store API'), /already exists/);
     });
 
     it('reabrir atualiza o registro existente em vez de duplicar', async () => {

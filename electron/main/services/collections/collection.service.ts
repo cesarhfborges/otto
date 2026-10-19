@@ -38,8 +38,17 @@ export class CollectionService {
         private readonly clock: IClock
     ) {}
 
-    /** Abre uma pasta existente que contenha o manifesto e a registra/atualiza no banco. */
+    /** Abre uma pasta existente que contenha o manifesto: registra/atualiza no banco, observa e lê a árvore. */
     async open(directory: string): Promise<OpenedCollection> {
+        const { metadata, manifest } = await this.register(directory, this.clock.now());
+
+        this.startWatching(metadata);
+
+        return { metadata, manifest, tree: await this.buildTree(metadata.path, manifest.name) };
+    }
+
+    /** Valida a pasta e registra/atualiza a coleção no banco, sem observar nem ler a árvore. */
+    async register(directory: string, lastOpenedAt?: string): Promise<{ metadata: CollectionMetadata; manifest: CollectionManifest }> {
         const root = path.resolve(directory);
 
         if (!(await this.store.isDirectory(root))) {
@@ -47,13 +56,30 @@ export class CollectionService {
         }
 
         const manifest = await this.readManifest(root);
-        const now = this.clock.now();
         const existing = this.metadata.findByPath(root);
-        const metadata = existing ? this.metadata.update(existing.id, { name: manifest.name, lastOpenedAt: now, open: true })! : this.metadata.create({ name: manifest.name, path: root, source: null, lastOpenedAt: now, open: true });
+        const patch = { name: manifest.name, ...(lastOpenedAt && { lastOpenedAt }) };
+        const metadata = existing ? this.metadata.update(existing.id, patch)! : this.metadata.create({ name: manifest.name, path: root, source: null, lastOpenedAt: lastOpenedAt ?? null });
 
-        this.startWatching(metadata);
+        return { metadata, manifest };
+    }
 
-        return { metadata, manifest, tree: await this.buildTree(root, manifest.name) };
+    /** Arquivos da coleção (exceto ocultos e symlinks), para exportação. Caminhos relativos com `/`. */
+    async files(id: EntityId): Promise<Map<string, Uint8Array>> {
+        const root = this.resolve(id).path;
+        const files = new Map<string, Uint8Array>();
+        const collect = async (entries: CollectionEntry[]): Promise<void> => {
+            for (const entry of entries) {
+                if (entry.kind === 'directory') {
+                    await collect(entry.children);
+                } else {
+                    files.set(entry.path, await this.store.readBytes(root, entry.path));
+                }
+            }
+        };
+
+        await collect(await this.store.list(root));
+
+        return files;
     }
 
     /** Cria `parentDirectory/<slug do nome>` com o manifesto e abre a coleção. */
@@ -61,7 +87,7 @@ export class CollectionService {
         const root = path.join(path.resolve(parentDirectory), slugify(name, 'collection'));
 
         if (await this.store.exists(root, this.format.manifestFile).catch(() => false)) {
-            throw new Error(`"${root}" is already an Otto collection. Use Open Collection instead.`);
+            throw new Error(`A collection folder named "${path.basename(root)}" already exists. Choose another name.`);
         }
 
         await this.store.createRoot(root);
@@ -132,16 +158,12 @@ export class CollectionService {
         this.emitChanged(id);
     }
 
-    /** Fecha na barra lateral e para de observar a pasta (a coleção continua registrada no banco). */
+    /** Para de observar a pasta (a coleção continua registrada no banco). */
     close(id: EntityId): void {
         this.stopWatching(id);
-
-        if (this.metadata.findById(id)?.open) {
-            this.metadata.update(id, { open: false });
-        }
     }
 
-    /** Ao encerrar o app: só libera os watchers, mantendo `open` para reabrir na próxima vez. */
+    /** Ao encerrar o app ou trocar de workspace: libera todos os watchers. */
     closeAll(): void {
         for (const id of [...this.watchers.keys()]) {
             this.stopWatching(id);
@@ -169,6 +191,11 @@ export class CollectionService {
         return collection;
     }
 
+    /** Valida o conteúdo de um `otto.yaml` (ex.: de uma coleção sendo importada). */
+    parseManifest(content: string): CollectionManifest {
+        return this.format.parseManifest(content);
+    }
+
     private async readManifest(root: string): Promise<CollectionManifest> {
         let content: string;
 
@@ -176,7 +203,7 @@ export class CollectionService {
             content = await this.store.readFile(root, this.format.manifestFile);
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-                throw new Error(`"${root}" is not an Otto collection: ${this.format.manifestFile} not found. Use New Collection to create one.`);
+                throw new Error(`"${root}" is not an Otto collection: ${this.format.manifestFile} not found.`);
             }
 
             throw error;

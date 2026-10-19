@@ -1,6 +1,17 @@
-export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
+import type { EntityId } from './common';
+
+export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD', 'TRACE', 'CONNECT'] as const;
 
 export type HttpMethod = (typeof HTTP_METHODS)[number];
+
+/** Corpos maiores são truncados (evita estourar a memória do main e do renderer). */
+export const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
+
+/** Arquivo da coleção que originou a requisição (vai para o histórico). */
+export interface HttpRequestSource {
+    collectionId: EntityId;
+    requestPath: string;
+}
 
 /** Requisição já interpolada, pronta para ser executada pelo processo main. */
 export interface HttpRequest {
@@ -11,18 +22,38 @@ export interface HttpRequest {
     headers?: Record<string, string>;
     body?: string;
     timeoutMs?: number;
+    source?: HttpRequestSource;
+}
+
+/** Tempos em milissegundos, medidos no processo main. */
+export interface HttpTimings {
+    /** Do envio até receber os headers da resposta (inclui DNS, conexão, TLS e proxy). */
+    ttfbMs: number;
+    /** Download do corpo. */
+    downloadMs: number;
+    totalMs: number;
 }
 
 export interface HttpResponse {
+    /** URL final (após redirecionamentos). */
     url: string;
+    redirected: boolean;
     status: number;
     statusText: string;
     headers: Array<[string, string]>;
+    contentType: string | null;
+    /** Corpo como texto (`utf8`) ou, para conteúdo binário (imagens, PDF...), em `base64`. */
     body: string;
-    /** Tamanho do corpo em bytes. */
+    bodyEncoding: 'utf8' | 'base64';
+    /** Tamanho do corpo em bytes (após descompressão). */
     size: number;
-    /** Tempo total (até o fim do download do corpo) em milissegundos. */
+    /** Tamanho aproximado da linha de status + headers, em bytes. */
+    headersSize: number;
+    /** O corpo passou de `MAX_RESPONSE_BYTES` e foi cortado. */
+    truncated: boolean;
+    /** Tempo total, igual a `timings.totalMs`. */
     timeMs: number;
+    timings: HttpTimings;
 }
 
 export type HttpResult = { ok: true; response: HttpResponse } | { ok: false; error: string; timeMs: number };

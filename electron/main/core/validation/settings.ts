@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { DEFAULT_SETTINGS, MAX_TIMEOUT_MS, THEME_MODES, type OttoSettings, type SettingsPatch } from '../../../shared/models';
+import { DEFAULT_SETTINGS, MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, THEME_MODES, type OttoSettings, type SettingsPatch } from '../../../shared/models';
 import type { WindowBounds } from '../contracts';
 import { isRecord, optionalString, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
@@ -42,6 +42,7 @@ function parseProxyUrl(value: unknown, field: string): string {
     return url;
 }
 
+/** Caminho absoluto opcional (vazio → `null`). Usado pelo certificado de CA e pela pasta base. */
 function parseCertificatePath(value: unknown, field: string): string | null {
     const file = optionalString(value, field, { allowEmpty: true, maxLength: 4_096 });
 
@@ -68,7 +69,9 @@ export const SETTING_LEAVES: readonly SettingLeaf[] = [
     leaf('http.proxy.url', parseProxyUrl),
     leaf('http.proxy.bypass', (v, f) => requireString(v, f, { allowEmpty: true, maxLength: 2_000 }).trim()),
     leaf('http.ssl.verifyCertificates', requireBoolean),
-    leaf('http.ssl.caCertificatePath', parseCertificatePath)
+    leaf('http.ssl.caCertificatePath', parseCertificatePath),
+    leaf('workspaces.baseDirectory', (v, f) => parseCertificatePath(v, f) ?? ''),
+    leaf('history.maxEntries', (v, f) => requireInteger(v, f, 0, MAX_HISTORY_ENTRIES))
 ];
 
 /** `undefined` quando algum nível do caminho não existe. Lança se um nível intermediário não for objeto. */

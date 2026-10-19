@@ -19,8 +19,6 @@ export interface CollectionMetadata extends Timestamps {
     path: string;
     source: CollectionSource | null;
     lastOpenedAt: IsoDateTime | null;
-    /** Aberta na barra lateral (reaberta ao iniciar o app). */
-    open: boolean;
 }
 
 export type NewCollectionMetadata = Omit<CollectionMetadata, 'id' | keyof Timestamps>;

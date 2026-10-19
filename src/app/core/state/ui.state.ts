@@ -27,6 +27,9 @@ export class UiState {
     readonly newCollectionDialog = signal(false);
     readonly newRequestDialog = signal<NewRequestTarget | null>(null);
     readonly newFolderDialog = signal<NewRequestTarget | null>(null);
+    readonly newWorkspaceDialog = signal(false);
+    readonly importWorkspaceDialog = signal(false);
+    readonly importCollectionDialog = signal(false);
 
     constructor() {
         effect(() => {

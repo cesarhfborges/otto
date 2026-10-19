@@ -6,11 +6,15 @@ import { MenuEventsGateway } from '../core/ports';
 import { CollectionsState } from '../core/state/collections.state';
 import { TabsState } from '../core/state/tabs.state';
 import { UiState } from '../core/state/ui.state';
+import { WorkspacesState } from '../core/state/workspaces.state';
 import { ThemeService } from '../core/theme/theme.service';
 import { CollectionsSidebar } from '../features/collections/collections-sidebar';
 import { NewCollectionDialog } from '../features/collections/new-collection-dialog';
 import { NewFolderDialog } from '../features/collections/new-folder-dialog';
 import { NewRequestDialog } from '../features/collections/new-request-dialog';
+import { ImportCollectionDialog } from '../features/collections/import-collection-dialog';
+import { ImportWorkspaceDialog } from '../features/workspace/import-workspace-dialog';
+import { NewWorkspaceDialog } from '../features/workspace/new-workspace-dialog';
 import { ConfirmHost } from './confirm-host';
 import { ContextHeader } from './context-header';
 import { StatusBar } from './status-bar';
@@ -24,7 +28,7 @@ import { TitleBar } from './title-bar';
  */
 @Component({
     selector: 'app-shell',
-    imports: [TitleBar, CollectionsSidebar, ContextHeader, TabStrip, TabHost, StatusBar, NewCollectionDialog, NewRequestDialog, NewFolderDialog, ConfirmHost, ToastModule],
+    imports: [TitleBar, CollectionsSidebar, ContextHeader, TabStrip, TabHost, StatusBar, NewCollectionDialog, NewRequestDialog, NewFolderDialog, NewWorkspaceDialog, ImportWorkspaceDialog, ImportCollectionDialog, ConfirmHost, ToastModule],
     providers: [MessageService],
     template: `
         <app-title-bar />
@@ -43,6 +47,9 @@ import { TitleBar } from './title-bar';
         <app-new-collection-dialog />
         <app-new-request-dialog />
         <app-new-folder-dialog />
+        <app-new-workspace-dialog />
+        <app-import-workspace-dialog />
+        <app-import-collection-dialog />
         <p-toast position="bottom-right" />
         <app-confirm-host />
     `,
@@ -57,13 +64,21 @@ export class Shell {
     private readonly collections = inject(CollectionsState);
     private readonly theme = inject(ThemeService);
     private readonly messages = inject(MessageService);
+    private readonly workspaces = inject(WorkspacesState);
 
     constructor() {
-        void this.restoreWorkspace();
+        void this.workspaces.load();
 
         inject(DestroyRef).onDestroy(inject(MenuEventsGateway).onMenuAction((action) => this.onMenuAction(action)));
 
         // Falhas de abrir/criar coleções (pasta inválida, sem permissão...) viram notificações.
+        // Coleções do workspace que não existem neste computador (ex.: workspace compartilhado via Git).
+        effect(() => {
+            for (const { path, error } of this.workspaces.failed()) {
+                this.messages.add({ severity: 'warn', summary: 'Collection not available', detail: `${path}: ${error}`, life: 8000 });
+            }
+        });
+
         effect(() => {
             const error = this.collections.error();
 
@@ -89,11 +104,6 @@ export class Shell {
         }
     }
 
-    private async restoreWorkspace(): Promise<void> {
-        await this.collections.restore();
-        await this.tabs.restore(this.collections.openedIds());
-    }
-
     private onMenuAction(action: MenuAction): void {
         switch (action.type) {
             case 'toggle-theme':
@@ -102,8 +112,8 @@ export class Shell {
             case 'open-settings':
                 this.tabs.open({ kind: 'settings', title: 'Preferences', collectionId: null });
                 break;
-            case 'open-collection':
-                void this.openCollection(action.path);
+            case 'import-collection':
+                this.ui.importCollectionDialog.set(true);
                 break;
             case 'new-collection':
                 this.ui.newCollectionDialog.set(true);
@@ -122,14 +132,6 @@ export class Shell {
             case 'save':
                 // Edição de requisições chega com o editor (Etapa 7).
                 break;
-        }
-    }
-
-    private async openCollection(path: string): Promise<void> {
-        const opened = await this.collections.open(path);
-
-        if (opened) {
-            this.tabs.open({ kind: 'collection', title: 'Overview', collectionId: opened.metadata.id });
         }
     }
 }

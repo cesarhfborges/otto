@@ -8,5 +8,6 @@ export const TAB_ICONS: Record<TabKind, string> = {
     settings: 'pi pi-cog',
     collection: 'pi pi-box',
     request: 'pi pi-file',
-    history: 'pi pi-history'
+    history: 'pi pi-history',
+    workspaces: 'pi pi-th-large'
 };

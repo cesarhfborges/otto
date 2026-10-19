@@ -1,14 +1,18 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
-import type { EntityId, KeyValue, RequestDefinition } from '@shared/models';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { HTTP_METHODS, type EntityId, type HttpMethod, type KeyValue, type RequestDefinition } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
 import { TabsModule } from 'primeng/tabs';
-import { TooltipModule } from 'primeng/tooltip';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { CollectionFilesGateway } from '../../core/ports';
 import { CollectionsState } from '../../core/state/collections.state';
+import { responseKey, ResponsesState } from '../../core/state/responses.state';
 import { MethodBadge } from '../../shared/method-badge';
+import { ResponsePanel } from './response-panel';
 
 const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
     none: 'No authentication',
@@ -24,7 +28,7 @@ const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
  */
 @Component({
     selector: 'app-request-view',
-    imports: [NgTemplateOutlet, TabsModule, ButtonModule, TooltipModule, MessageModule, MethodBadge],
+    imports: [NgTemplateOutlet, ReactiveFormsModule, TabsModule, ButtonModule, MessageModule, SelectModule, MethodBadge, ResponsePanel],
     template: `
         @if (error(); as message) {
             <p-message severity="error" styleClass="m-4"
@@ -32,8 +36,15 @@ const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
             >
         } @else if (request(); as req) {
             <div class="flex shrink-0 items-center gap-2 px-3 pt-3">
-                <div class="flex h-9 min-w-0 flex-1 items-center gap-3 rounded-md border border-surface-200 px-3 dark:border-surface-700" role="group" aria-label="Request URL">
-                    <app-method-badge [method]="req.method" />
+                <div class="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-surface-200 pr-3 dark:border-surface-700" role="group" aria-label="Request URL">
+                    <p-select [formControl]="methodControl" [options]="methods" ariaLabel="HTTP method" scrollHeight="none" styleClass="otto-method-select" panelStyleClass="otto-method-panel" [style]="{ width: '7.5rem' }">
+                        <ng-template #selectedItem let-method>
+                            <app-method-badge [method]="method" />
+                        </ng-template>
+                        <ng-template #item let-method>
+                            <app-method-badge [method]="method" />
+                        </ng-template>
+                    </p-select>
                     <span class="min-w-0 flex-1 truncate font-mono text-sm" [attr.aria-label]="req.url || 'No URL'">
                         @for (part of urlParts(); track $index) {
                             <span [class]="part.variable ? 'text-primary-700 dark:text-primary-300' : ''">{{ part.text }}</span>
@@ -42,10 +53,18 @@ const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
                         }
                     </span>
                 </div>
-                <span pTooltip="Sending requests is not available yet" tooltipPosition="left">
-                    <p-button label="Send" icon="pi pi-send" size="small" [disabled]="true" />
-                </span>
+                @if (sending()) {
+                    <p-button label="Cancel" icon="pi pi-times" size="small" severity="secondary" (onClick)="cancel()" />
+                } @else {
+                    <p-button label="Send" icon="pi pi-send" size="small" ariaLabel="Send request (Ctrl+Enter)" (onClick)="send()" />
+                }
             </div>
+
+            @if (saveError(); as message) {
+                <p-message severity="error" size="small" styleClass="mx-3 mt-2"
+                    ><span role="alert">Could not change the method: {{ message }}</span></p-message
+                >
+            }
 
             <div class="grid min-h-0 flex-1 grid-cols-2">
                 <div class="min-h-0 overflow-auto border-r border-surface-200 dark:border-surface-700">
@@ -101,19 +120,23 @@ const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
                         </p-tabpanels>
                     </p-tabs>
                 </div>
-                <div class="min-h-0 overflow-auto">
-                    <section aria-label="Response" class="flex h-full w-full flex-col items-center justify-center gap-6 p-6 text-center">
-                        <i class="pi pi-send !text-6xl text-surface-300 dark:text-surface-600" aria-hidden="true"></i>
-                        <dl class="m-0 grid grid-cols-[auto_auto] gap-x-6 gap-y-2 text-sm">
-                            @for (shortcut of shortcuts; track shortcut.label) {
-                                <dt class="text-right text-muted-color">{{ shortcut.label }}</dt>
-                                <dd class="m-0 text-left">
-                                    <kbd class="font-sans">{{ shortcut.keys }}</kbd>
-                                </dd>
-                            }
-                        </dl>
-                    </section>
-                </div>
+                <section aria-label="Response" class="min-h-0 overflow-auto">
+                    @if (response(); as entry) {
+                        <app-response-panel [entry]="entry" />
+                    } @else {
+                        <div class="flex h-full w-full flex-col items-center justify-center gap-6 p-6 text-center">
+                            <i class="pi pi-send !text-6xl text-surface-300 dark:text-surface-600" aria-hidden="true"></i>
+                            <dl class="m-0 grid grid-cols-[auto_auto] gap-x-6 gap-y-2 text-sm">
+                                @for (shortcut of shortcuts; track shortcut.label) {
+                                    <dt class="text-right text-muted-color">{{ shortcut.label }}</dt>
+                                    <dd class="m-0 text-left">
+                                        <kbd class="font-sans">{{ shortcut.keys }}</kbd>
+                                    </dd>
+                                }
+                            </dl>
+                        </div>
+                    }
+                </section>
             </div>
         } @else {
             <p class="m-0 p-4 text-sm text-muted-color" role="status">Loading…</p>
@@ -152,7 +175,11 @@ const AUTH_LABELS: Record<RequestDefinition['auth']['type'], string> = {
             }
         </ng-template>
     `,
-    host: { class: 'flex h-full min-h-0 flex-col' }
+    host: {
+        class: 'flex h-full min-h-0 flex-col',
+        '(document:keydown.control.enter)': 'onSendShortcut($event)',
+        '(document:keydown.meta.enter)': 'onSendShortcut($event)'
+    }
 })
 export class RequestView {
     readonly collectionId = input.required<EntityId>();
@@ -160,10 +187,15 @@ export class RequestView {
 
     private readonly files = inject(CollectionFilesGateway);
     private readonly collections = inject(CollectionsState);
+    private readonly responses = inject(ResponsesState);
 
     protected readonly request = signal<RequestDefinition | null>(null);
     protected readonly error = signal<string | null>(null);
+    protected readonly saveError = signal<string | null>(null);
+    protected readonly methods = [...HTTP_METHODS];
+    protected readonly methodControl = new FormControl<HttpMethod>('GET', { nonNullable: true });
     protected readonly shortcuts = [
+        { label: 'Send Request', keys: 'Ctrl + Enter' },
         { label: 'New Request', keys: 'Ctrl + N' },
         { label: 'Preferences', keys: 'Ctrl + ,' },
         { label: 'Toggle Theme', keys: 'Ctrl + Shift + D' }
@@ -184,6 +216,10 @@ export class RequestView {
         return body && 'content' in body ? body.content : '';
     });
 
+    private readonly key = computed(() => responseKey(this.collectionId(), this.path()));
+    protected readonly response = computed(() => this.responses.get(this.key()));
+    protected readonly sending = computed(() => this.response()?.status === 'sending');
+
     protected readonly authLabel = computed(() => AUTH_LABELS[this.request()?.auth.type ?? 'none']);
 
     constructor() {
@@ -195,6 +231,59 @@ export class RequestView {
             this.collections.find(collectionId)?.tree;
             untracked(() => void this.load(collectionId, path));
         });
+
+        // O seletor reflete o arquivo; mudar o seletor grava o arquivo.
+        effect(() => {
+            const method = this.request()?.method;
+
+            if (method && method !== this.methodControl.value) {
+                this.methodControl.setValue(method, { emitEvent: false });
+            }
+        });
+        this.methodControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((method) => void this.changeMethod(method));
+    }
+
+    private async changeMethod(method: HttpMethod): Promise<void> {
+        const current = this.request();
+
+        if (!current || current.method === method) {
+            return;
+        }
+
+        const updated = { ...current, method };
+
+        // Atualiza na hora; o watcher da coleção recarrega a árvore com o novo método.
+        this.request.set(updated);
+        this.saveError.set(null);
+
+        try {
+            await this.files.saveRequest(this.collectionId(), this.path(), updated);
+        } catch (error) {
+            this.request.set(current);
+            this.saveError.set(ipcErrorMessage(error));
+        }
+    }
+
+    protected send(): void {
+        const request = this.request();
+
+        if (request) {
+            void this.responses.send(this.collectionId(), this.path(), request);
+        }
+    }
+
+    protected cancel(): void {
+        this.responses.cancel(this.key());
+    }
+
+    protected onSendShortcut(event: Event): void {
+        event.preventDefault();
+
+        if (this.sending()) {
+            return;
+        }
+
+        this.send();
     }
 
     protected asKeyValues(items: unknown): KeyValue[] {

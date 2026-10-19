@@ -100,3 +100,19 @@ body {
         cursor: default;
     }
 }
+
+/* Seletor de método embutido na barra de URL (a borda é a do grupo). */
+.p-select.otto-method-select {
+    height: 100%;
+    border: 0;
+    border-right: 1px solid var(--p-content-border-color);
+    border-radius: var(--p-content-border-radius) 0 0 var(--p-content-border-radius);
+    background: transparent;
+    box-shadow: none;
+}
+
+/* Opção selecionada/focada com fundo neutro: as cores dos métodos mantêm contraste AA. */
+.otto-method-panel .p-select-option.p-select-option-selected,
+.otto-method-panel .p-select-option.p-select-option-selected.p-focus {
+    background: var(--p-select-option-focus-background);
+}

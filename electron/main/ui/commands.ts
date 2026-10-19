@@ -16,12 +16,8 @@ export class AppCommands {
         this.window.sendMenuAction({ type: 'new-collection' });
     }
 
-    async openCollection(): Promise<void> {
-        const folder = await this.dialogs.pickCollectionFolder();
-
-        if (folder) {
-            this.window.sendMenuAction({ type: 'open-collection', path: folder });
-        }
+    importCollection(): void {
+        this.window.sendMenuAction({ type: 'import-collection' });
     }
 
     save(): void {

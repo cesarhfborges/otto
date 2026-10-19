@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import type { CollectionSource, NewCollectionMetadata } from '../../../shared/models';
-import { optionalString, requireBoolean, pickDefined, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
+import { optionalString, pickDefined, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
 const SOURCE_KINDS = ['openapi'] as const;
 
@@ -41,8 +41,7 @@ export function parseNewCollection(raw: unknown): NewCollectionMetadata {
         name: parseName(input['name']),
         path: parseCollectionPath(input['path']),
         source: parseCollectionSource(input['source']),
-        lastOpenedAt: parseLastOpenedAt(input['lastOpenedAt']),
-        open: input['open'] === undefined ? false : requireBoolean(input['open'], 'collection.open')
+        lastOpenedAt: parseLastOpenedAt(input['lastOpenedAt'])
     };
 }
 
@@ -51,7 +50,6 @@ export function parseCollectionPatch(raw: unknown): Partial<NewCollectionMetadat
         name: parseName,
         path: (v) => parseCollectionPath(v),
         source: parseCollectionSource,
-        lastOpenedAt: parseLastOpenedAt,
-        open: (v) => requireBoolean(v, 'patch.open')
+        lastOpenedAt: parseLastOpenedAt
     });
 }

@@ -18,10 +18,27 @@ import type {
     SettingsPatch,
     TabState,
     ThemeState,
-    WindowState
+    WindowState,
+    LoadedWorkspace,
+    Workspace,
+    WorkspaceSummary
 } from '@shared/models';
 import { OTTO_API, requireOttoApi } from '../../bridge/otto-api.token';
-import { AppInfoGateway, CollectionFilesGateway, CollectionsGateway, DialogGateway, EnvironmentsGateway, HistoryGateway, HttpGateway, MenuEventsGateway, SettingsGateway, TabsGateway, ThemeGateway, WindowGateway } from '../../ports';
+import {
+    AppInfoGateway,
+    CollectionFilesGateway,
+    CollectionsGateway,
+    DialogGateway,
+    EnvironmentsGateway,
+    HistoryGateway,
+    HttpGateway,
+    MenuEventsGateway,
+    SettingsGateway,
+    TabsGateway,
+    ThemeGateway,
+    WindowGateway,
+    WorkspacesGateway
+} from '../../ports';
 
 /*
  * Adapters que delegam para `window.otto` (IPC). Fora do Electron, chamadas
@@ -113,16 +130,32 @@ export class ElectronHttpGateway extends HttpGateway {
 export class ElectronDialogGateway extends DialogGateway {
     private readonly api = inject(OTTO_API);
 
-    openCollection(): Promise<string | null> {
-        return requireOttoApi(this.api).dialog.openCollection();
-    }
-
     pickCertificate(): Promise<string | null> {
         return requireOttoApi(this.api).dialog.pickCertificate();
     }
 
-    chooseCollectionLocation(): Promise<string | null> {
-        return requireOttoApi(this.api).dialog.chooseCollectionLocation();
+    pickCollectionFolder(): Promise<string | null> {
+        return requireOttoApi(this.api).dialog.pickCollectionFolder();
+    }
+
+    pickCollectionArchive(): Promise<string | null> {
+        return requireOttoApi(this.api).dialog.pickCollectionArchive();
+    }
+
+    saveCollectionArchive(defaultName: string): Promise<string | null> {
+        return requireOttoApi(this.api).dialog.saveCollectionArchive(defaultName);
+    }
+
+    pickWorkspaceArchive(): Promise<string | null> {
+        return requireOttoApi(this.api).dialog.pickWorkspaceArchive();
+    }
+
+    saveWorkspaceArchive(defaultName: string): Promise<string | null> {
+        return requireOttoApi(this.api).dialog.saveWorkspaceArchive(defaultName);
+    }
+
+    chooseBaseDirectory(current?: string): Promise<string | null> {
+        return requireOttoApi(this.api).dialog.chooseBaseDirectory(current);
     }
 }
 
@@ -150,18 +183,67 @@ export class ElectronHistoryGateway extends HistoryGateway {
     clear(): Promise<number> {
         return requireOttoApi(this.api).history.clear();
     }
+
+    onChanged(listener: () => void): () => void {
+        return this.api?.history.onChanged(listener) ?? (() => undefined);
+    }
 }
 
 @Injectable()
 export class ElectronTabsGateway extends TabsGateway {
     private readonly api = inject(OTTO_API);
 
-    list(): Promise<TabState[]> {
-        return requireOttoApi(this.api).tabs.list();
+    list(workspaceId: EntityId): Promise<TabState[]> {
+        return requireOttoApi(this.api).tabs.list(workspaceId);
     }
 
-    save(tabs: TabState[]): Promise<void> {
-        return requireOttoApi(this.api).tabs.save(tabs);
+    save(workspaceId: EntityId, tabs: TabState[]): Promise<void> {
+        return requireOttoApi(this.api).tabs.save(workspaceId, tabs);
+    }
+}
+
+@Injectable()
+export class ElectronWorkspacesGateway extends WorkspacesGateway {
+    private readonly api = inject(OTTO_API);
+
+    list(): Promise<WorkspaceSummary[]> {
+        return requireOttoApi(this.api).workspaces.list();
+    }
+
+    load(): Promise<LoadedWorkspace> {
+        return requireOttoApi(this.api).workspaces.load();
+    }
+
+    switch(id: EntityId): Promise<Workspace> {
+        return requireOttoApi(this.api).workspaces.switch(id);
+    }
+
+    create(name: string): Promise<Workspace> {
+        return requireOttoApi(this.api).workspaces.create(name);
+    }
+
+    rename(id: EntityId, name: string): Promise<Workspace> {
+        return requireOttoApi(this.api).workspaces.rename(id, name);
+    }
+
+    remove(id: EntityId): Promise<void> {
+        return requireOttoApi(this.api).workspaces.remove(id);
+    }
+
+    export(id: EntityId, file: string): Promise<void> {
+        return requireOttoApi(this.api).workspaces.export(id, file);
+    }
+
+    import(file: string): Promise<Workspace> {
+        return requireOttoApi(this.api).workspaces.import(file);
+    }
+
+    reveal(id: EntityId): Promise<void> {
+        return requireOttoApi(this.api).workspaces.reveal(id);
+    }
+
+    onChanged(listener: () => void): () => void {
+        return this.api?.workspaces.onChanged(listener) ?? (() => undefined);
     }
 }
 
@@ -214,12 +296,16 @@ export class ElectronCollectionsGateway extends CollectionsGateway {
         return requireOttoApi(this.api).collections.delete(id);
     }
 
-    open(directory: string): Promise<OpenedCollection> {
-        return requireOttoApi(this.api).collections.open(directory);
+    createOnDisk(name: string): Promise<OpenedCollection> {
+        return requireOttoApi(this.api).collections.createOnDisk(name);
     }
 
-    createOnDisk(parentDirectory: string, name: string): Promise<OpenedCollection> {
-        return requireOttoApi(this.api).collections.createOnDisk(parentDirectory, name);
+    import(source: string): Promise<OpenedCollection> {
+        return requireOttoApi(this.api).collections.import(source);
+    }
+
+    export(id: EntityId, file: string): Promise<void> {
+        return requireOttoApi(this.api).collections.export(id, file);
     }
 
     close(id: EntityId): Promise<void> {

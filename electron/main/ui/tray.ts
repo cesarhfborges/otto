@@ -72,7 +72,7 @@ export class TrayManager {
             { label: this.window.isVisible ? `Hide ${APP_NAME}` : `Show ${APP_NAME}`, click: () => this.window.toggle() },
             { type: 'separator' },
             { label: 'New Request', click: () => this.commands.newRequest() },
-            { label: 'Open Collection…', click: () => void this.commands.openCollection() },
+            { label: 'New Collection', click: () => this.commands.newCollection() },
             { type: 'separator' },
             {
                 label: 'Keep running in tray when closed',

@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
-import type { TabKind, TabState } from '../../../shared/models';
+import type { EntityId, TabKind, TabState } from '../../../shared/models';
 import type { ITabRepository } from '../../core/contracts';
 import { toSqlBool, toSqlNullable, transaction } from '../database/sqlite';
 
@@ -28,20 +28,20 @@ const toTab = (row: TabRow): TabState => ({
 export class SqliteTabRepository implements ITabRepository {
     constructor(private readonly db: DatabaseSync) {}
 
-    list(): TabState[] {
-        const rows = this.db.prepare('SELECT * FROM tabs ORDER BY position, rowid').all() as unknown as TabRow[];
+    list(workspaceId: EntityId): TabState[] {
+        const rows = this.db.prepare('SELECT * FROM tabs WHERE workspace_id = ? ORDER BY position, rowid').all(workspaceId) as unknown as TabRow[];
 
         return rows.map(toTab);
     }
 
-    replaceAll(tabs: TabState[]): void {
+    replaceAll(workspaceId: EntityId, tabs: TabState[]): void {
         transaction(this.db, () => {
-            this.db.exec('DELETE FROM tabs');
+            this.db.prepare('DELETE FROM tabs WHERE workspace_id = ?').run(workspaceId);
 
-            const insert = this.db.prepare('INSERT INTO tabs (id, kind, title, collection_id, resource_ref, position, active, draft) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+            const insert = this.db.prepare('INSERT INTO tabs (id, kind, title, collection_id, resource_ref, position, active, draft, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
 
             for (const tab of tabs) {
-                insert.run(tab.id, tab.kind, tab.title, toSqlNullable(tab.collectionId), toSqlNullable(tab.resourceRef), tab.position, toSqlBool(tab.active), toSqlNullable(tab.draft));
+                insert.run(tab.id, tab.kind, tab.title, toSqlNullable(tab.collectionId), toSqlNullable(tab.resourceRef), tab.position, toSqlBool(tab.active), toSqlNullable(tab.draft), workspaceId);
             }
         });
     }

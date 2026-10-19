@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors, type ValidatorFn } from '@angular/forms';
-import { MAX_TIMEOUT_MS, type AppInfo, type OttoSettings, type ThemeMode } from '@shared/models';
+import { MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, type AppInfo, type OttoSettings, type ThemeMode } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
@@ -62,6 +62,7 @@ export class SettingsPage {
     protected readonly currentLabel = computed(() => `${this.sections.find((s) => s.id === this.section())?.label} settings`);
     protected readonly appInfo = signal<AppInfo | null>(null);
     protected readonly maxTimeoutMs = MAX_TIMEOUT_MS;
+    protected readonly maxHistoryEntries = MAX_HISTORY_ENTRIES;
     protected readonly persistent = this.settingsState.persistent;
     protected readonly status = signal<SaveStatus>('idle');
     protected readonly errorMessage = signal<string | null>(null);
@@ -93,6 +94,12 @@ export class SettingsPage {
                 verifyCertificates: this.fb.control(true),
                 caCertificatePath: this.fb.control<string | null>(null)
             })
+        }),
+        workspaces: this.fb.group({
+            baseDirectory: this.fb.control('')
+        }),
+        history: this.fb.group({
+            maxEntries: this.fb.control(0, { validators: [Validators.required, Validators.min(0), Validators.max(MAX_HISTORY_ENTRIES)], updateOn: 'blur' })
         })
     });
 
@@ -136,6 +143,19 @@ export class SettingsPage {
         if (file) {
             this.form.controls.http.controls.ssl.controls.caCertificatePath.setValue(file);
         }
+    }
+
+    protected async browseBaseDirectory(): Promise<void> {
+        const control = this.form.controls.workspaces.controls.baseDirectory;
+        const folder = await this.dialogs.chooseBaseDirectory(control.value || this.appInfo()?.defaultBaseDirectory);
+
+        if (folder) {
+            control.setValue(folder);
+        }
+    }
+
+    protected resetBaseDirectory(): void {
+        this.form.controls.workspaces.controls.baseDirectory.setValue('');
     }
 
     protected clearCertificate(): void {

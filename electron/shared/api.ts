@@ -21,7 +21,10 @@ import type {
     SettingsPatch,
     TabState,
     ThemeState,
-    WindowState
+    WindowState,
+    LoadedWorkspace,
+    Workspace,
+    WorkspaceSummary
 } from './models';
 
 export interface AppApi {
@@ -60,12 +63,18 @@ export interface HttpApi {
 }
 
 export interface DialogApi {
-    /** Abre o seletor de pastas e retorna o caminho escolhido, ou `null` se cancelado. */
-    openCollection(): Promise<string | null>;
     /** Seletor de arquivo de certificado (PEM/CRT). */
     pickCertificate(): Promise<string | null>;
-    /** Escolhe a pasta onde uma nova coleção será criada. */
-    chooseCollectionLocation(): Promise<string | null>;
+    /** Pasta de uma coleção existente, para importar (copiar) para o workspace. */
+    pickCollectionFolder(): Promise<string | null>;
+    /** Arquivo .zip de uma coleção exportada pelo Otto. */
+    pickCollectionArchive(): Promise<string | null>;
+    saveCollectionArchive(defaultName: string): Promise<string | null>;
+    /** Arquivo .zip de um workspace exportado pelo Otto. */
+    pickWorkspaceArchive(): Promise<string | null>;
+    saveWorkspaceArchive(defaultName: string): Promise<string | null>;
+    /** Pasta base dos workspaces (Preferences). */
+    chooseBaseDirectory(current?: string): Promise<string | null>;
 }
 
 export interface HistoryApi {
@@ -73,12 +82,32 @@ export interface HistoryApi {
     delete(id: EntityId): Promise<boolean>;
     /** Retorna quantos registros foram removidos. */
     clear(): Promise<number>;
+    /** Avisa quando uma execução é registrada (para atualizar listas abertas). */
+    onChanged(listener: () => void): () => void;
 }
 
 export interface TabsApi {
-    list(): Promise<TabState[]>;
-    /** Substitui o conjunto de abas persistidas. */
-    save(tabs: TabState[]): Promise<void>;
+    list(workspaceId: EntityId): Promise<TabState[]>;
+    /** Substitui o conjunto de abas persistidas do workspace. */
+    save(workspaceId: EntityId, tabs: TabState[]): Promise<void>;
+}
+
+export interface WorkspacesApi {
+    list(): Promise<WorkspaceSummary[]>;
+    /** Abre as coleções do workspace ativo (relendo o `workspace.yaml`). */
+    load(): Promise<LoadedWorkspace>;
+    switch(id: EntityId): Promise<Workspace>;
+    /** Cria `<pasta base>/<nome>` com `workspace.yaml` e ativa. */
+    create(name: string): Promise<Workspace>;
+    rename(id: EntityId, name: string): Promise<Workspace>;
+    /** Tira da lista; a pasta no disco não é apagada. */
+    remove(id: EntityId): Promise<void>;
+    export(id: EntityId, file: string): Promise<void>;
+    /** Extrai o .zip em `<pasta base>/<nome>` e ativa. */
+    import(file: string): Promise<Workspace>;
+    /** Mostra a pasta do workspace no gerenciador de arquivos. */
+    reveal(id: EntityId): Promise<void>;
+    onChanged(listener: () => void): () => void;
 }
 
 export interface EnvironmentsApi {
@@ -97,10 +126,11 @@ export interface CollectionsApi {
     update(id: EntityId, patch: Partial<NewCollectionMetadata>): Promise<CollectionMetadata | null>;
     /** Esquece a coleção (não apaga nada do disco). */
     delete(id: EntityId): Promise<boolean>;
-    /** Abre uma pasta que contenha `otto.yaml`, registrando-a no banco. */
-    open(directory: string): Promise<OpenedCollection>;
-    /** Cria `parentDirectory/<nome>` com o manifesto e abre a coleção. */
-    createOnDisk(parentDirectory: string, name: string): Promise<OpenedCollection>;
+    /** Cria `<workspace>/collections/<nome>` com o manifesto e inclui no workspace ativo. */
+    createOnDisk(name: string): Promise<OpenedCollection>;
+    /** Copia uma coleção (pasta com `otto.yaml` ou .zip exportado) para o workspace ativo. */
+    import(source: string): Promise<OpenedCollection>;
+    export(id: EntityId, file: string): Promise<void>;
     close(id: EntityId): Promise<void>;
     tree(id: EntityId): Promise<CollectionTree>;
     /** Disparado quando arquivos da coleção mudam (pelo app, git, editor...). */
@@ -135,6 +165,7 @@ export interface OttoApi extends EventsApi {
     readonly dialog: DialogApi;
     readonly history: HistoryApi;
     readonly tabs: TabsApi;
+    readonly workspaces: WorkspacesApi;
     readonly environments: EnvironmentsApi;
     readonly collections: CollectionsApi;
     readonly collectionFiles: CollectionFilesApi;
