@@ -79,7 +79,7 @@ function savedSplitterSize(key: string, fallback: number): number {
                     [stateKey]="sidebarStateKey"
                     stateStorage="local"
                     (onResizeEnd)="sidebarSize.set(firstSize($event))"
-                    class="min-h-0 min-w-0 flex-1"
+                    class="main-splitter min-h-0 min-w-0 flex-1"
                     styleClass="h-full !rounded-none !border-0 !bg-transparent [&>.p-splitterpanel]:min-h-0 [&>.p-splitterpanel]:min-w-0 [&>.p-splitterpanel]:overflow-hidden"
                 >
                     <ng-template #panel>
@@ -117,7 +117,17 @@ function savedSplitterSize(key: string, fallback: number): number {
     host: {
         class: 'flex h-screen flex-col text-color',
         '(document:keydown)': 'onKeydown($event)'
-    }
+    },
+    styles: `
+        ::ng-deep {
+            .main-splitter {
+                > .p-splitter-gutter {
+                    //background: var(--p-primary-color);
+                    background: var(--highlight-bg);
+                }
+            }
+        }
+    `
 })
 export class Shell {
     protected readonly ui = inject(UiState);
