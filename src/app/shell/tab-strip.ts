@@ -48,7 +48,7 @@ export const TAB_PANEL_ID = 'otto-tab-panel';
                         }
                         <span class="truncate" [class.italic]="tab.kind === 'request' && !methodOf(tab)">{{ tab.title }}</span>
                     </button>
-                    <span class="otto-icon-button mr-1 !h-5 !w-5 opacity-0 group-hover:opacity-100" [class.opacity-100]="tab.id === tabs.activeId()" aria-hidden="true" title="Close tab" (click)="tabs.close(tab.id)">
+                    <span class="otto-icon-button mr-1 h-5! w-5! opacity-0 group-hover:opacity-100" [class.opacity-100]="tab.id === tabs.activeId()" aria-hidden="true" title="Close tab" (click)="tabs.close(tab.id)">
                         <i class="pi pi-times text-[0.625rem]"></i>
                     </span>
                 </div>

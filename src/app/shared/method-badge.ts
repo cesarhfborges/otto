@@ -20,7 +20,7 @@ const COMPACT_LABELS: Partial<Record<HttpMethod, string>> = { DELETE: 'DEL', OPT
         class: 'inline-block shrink-0 font-semibold uppercase tracking-wide',
         '[style.font-size]': "compact() ? '0.6875rem' : null",
         '[style.color]': 'color()',
-        '[style.min-width]': "compact() ? '2.75rem' : null"
+        '[style.min-width]': "compact() ? '1.75rem' : null"
     }
 })
 export class MethodBadge {

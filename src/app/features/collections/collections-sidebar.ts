@@ -75,7 +75,7 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
                             <span class="sr-only">(invalid file: {{ node.data.error }})</span>
                         }
                         <!-- Atalho de mouse para o menu de contexto; teclado usa a tecla de menu/Shift+F10. -->
-                        <span class="otto-icon-button justify-self-end invisible !h-5 !w-5 group-hover:visible" aria-hidden="true" (click)="openMenuFor(node, $event)">
+                        <span class="otto-icon-button invisible !h-5 !w-5 group-hover:visible" aria-hidden="true" (click)="openMenuFor(node, $event)">
                             <i class="pi pi-ellipsis-h text-xs"></i>
                         </span>
                     </span>
@@ -83,7 +83,7 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
             </p-tree>
         } @else {
             <div class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-                <i class="pi pi-box !text-3xl text-muted-color" aria-hidden="true"></i>
+                <i class="pi pi-box text-3xl! text-muted-color" aria-hidden="true"></i>
                 <p class="m-0 text-sm text-muted-color">This workspace has no collections yet.</p>
                 <div class="flex flex-col gap-2">
                     <p-button label="Create Collection" icon="pi pi-plus" size="small" (onClick)="ui.newCollectionDialog.set(true)" />
@@ -92,13 +92,24 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
             </div>
         }
 
-        <p-contextmenu #contextMenu [model]="contextItems()" appendTo="body" />
+        <p-context-menu #contextMenu [model]="contextItems()" appendTo="body" />
     `,
     host: {
         role: 'navigation',
         'aria-labelledby': 'collections-heading',
         class: 'flex min-h-0 flex-col border-r border-surface-200 bg-surface-50 dark:border-surface-800 dark:bg-surface-900'
-    }
+    },
+    styles: `
+        ::ng-deep {
+
+            .p-tree-node-label {
+                width: 100%;
+            }
+            .p-tree-node-leaf > .p-tree-node-content .p-tree-node-toggle-button {
+                display: none;
+            }
+        }
+    `
 })
 export class CollectionsSidebar {
     protected readonly collections = inject(CollectionsState);

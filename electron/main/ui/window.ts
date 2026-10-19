@@ -103,6 +103,10 @@ export class WindowManager implements IRendererNotifier {
             }
         });
 
+        // Clique direito na área arrastável da barra de título própria abriria o menu de janela
+        // do sistema, que numa janela sem moldura fica preso na tela (não fecha nem executa nada).
+        win.on('system-context-menu', (event) => event.preventDefault());
+
         for (const evt of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen'] as const) {
             win.on(evt as 'maximize', () => this.notify('window:state-changed', this.state()));
         }

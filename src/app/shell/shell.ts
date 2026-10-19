@@ -50,7 +50,7 @@ import { TitleBar } from './title-bar';
         <app-new-workspace-dialog />
         <app-import-workspace-dialog />
         <app-import-collection-dialog />
-        <p-toast position="bottom-right" />
+        <p-toast position="top-right" />
         <app-confirm-host />
     `,
     host: {

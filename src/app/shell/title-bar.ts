@@ -1,6 +1,6 @@
 import { NgOptimizedImage } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
-import { MessageService, type MenuItem } from 'primeng/api';
+import { MessageService, type MenuItem, TooltipOptions } from 'primeng/api';
 import { MenuModule } from 'primeng/menu';
 import { TooltipModule } from 'primeng/tooltip';
 import { TabsState } from '../core/state/tabs.state';
@@ -18,7 +18,7 @@ import { WorkspacesState } from '../core/state/workspaces.state';
     template: `
         <div class="app-no-drag flex items-center gap-0.5" [style.padding-left.rem]="windowControls.isMac ? 4.5 : null">
             @if (windowControls.available && !windowControls.isMac) {
-                <button #menuButton type="button" class="otto-icon-button" aria-label="Application menu" pTooltip="Menu" tooltipPosition="bottom" (click)="windowControls.showAppMenu(menuButton)">
+                <button #menuButton type="button" class="otto-icon-button" aria-label="Application menu" appendTo="body" pTooltip [tooltipOptions]="tooltipMenu" (click)="windowControls.showAppMenu(menuButton)">
                     <i class="pi pi-bars" aria-hidden="true"></i>
                 </button>
             }
@@ -72,6 +72,18 @@ export class TitleBar {
     protected readonly workspaces = inject(WorkspacesState);
     private readonly tabs = inject(TabsState);
     private readonly messages = inject(MessageService);
+
+    protected readonly tooltipMenu: TooltipOptions = {
+        tooltipLabel: 'Menu',
+        positionLeft: -30,
+        positionTop: 32,
+        tooltipEvent: 'hover',
+        tooltipPosition: 'bottom'
+        // tooltipZIndex: '99999',
+        // appendTo: 'body'
+        // tooltipPosition="top"
+        // appendTo="body"
+    };
 
     /** Workspaces conhecidos (o ativo marcado) seguidos das ações. */
     protected readonly workspaceItems = computed<MenuItem[]>(() => [
