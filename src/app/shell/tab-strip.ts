@@ -22,13 +22,15 @@ export const TAB_PANEL_ID = 'otto-tab-panel';
     selector: 'app-tab-strip',
     imports: [MenuModule, TooltipModule, MethodBadge],
     template: `
-        <div #tablist role="tablist" aria-label="Open tabs" class="flex min-w-0 items-end gap-0.5 overflow-x-auto px-2" (keydown)="onKeydown($event)">
+        <div #tablist role="tablist" aria-label="Open tabs" class="flex min-w-0 items-end gap-0.5 overflow-x-auto px-2 pt-px" (keydown)="onKeydown($event)">
             @for (tab of tabs.visibleTabs(); track tab.id) {
                 <div
                     role="presentation"
                     class="group relative flex h-8 max-w-60 shrink-0 items-center rounded-t-md border border-b-0 text-sm"
                     [class]="
-                        tab.id === tabs.activeId() ? 'border-surface-200 bg-surface-0 text-color dark:border-surface-700 dark:bg-surface-950' : 'border-transparent text-muted-color hover:bg-surface-100 hover:text-color dark:hover:bg-surface-800'
+                        tab.id === tabs.activeId()
+                            ? 'z-2 border-surface-200 bg-surface-0 font-medium text-color dark:border-surface-700 dark:bg-surface-950'
+                            : 'border-surface-100 dark:border-surface-800 bg-surface-50 text-muted-color hover:bg-surface-100 hover:text-color dark:bg-surface-900 dark:hover:bg-surface-800'
                     "
                     (auxclick)="$event.button === 1 && tabs.close(tab.id)"
                 >
@@ -65,7 +67,8 @@ export const TAB_PANEL_ID = 'otto-tab-panel';
         </button>
         <p-menu #addMenu [model]="workspaceAddItems" [popup]="true" appendTo="body" />
     `,
-    host: { class: 'flex shrink-0 items-end border-b border-surface-200 dark:border-surface-700' }
+    // A linha de base é um pseudo-elemento (e não border-b) para a aba ativa, com z maior e o mesmo fundo do painel, cobri-la e "abrir" para o conteúdo.
+    host: { class: 'relative flex shrink-0 items-end after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-1 after:h-px after:bg-surface-200 dark:after:bg-surface-700' }
 })
 export class TabStrip {
     protected readonly tabs = inject(TabsState);
