@@ -247,8 +247,7 @@ export class RequestView {
     /** Aba inicial: Body quando o método aceita corpo, senão Params; volta ao padrão ao trocar de request ou de método com/sem corpo. */
     protected readonly section = linkedSignal<{ key: string; bodyAllowed: boolean }, Section>({
         source: () => ({ key: this.key(), bodyAllowed: this.bodyAllowed() }),
-        computation: ({ bodyAllowed }) => (bodyAllowed ? 'body' : 'params'),
-        equal: (a, b) => a === b
+        computation: ({ bodyAllowed }) => (bodyAllowed ? 'body' : 'params')
     });
     protected readonly counts = computed(() => {
         const request = this.request();
