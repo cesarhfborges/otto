@@ -29,6 +29,8 @@ function toNode(collectionId: EntityId, node: CollectionNode, expanded: Readonly
         type: TEMPLATE,
         data,
         leaf: node.type === 'request',
+        // Requisições não recebem itens dentro delas, só antes/depois.
+        droppable: node.type === 'folder',
         expanded: expanded.has(key),
         children: node.type === 'folder' ? node.children.map((child) => toNode(collectionId, child, expanded)) : undefined
     };
@@ -40,7 +42,8 @@ export function buildSidebarNodes(collections: readonly OpenedCollection[], expa
         const data: SidebarNodeData = { kind: 'collection', collectionId: metadata.id, path: '', method: null, error: null };
         const key = nodeKey(data);
 
-        return { key, label: metadata.name, type: TEMPLATE, data, leaf: false, expanded: expanded.has(key), children: tree.children.map((child) => toNode(metadata.id, child, expanded)) };
+        // A coleção é a raiz da pasta no disco: recebe itens, mas não é arrastável.
+        return { key, label: metadata.name, type: TEMPLATE, data, leaf: false, draggable: false, expanded: expanded.has(key), children: tree.children.map((child) => toNode(metadata.id, child, expanded)) };
     });
 }
 
@@ -69,4 +72,46 @@ export function folderOf(data: SidebarNodeData): string {
     const index = data.path.lastIndexOf('/');
 
     return index < 0 ? '' : data.path.slice(0, index);
+}
+
+export type DropPosition = 'before' | 'inside' | 'after';
+
+/** Mesma regra do `p-tree`: quarto superior/inferior do item solta antes/depois dele; o meio, dentro. */
+export function dropPositionOf(event: DragEvent): DropPosition {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const y = event.clientY - rect.top;
+
+    return y < rect.height * 0.25 ? 'before' : y > rect.height * 0.75 ? 'after' : 'inside';
+}
+
+/** Destino de um item solto: a pasta (ou coleção) que o recebe e seus filhos já na nova ordem. */
+export interface DropTarget {
+    parent: SidebarNode;
+    children: SidebarNode[];
+}
+
+/**
+ * Resolve onde o item arrastado vai parar. `null` quando o destino é inválido:
+ * fora de uma coleção (antes/depois de uma coleção, que é sempre raiz) ou dentro de uma requisição.
+ */
+export function resolveDrop(dragNode: SidebarNode, dropNode: SidebarNode, position: DropPosition): DropTarget | null {
+    const parent = (position === 'inside' ? dropNode : dropNode.parent) as SidebarNode | undefined;
+
+    if (!parent?.data || parent.data.kind === 'request') {
+        return null;
+    }
+
+    const children = ((parent.children ?? []) as SidebarNode[]).filter((node) => node !== dragNode);
+    const index = position === 'inside' ? children.length : children.indexOf(dropNode) + (position === 'after' ? 1 : 0);
+
+    children.splice(index, 0, dragNode);
+
+    return { parent, children };
+}
+
+/** Caminho do item ao ser colocado em outra pasta, mantendo o nome do arquivo/pasta. */
+export function pathInFolder(folder: string, path: string): string {
+    const name = path.slice(path.lastIndexOf('/') + 1);
+
+    return folder ? `${folder}/${name}` : name;
 }

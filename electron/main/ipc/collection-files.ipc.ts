@@ -1,6 +1,8 @@
 import type { IIpcModule, IIpcRegistrar } from '../core/contracts';
-import { parseEntityId, parseEntryName, parseRelativePath, parseRequestDefinition } from '../core/validation';
+import { parseEntityId, parseEntryName, parseRelativePath, parseRequestDefinition, requireArray } from '../core/validation';
 import type { CollectionService } from '../services/collections/collection.service';
+
+const MAX_REORDER_ENTRIES = 1_000;
 
 /** Leitura e escrita de arquivos dentro das coleções (caminhos relativos à raiz). */
 export class CollectionFilesIpcModule implements IIpcModule {
@@ -16,6 +18,8 @@ export class CollectionFilesIpcModule implements IIpcModule {
         ipc.handle('collection-files:create-folder', (_event, id, parent, name) => this.service.createFolder(parseEntityId(id), parseRelativePath(parent, 'parent'), parseEntryName(name)));
 
         ipc.handle('collection-files:move', (_event, id, from, to) => this.service.move(parseEntityId(id), parseRelativePath(from, 'from'), parseRelativePath(to, 'to')));
+
+        ipc.handle('collection-files:reorder', (_event, id, entries) => this.service.reorder(parseEntityId(id), requireArray(entries, 'entries', MAX_REORDER_ENTRIES).map((entry, i) => parseRelativePath(entry, `entries[${i}]`))));
 
         ipc.handle('collection-files:remove', (_event, id, path) => this.service.remove(parseEntityId(id), parseRelativePath(path)));
     }

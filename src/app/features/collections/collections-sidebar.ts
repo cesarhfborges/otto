@@ -1,26 +1,29 @@
 import { Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { MessageService, PrimeTemplate, type MenuItem } from 'primeng/api';
+import { MessageService, PrimeTemplate, TreeDragDropService, type MenuItem } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { ContextMenu, ContextMenuModule } from 'primeng/contextmenu';
 import { MenuModule } from 'primeng/menu';
 import { TooltipModule } from 'primeng/tooltip';
 import { TreeModule } from 'primeng/tree';
-import type { TreeNodeCollapseEvent, TreeNodeContextMenuSelectEvent, TreeNodeExpandEvent, TreeNodeSelectEvent } from 'primeng/types/tree';
+import type { TreeNodeCollapseEvent, TreeNodeContextMenuSelectEvent, TreeNodeDropEvent, TreeNodeExpandEvent, TreeNodeSelectEvent } from 'primeng/types/tree';
 import type { CollectionExportFormat } from '@shared/models';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { CollectionFilesGateway } from '../../core/ports';
 import { CollectionsState } from '../../core/state/collections.state';
 import { ConfirmState } from '../../core/state/confirm.state';
+import { draftKey, RequestDraftsState } from '../../core/state/request-drafts.state';
 import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
 import { MethodBadge } from '../../shared/method-badge';
 import { TreeToggleLabel } from '../../shared/tree-toggle-label.directive';
-import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type SidebarNodeData } from './collection-tree-nodes';
+import { buildSidebarNodes, findNode, folderOf, dropPositionOf, nodeKey, pathInFolder, resolveDrop, type SidebarNode, type SidebarNodeData } from './collection-tree-nodes';
 
 /** Barra lateral: coleções abertas em árvore (pastas e requisições), com ações por contexto. */
 @Component({
     selector: 'app-collections-sidebar',
     imports: [TreeModule, PrimeTemplate, ContextMenuModule, MenuModule, ButtonModule, TooltipModule, MethodBadge, TreeToggleLabel],
+    // O `p-tree` injeta o serviço como opcional: sem ele o arrastar e soltar não funciona.
+    providers: [TreeDragDropService],
     template: `
         <div class="flex items-center gap-2 h-9 px-2 border-b border-surface-200 dark:border-surface-800 py-5">
             <div class="flex-1 flex items-center gap-2">
@@ -52,11 +55,15 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
                 filterPlaceholder="Filter requests"
                 ariaLabelledBy="collections-heading"
                 appTreeToggleLabel
+                [draggableNodes]="!filterVisible() && !moving()"
+                droppableNodes
+                [validateDrop]="true"
                 [contextMenu]="contextMenu"
                 (onNodeSelect)="onSelect($event)"
                 (onNodeExpand)="setExpanded($event, true)"
                 (onNodeCollapse)="setExpanded($event, false)"
                 (onNodeContextMenuSelect)="onContextMenu($event)"
+                (onNodeDrop)="onDrop($event)"
             >
                 <ng-template pTemplate="otto" let-node>
                     <span class="group flex min-w-0 flex-1 items-center gap-2.5 text-sm py-1 px-2">
@@ -122,12 +129,15 @@ export class CollectionsSidebar {
     private readonly tabs = inject(TabsState);
     private readonly files = inject(CollectionFilesGateway);
     private readonly confirm = inject(ConfirmState);
+    private readonly drafts = inject(RequestDraftsState);
     private readonly messages = inject(MessageService);
     private readonly contextMenu = viewChild.required<ContextMenu>('contextMenu');
 
     protected readonly filterVisible = signal(false);
     private readonly expanded = signal<ReadonlySet<string>>(new Set());
     private readonly menuTarget = signal<SidebarNodeData | null>(null);
+    /** Enquanto um arraste é gravado no disco, novos arrastes ficam bloqueados. */
+    protected readonly moving = signal(false);
 
     protected readonly nodes = computed(() => buildSidebarNodes(this.collections.opened(), this.expanded()));
 
@@ -250,6 +260,79 @@ export class CollectionsSidebar {
         event.stopPropagation();
         this.menuTarget.set(node.data ?? null);
         this.contextMenu().show(event);
+    }
+
+    /**
+     * Arrastar e soltar requisições e pastas dentro da mesma coleção. O item vai para a
+     * pasta (ou raiz da coleção) de destino, na posição exata em que foi solto: a nova
+     * ordem de todos os itens da pasta é gravada (`seq` das requisições e `_folder.yaml`).
+     * A árvore não é alterada localmente (`validateDrop` sem `accept`): ela é relida do disco.
+     */
+    protected async onDrop({ originalEvent, dragNode, dropNode }: TreeNodeDropEvent): Promise<void> {
+        const dragged = (dragNode as SidebarNode | null | undefined)?.data;
+
+        if (!originalEvent || !dragNode || !dropNode || !dragged || dragged.kind === 'collection') {
+            return;
+        }
+
+        const target = resolveDrop(dragNode as SidebarNode, dropNode as SidebarNode, dropPositionOf(originalEvent));
+        const parent = target?.parent.data;
+
+        if (!target || !parent) {
+            return;
+        }
+
+        if (parent.collectionId !== dragged.collectionId) {
+            this.messages.add({ severity: 'warn', summary: 'Could not move', detail: 'Items can only be moved within the same collection.', life: 5000 });
+
+            return;
+        }
+
+        const { collectionId } = dragged;
+        const to = pathInFolder(parent.path, dragged.path);
+
+        this.moving.set(true);
+
+        try {
+            if (to !== dragged.path) {
+                await this.files.move(collectionId, dragged.path, to);
+                this.relocate(collectionId, dragged.path, to);
+                this.expanded.update((set) => new Set([...set, nodeKey(parent)]));
+            }
+
+            await this.reorder(collectionId, target.children, dragged.path, to);
+        } catch (error) {
+            this.messages.add({ severity: 'error', summary: 'Could not move', detail: ipcErrorMessage(error), life: 6000 });
+        } finally {
+            await this.collections.refresh(collectionId);
+            this.moving.set(false);
+        }
+    }
+
+    /** Grava a ordem final dos itens da pasta; rascunhos abertos recebem o novo `seq` para não desfazê-la ao salvar. */
+    private async reorder(collectionId: string, children: readonly SidebarNode[], movedFrom: string, movedTo: string): Promise<void> {
+        const paths = children.map(({ data }) => (data!.path === movedFrom ? movedTo : data!.path));
+
+        await this.files.reorder(collectionId, paths);
+
+        for (const [index, path] of paths.entries()) {
+            this.drafts.patch(draftKey(collectionId, path), (draft) => ({ ...draft, seq: index + 1 }));
+        }
+    }
+
+    /** Abas, rascunhos e pastas expandidas do item movido (e do que há dentro dele) seguem o novo caminho. */
+    private relocate(collectionId: string, from: string, to: string): void {
+        const folderFrom = nodeKey({ kind: 'folder', collectionId, path: from });
+        const folderTo = nodeKey({ kind: 'folder', collectionId, path: to });
+
+        this.drafts.relocate(collectionId, from, to);
+        this.expanded.update((set) => new Set([...set].map((key) => (key === folderFrom || key.startsWith(`${folderFrom}/`) ? folderTo + key.slice(folderFrom.length) : key))));
+
+        for (const tab of this.tabs.tabs()) {
+            if (tab.kind === 'request' && tab.collectionId === collectionId && tab.resourceRef && (tab.resourceRef === from || tab.resourceRef.startsWith(`${from}/`))) {
+                this.tabs.update(tab.id, { resourceRef: to + tab.resourceRef.slice(from.length) });
+            }
+        }
     }
 
     private toggle(key: string): void {

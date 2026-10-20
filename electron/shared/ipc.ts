@@ -101,6 +101,7 @@ export interface IpcInvokeContract {
     'collection-files:create-request': { args: [collectionId: EntityId, folder: string, request: RequestDefinition]; result: string };
     'collection-files:create-folder': { args: [collectionId: EntityId, parent: string, name: string]; result: string };
     'collection-files:move': { args: [collectionId: EntityId, from: string, to: string]; result: void };
+    'collection-files:reorder': { args: [collectionId: EntityId, entries: string[]]; result: void };
     'collection-files:remove': { args: [collectionId: EntityId, path: string]; result: void };
 }
 

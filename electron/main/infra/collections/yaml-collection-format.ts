@@ -1,10 +1,12 @@
 import { COLLECTION_FORMAT_VERSION, type CollectionManifest, type KeyValue, type RequestDefinition } from '../../../shared/models';
-import type { ICollectionFormat } from '../../core/contracts';
+import type { FolderMetadata, ICollectionFormat } from '../../core/contracts';
 import { parseKeyValues, parseOpenApiConfig, parseRequestDefinition, requireInteger, requireRecord, requireString } from '../../core/validation';
 import { parseYaml, toYaml } from '../yaml';
 
 const MANIFEST_FILE = 'otto.yaml';
 const REQUEST_EXTENSION = '.yaml';
+/** Começa com `_`, que o `slugify` nunca gera: não colide com arquivos de requisição criados pelo app. */
+const FOLDER_FILE = '_folder.yaml';
 
 /** Só grava `enabled` quando for `false`, deixando os arquivos enxutos. */
 const compactKeyValues = (items: KeyValue[]) => items.map(({ key, value, enabled, description }) => ({ key, value, ...(!enabled && { enabled }), ...(description && { description }) }));
@@ -15,9 +17,20 @@ const compactKeyValues = (items: KeyValue[]) => items.map(({ key, value, enabled
  */
 export class YamlCollectionFormat implements ICollectionFormat {
     readonly manifestFile = MANIFEST_FILE;
+    readonly folderFile = FOLDER_FILE;
 
     isRequestFile(fileName: string): boolean {
-        return fileName.endsWith(REQUEST_EXTENSION) && fileName !== MANIFEST_FILE && !fileName.startsWith('.');
+        return fileName.endsWith(REQUEST_EXTENSION) && fileName !== MANIFEST_FILE && fileName !== FOLDER_FILE && !fileName.startsWith('.');
+    }
+
+    parseFolder(content: string): FolderMetadata {
+        const folder = requireRecord(parseYaml(content) ?? {}, FOLDER_FILE);
+
+        return { seq: folder['seq'] === undefined || folder['seq'] === null ? null : requireInteger(folder['seq'], 'seq', 0) };
+    }
+
+    serializeFolder(folder: FolderMetadata): string {
+        return toYaml(folder.seq === null ? {} : { seq: folder.seq });
     }
 
     requestFileName(slug: string): string {

@@ -83,6 +83,22 @@ export class RequestDraftsState {
         }
     }
 
+    /** Aplica uma mudança já gravada no disco (ex.: nova ordem) à versão salva e ao rascunho. */
+    patch(key: string, change: (request: RequestDefinition) => RequestDefinition): void {
+        const current = this.entries().get(key);
+
+        if (current) {
+            this.set(key, { saved: change(current.saved), draft: change(current.draft) });
+        }
+    }
+
+    /** Acompanha um arquivo ou pasta movido: os rascunhos passam para os novos caminhos. */
+    relocate(collectionId: EntityId, from: string, to: string): void {
+        const prefix = draftKey(collectionId, from);
+
+        this.entries.update((map) => new Map([...map].map(([key, entry]) => [key === prefix || key.startsWith(`${prefix}/`) ? draftKey(collectionId, to) + key.slice(prefix.length) : key, entry])));
+    }
+
     discard(key: string): void {
         const current = this.entries().get(key);
 

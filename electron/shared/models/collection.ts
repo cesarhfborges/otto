@@ -48,6 +48,8 @@ export interface CollectionFolderNode {
     name: string;
     /** Caminho relativo à raiz da coleção, sempre com `/`. */
     path: string;
+    /** Ordem da pasta entre os itens da pasta pai (de `_folder.yaml`); `null` quando não definida. */
+    seq: number | null;
     children: CollectionNode[];
 }
 

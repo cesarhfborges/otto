@@ -137,6 +137,7 @@ export abstract class CollectionFilesGateway implements CollectionFilesApi {
     abstract createRequest(collectionId: EntityId, folder: string, request: RequestDefinition): Promise<string>;
     abstract createFolder(collectionId: EntityId, parent: string, name: string): Promise<string>;
     abstract move(collectionId: EntityId, from: string, to: string): Promise<void>;
+    abstract reorder(collectionId: EntityId, entries: string[]): Promise<void>;
     abstract remove(collectionId: EntityId, path: string): Promise<void>;
 }
 

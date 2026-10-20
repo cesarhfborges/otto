@@ -47,6 +47,16 @@ export interface ICollectionFormat {
     serializeManifest(manifest: CollectionManifest): string;
     parseRequest(content: string): RequestDefinition;
     serializeRequest(request: RequestDefinition): string;
+    /** Arquivo de metadados dentro de cada pasta (ex.: `_folder.yaml`); não é uma requisição. */
+    readonly folderFile: string;
+    parseFolder(content: string): FolderMetadata;
+    serializeFolder(folder: FolderMetadata): string;
+}
+
+/** Metadados de uma pasta da coleção. */
+export interface FolderMetadata {
+    /** Ordem da pasta entre os itens da pasta pai; `null` ordena antes dos numerados, por nome. */
+    seq: number | null;
 }
 
 /** Observa mudanças externas (git pull, editor) na pasta da coleção. */

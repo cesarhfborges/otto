@@ -1,21 +1,29 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 import { COLLECTION_FORMAT_VERSION, type CollectionManifest, type CollectionMetadata, type CollectionNode, type CollectionTree, type EntityId, type OpenedCollection, type RequestDefinition } from '../../../shared/models';
-import type { CollectionEntry, IClock, ICollectionFormat, ICollectionMetadataRepository, ICollectionStore, ICollectionWatcher } from '../../core/contracts';
+import type { CollectionEntry, FolderMetadata, IClock, ICollectionFormat, ICollectionMetadataRepository, ICollectionStore, ICollectionWatcher } from '../../core/contracts';
 import { slugify } from './slug';
 
 const MAX_NAME_ATTEMPTS = 1_000;
 
 const joinRelative = (folder: string, name: string): string => (folder ? `${folder.replace(/\/+$/, '')}/${name}` : name);
 
-const byFolderThenOrder = (a: CollectionNode, b: CollectionNode): number => {
-    if (a.type !== b.type) {
-        return a.type === 'folder' ? -1 : 1;
+/** Pastas sem `seq` primeiro, depois os itens numerados (pastas e requisições juntos) e por fim requisições sem `seq`. */
+const orderRank = (node: CollectionNode): number => (node.seq !== null ? 1 : node.type === 'folder' ? 0 : 2);
+
+const byOrder = (a: CollectionNode, b: CollectionNode): number => {
+    const rank = orderRank(a) - orderRank(b);
+
+    if (rank) {
+        return rank;
     }
 
-    if (a.type === 'request' && b.type === 'request' && a.seq !== b.seq) {
-        // Numeradas primeiro, em ordem; sem `seq` depois, por nome.
-        return a.seq === null ? 1 : b.seq === null ? -1 : a.seq - b.seq;
+    if (a.seq !== null && b.seq !== null && a.seq !== b.seq) {
+        return a.seq - b.seq;
+    }
+
+    if (a.type !== b.type) {
+        return a.type === 'folder' ? -1 : 1;
     }
 
     return a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
@@ -205,6 +213,48 @@ export class CollectionService {
         this.emitChanged(id);
     }
 
+    /**
+     * Grava a ordem dos itens de uma mesma pasta: o `seq` de cada requisição e o
+     * `_folder.yaml` de cada pasta, na ordem recebida (1, 2, 3…). Só regrava o que mudou;
+     * arquivos de requisição inválidos são ignorados.
+     */
+    async reorder(id: EntityId, entries: string[]): Promise<void> {
+        const root = this.resolve(id).path;
+        const parents = new Set(entries.map((entry) => path.posix.dirname(entry)));
+
+        if (parents.size > 1) {
+            throw new Error('Only items of the same folder can be reordered together');
+        }
+
+        for (const [index, entry] of entries.entries()) {
+            const seq = index + 1;
+
+            this.assertNotManifest(entry);
+
+            if (this.format.isRequestFile(path.posix.basename(entry))) {
+                let request: RequestDefinition;
+
+                try {
+                    request = this.format.parseRequest(await this.store.readFile(root, entry));
+                } catch {
+                    continue;
+                }
+
+                if (request.seq !== seq) {
+                    await this.store.writeFile(root, entry, this.format.serializeRequest({ ...request, seq }));
+                }
+            } else if (await this.store.exists(root, entry)) {
+                const file = joinRelative(entry, this.format.folderFile);
+
+                if ((await this.readFolder(root, entry)).seq !== seq) {
+                    await this.store.writeFile(root, file, this.format.serializeFolder({ seq }));
+                }
+            }
+        }
+
+        this.emitChanged(id);
+    }
+
     /** Envia o arquivo ou a pasta para a lixeira do sistema. */
     async remove(id: EntityId, entryPath: string): Promise<void> {
         this.assertNotManifest(entryPath);
@@ -271,7 +321,7 @@ export class CollectionService {
             const nodes = await Promise.all(
                 entries.map(async (entry): Promise<CollectionNode | null> => {
                     if (entry.kind === 'directory') {
-                        return { type: 'folder', name: entry.name, path: entry.path, children: await toNodes(entry.children) };
+                        return { type: 'folder', name: entry.name, path: entry.path, seq: (await this.readFolder(root, entry.path)).seq, children: await toNodes(entry.children) };
                     }
 
                     if (!this.format.isRequestFile(entry.name)) {
@@ -289,10 +339,19 @@ export class CollectionService {
                 })
             );
 
-            return nodes.filter((node): node is CollectionNode => node !== null).sort(byFolderThenOrder);
+            return nodes.filter((node): node is CollectionNode => node !== null).sort(byOrder);
         };
 
         return { root, name, children: await toNodes(await this.store.list(root)) };
+    }
+
+    /** Metadados da pasta; ausentes ou inválidos contam como sem ordem definida. */
+    private async readFolder(root: string, folder: string): Promise<FolderMetadata> {
+        try {
+            return this.format.parseFolder(await this.store.readFile(root, joinRelative(folder, this.format.folderFile)));
+        } catch {
+            return { seq: null };
+        }
     }
 
     private async availablePath(root: string, folder: string, fileName: (suffix: string) => string): Promise<string> {

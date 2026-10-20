@@ -176,6 +176,8 @@ export interface CollectionFilesApi {
     createRequest(collectionId: EntityId, folder: string, request: RequestDefinition): Promise<string>;
     createFolder(collectionId: EntityId, parent: string, name: string): Promise<string>;
     move(collectionId: EntityId, from: string, to: string): Promise<void>;
+    /** Grava a ordem dos itens (requisições e pastas) de uma mesma pasta, na ordem recebida. */
+    reorder(collectionId: EntityId, entries: string[]): Promise<void>;
     /** Envia para a lixeira do sistema. */
     remove(collectionId: EntityId, path: string): Promise<void>;
 }

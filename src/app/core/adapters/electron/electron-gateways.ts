@@ -376,6 +376,10 @@ export class ElectronCollectionFilesGateway extends CollectionFilesGateway {
         return requireOttoApi(this.api).collectionFiles.move(collectionId, from, to);
     }
 
+    reorder(collectionId: EntityId, entries: string[]): Promise<void> {
+        return requireOttoApi(this.api).collectionFiles.reorder(collectionId, entries);
+    }
+
     remove(collectionId: EntityId, path: string): Promise<void> {
         return requireOttoApi(this.api).collectionFiles.remove(collectionId, path);
     }
