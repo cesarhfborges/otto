@@ -1,232 +1,367 @@
-<nav aria-label="Preferences sections" class="flex w-56 shrink-0 flex-col border-r border-surface-200 p-3 dark:border-surface-700 select-none">
+<nav aria-label="Preferences sections"
+     class="flex w-56 shrink-0 flex-col border-r border-surface-200 p-3 dark:border-surface-700 select-none">
     <ul class="m-0 flex list-none flex-col gap-0.5 p-0">
         @for (item of sections; track item.id) {
-        <li>
-            <button
-                type="button"
-                class="flex w-full cursor-pointer items-center gap-2.5 rounded-md border-0 px-3 py-2 text-left text-sm"
-                [class]="section() === item.id ? 'bg-surface-200 font-medium text-(--p-emerald-700) dark:bg-surface-800 dark:text-(--p-emerald-500)' : 'bg-transparent text-muted-color hover:bg-surface-100 hover:text-color dark:hover:bg-surface-800'"
-                [attr.aria-current]="section() === item.id ? 'page' : null"
-                (click)="section.set(item.id)"
-            >
-                <i [class]="item.icon" aria-hidden="true"></i>
-                {{ item.label }}
-            </button>
-        </li>
+            <li>
+                <button
+                    type="button"
+                    class="flex w-full cursor-pointer items-center gap-2.5 rounded-md border-0 px-3 py-2 text-left text-sm"
+                    [class]="section() === item.id ? 'bg-surface-200 font-medium text-(--p-emerald-700) dark:bg-surface-800 dark:text-(--p-emerald-500)' : 'bg-transparent text-muted-color hover:bg-surface-100 hover:text-color dark:hover:bg-surface-800'"
+                    [attr.aria-current]="section() === item.id ? 'page' : null"
+                    (click)="section.set(item.id)"
+                >
+                    <i [class]="item.icon" aria-hidden="true"></i>
+                    {{ item.label }}
+                </button>
+            </li>
         }
     </ul>
     @if (appInfo(); as info) {
-    <p class="m-0 mt-auto px-3 text-xs text-muted-color">{{ info.name }} {{ info.version }}</p>
+        <p class="m-0 mt-auto px-3 text-xs text-muted-color">{{ info.name }} {{ info.version }}</p>
     }
 </nav>
 
 <div class="flex min-w-0 flex-1 flex-col select-none">
-    <header class="flex shrink-0 items-start justify-between gap-4 border-b border-surface-200 px-8 py-5 dark:border-surface-700">
+    <header
+        class="flex shrink-0 items-start justify-between gap-4 border-b border-surface-200 px-8 py-5 dark:border-surface-700">
         <div class="min-w-0">
             <h2 class="m-0 text-lg font-semibold">{{ current().label }}</h2>
             <p class="m-0 mt-1 text-sm text-muted-color">{{ current().description }}</p>
         </div>
-        <p class="m-0 shrink-0 text-sm text-(--p-emerald-700) dark:text-(--p-emerald-500)" role="status" aria-live="polite">
-            @switch (status()) { @case ('saving') { Saving… } @case ('saved') {
-            <i class="pi pi-check mr-1" aria-hidden="true"></i>All changes saved } }
+        <p class="m-0 shrink-0 text-sm text-(--p-emerald-700) dark:text-(--p-emerald-500)" role="status"
+           aria-live="polite">
+            @switch (status()) {
+                @case ('saving') {
+                    Saving…
+                }
+                @case ('saved') {
+                    <i class="pi pi-check mr-1" aria-hidden="true"></i>All changes saved
+                }
+            }
         </p>
     </header>
 
     <div class="min-h-0 flex-1 overflow-auto px-8 py-6">
         <div class="flex max-w-4xl flex-col gap-6">
             @if (!persistent()) {
-            <p-message severity="warn">Running outside the desktop app: changes are kept only until you reload.</p-message>
-            } @if (errorMessage(); as message) {
-            <p-message severity="error">
-                <span role="alert">Could not save settings: {{ message }}</span>
-            </p-message>
+                <p-message severity="warn">Running outside the desktop app: changes are kept only until you reload.
+                </p-message>
+            }
+            @if (errorMessage(); as message) {
+                <p-message severity="error">
+                    <span role="alert">Could not save settings: {{ message }}</span>
+                </p-message>
             }
 
             <form [formGroup]="form" (submit)="$event.preventDefault()" class="flex flex-col gap-6">
-                @switch (section()) { @case ('general') {
-                <section aria-labelledby="group-workspaces" class="flex flex-col gap-2">
-                    <h3 id="group-workspaces" class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">Workspaces</h3>
-                    <div formGroupName="workspaces" class="flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
-                        <div>
-                            <label for="base-directory" class="font-medium">Workspaces folder</label>
-                            <p id="base-directory-help" class="m-0 mt-0.5 text-sm text-muted-color">
-                                New and imported workspaces are created in <code>&lt;folder&gt;/&lt;workspace&gt;/collections/&lt;collection&gt;</code>. Changing it does not move existing workspaces.
-                            </p>
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            <input pInputText id="base-directory" class="min-w-0 flex-1 font-mono text-sm" [value]="form.controls.workspaces.controls.baseDirectory.value || appInfo()?.defaultBaseDirectory || ''" readonly aria-describedby="base-directory-help" />
-                            <p-button label="Change…" icon="pi pi-folder-open" severity="secondary" [disabled]="!persistent()" (onClick)="browseBaseDirectory()" />
-                            @if (form.controls.workspaces.controls.baseDirectory.value) {
-                            <p-button label="Use Default" severity="secondary" [text]="true" (onClick)="resetBaseDirectory()" />
-                            }
-                        </div>
-                    </div>
-                </section>
-
-                <section aria-labelledby="group-application" class="flex flex-col gap-2">
-                    <h3 id="group-application" class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">Application</h3>
-                    <div class="divide-y divide-surface-200 rounded-lg border border-surface-200 dark:divide-surface-700 dark:border-surface-700">
-                        <div class="flex items-center justify-between gap-6 px-4 py-3">
-                            <div class="min-w-0">
-                                <label id="minimize-to-tray-label" for="minimize-to-tray" class="font-medium">Run in the system tray</label>
-                                <p id="minimize-to-tray-help" class="m-0 mt-0.5 text-sm text-muted-color">Keep Otto running in the background when the window is closed.</p>
-                            </div>
-                            <p-toggle-switch formControlName="minimizeToTray" inputId="minimize-to-tray" ariaLabelledBy="minimize-to-tray-label" />
-                        </div>
-                        <div class="flex items-center justify-between gap-6 px-4 py-3">
-                            <div class="min-w-0">
-                                <label id="hardware-acceleration-label" for="hardware-acceleration" class="font-medium">Hardware acceleration</label>
-                                <p class="m-0 mt-0.5 text-sm text-muted-color">Use the GPU to render the application.</p>
-                            </div>
-                            <p-toggle-switch formControlName="hardwareAcceleration" inputId="hardware-acceleration" ariaLabelledBy="hardware-acceleration-label" />
-                        </div>
-                    </div>
-                </section>
-
-                <section aria-labelledby="group-requests" class="flex flex-col gap-2">
-                    <h3 id="group-requests" class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">Requests</h3>
-                    <div class="divide-y divide-surface-200 rounded-lg border border-surface-200 dark:divide-surface-700 dark:border-surface-700">
-                        <ng-container formGroupName="http">
-                            <div class="flex items-center justify-between gap-6 px-4 py-3">
-                                <div class="min-w-0">
-                                    <label id="follow-redirects-label" for="follow-redirects" class="font-medium">Follow redirects</label>
-                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Automatically follow 3xx responses.</p>
-                                </div>
-                                <p-toggle-switch formControlName="followRedirects" inputId="follow-redirects" ariaLabelledBy="follow-redirects-label" />
-                            </div>
-                            <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-                                <div class="min-w-0 flex-1">
-                                    <label for="timeout" class="font-medium">Request timeout (ms)</label>
-                                    <p id="timeout-help" class="m-0 mt-0.5 text-sm text-muted-color">Use 0 to disable the timeout. Maximum {{ maxTimeoutMs }} ms (1 hour).</p>
-                                </div>
-                                <p-input-number formControlName="timeoutMs" inputId="timeout" [min]="0" [max]="maxTimeoutMs" [useGrouping]="false" [invalid]="controlInvalid('http.timeoutMs')" ariaDescribedBy="timeout-help" inputStyleClass="w-40" />
-                            </div>
-                        </ng-container>
-                        <div formGroupName="history" class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-                            <div class="min-w-0 flex-1">
-                                <label for="history-max-entries" class="font-medium">Requests kept in history</label>
-                                <p id="history-help" class="m-0 mt-0.5 text-sm text-muted-color">Older entries are removed automatically. Use 0 to stop recording history. Maximum {{ maxHistoryEntries }}.</p>
-                            </div>
-                            <p-input-number formControlName="maxEntries" inputId="history-max-entries" [min]="0" [max]="maxHistoryEntries" [useGrouping]="false" [invalid]="controlInvalid('history.maxEntries')" ariaDescribedBy="history-help" inputStyleClass="w-40" />
-                        </div>
-                    </div>
-                </section>
-                } @case ('themes') {
-                <div class="flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
-                    <div>
-                        <span id="theme-label" class="font-medium">Theme</span>
-                        <p id="theme-help" class="m-0 mt-0.5 text-sm text-muted-color">Auto follows your operating system. @if (theme.mode() === 'auto') { Currently using the {{ theme.effective() }} theme. }</p>
-                    </div>
-                    <p-select-button formControlName="theme" [options]="themeOptions" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="theme-label">
-                        <ng-template #item let-option>
-                            <i [class]="option.icon" aria-hidden="true"></i>
-                            <span>{{ option.label }}</span>
-                        </ng-template>
-                    </p-select-button>
-                </div>
-                } @case ('appearance') {
-                <div formGroupName="appearance" class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-lg border border-surface-200 px-4 py-3 dark:border-surface-700">
-                    <div class="min-w-0 flex-1">
-                        <label for="request-layout" class="font-medium">Request and response panels</label>
-                        <p id="request-layout-help" class="m-0 mt-0.5 text-sm text-muted-color">How the request tab splits the request editor and the response. The divider between them can still be dragged.</p>
-                    </div>
-                    <p-select formControlName="requestLayout" inputId="request-layout" [options]="requestLayoutOptions" optionLabel="label" optionValue="value" aria-describedby="request-layout-help" appendTo="body" class="w-full sm:w-80" />
-                </div>
-                } @case ('proxy') {
-                <ng-container formGroupName="http">
-                    <fieldset formGroupName="proxy" class="m-0 divide-y divide-surface-200 rounded-lg border border-surface-200 p-0 dark:divide-surface-700 dark:border-surface-700">
-                        <legend class="sr-only">Proxy</legend>
-                        <div class="flex items-center justify-between gap-6 px-4 py-3">
-                            <div class="min-w-0">
-                                <label id="proxy-enabled-label" for="proxy-enabled" class="font-medium">Use a proxy server</label>
-                                <p class="m-0 mt-0.5 text-sm text-muted-color">Only HTTP and HTTPS proxies are supported.</p>
-                            </div>
-                            <p-toggleswitch formControlName="enabled" inputId="proxy-enabled" ariaLabelledBy="proxy-enabled-label" />
-                        </div>
-                        <div class="flex flex-col gap-2 px-4 py-3">
-                            <label for="proxy-url" class="font-medium">Proxy URL</label>
-                            <input
-                                pInputText
-                                id="proxy-url"
-                                type="url"
-                                formControlName="url"
-                                placeholder="http://proxy.local:3128"
-                                autocomplete="off"
-                                spellcheck="false"
-                                class="font-mono text-sm"
-                                [invalid]="controlInvalid('http.proxy.url') || (form.controls.http.controls.proxy.invalid && form.controls.http.controls.proxy.touched)"
-                                [attr.aria-invalid]="!!(proxyErrors?.['proxyUrl'] || proxyErrors?.['proxyProtocol'] || proxyErrors?.['proxyUrlRequired'])"
-                                aria-describedby="proxy-url-error"
-                            />
-                            <small id="proxy-url-error" class="text-red-700 empty:hidden dark:text-red-400" aria-live="polite">@if (proxyErrors?.['proxyUrl']) { Enter a valid URL, for example http://proxy.local:3128. } @else if (proxyErrors?.['proxyProtocol']) { The proxy URL must start with http:// or https://. } @else if (proxyErrors?.['proxyUrlRequired']) { Enter the proxy URL or turn the proxy off. }</small>
-                        </div>
-                        <div class="flex flex-col gap-2 px-4 py-3">
-                            <label for="proxy-bypass" class="font-medium">Bypass proxy for</label>
-                            <input pInputText id="proxy-bypass" formControlName="bypass" autocomplete="off" spellcheck="false" class="font-mono text-sm" aria-describedby="proxy-bypass-help" />
-                            <small id="proxy-bypass-help" class="text-sm text-muted-color">Comma-separated hosts, for example localhost, *.internal.</small>
-                        </div>
-                    </fieldset>
-                </ng-container>
-                } @case ('certificates') {
-                <ng-container formGroupName="http">
-                    <fieldset formGroupName="ssl" class="m-0 flex flex-col gap-4 border-0 p-0">
-                        <legend class="sr-only">SSL/TLS certificates</legend>
-                        <div class="divide-y divide-surface-200 rounded-lg border border-surface-200 dark:divide-surface-700 dark:border-surface-700">
-                            <div class="flex items-center justify-between gap-6 px-4 py-3">
-                                <div class="min-w-0">
-                                    <label id="verify-certificates-label" for="verify-certificates" class="font-medium">SSL/TLS certificate verification</label>
-                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Reject servers whose certificate cannot be verified.</p>
-                                </div>
-                                <p-toggleswitch formControlName="verifyCertificates" inputId="verify-certificates" ariaLabelledBy="verify-certificates-label" />
-                            </div>
-                            <div class="flex flex-col gap-3 px-4 py-3">
+                @switch (section()) {
+                    @case ('general') {
+                        <section aria-labelledby="group-workspaces" class="flex flex-col gap-2">
+                            <h3 id="group-workspaces"
+                                class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">
+                                Workspaces</h3>
+                            <div formGroupName="workspaces"
+                                 class="flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
                                 <div>
-                                    <label for="ca-certificate" class="font-medium">Custom CA certificate</label>
-                                    <p id="ca-certificate-help" class="m-0 mt-0.5 text-sm text-muted-color">PEM file trusted in addition to the built-in and operating system certificates.</p>
+                                    <label for="base-directory" class="font-medium">Workspaces folder</label>
+                                    <p id="base-directory-help" class="m-0 mt-0.5 text-sm text-muted-color">
+                                        New and imported workspaces are created in <code>&lt;folder&gt;/&lt;workspace&gt;/collections/&lt;collection&gt;</code>.
+                                        Changing it does not move existing workspaces.
+                                    </p>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
-                                    <input
-                                        pInputText
-                                        id="ca-certificate"
-                                        class="min-w-0 flex-1 font-mono text-sm"
-                                        [value]="form.controls.http.controls.ssl.controls.caCertificatePath.value ?? ''"
-                                        placeholder="No certificate selected"
-                                        readonly
-                                        aria-describedby="ca-certificate-help"
-                                    />
-                                    <p-button label="Select File" icon="pi pi-folder-open" severity="secondary" [disabled]="!persistent()" (onClick)="browseCertificate()" />
-                                    @if (form.controls.http.controls.ssl.controls.caCertificatePath.value) {
-                                    <p-button label="Clear" icon="pi pi-times" severity="secondary" [text]="true" (onClick)="clearCertificate()" />
+                                    <input pInputText id="base-directory" class="min-w-0 flex-1 font-mono text-sm"
+                                           [value]="form.controls.workspaces.controls.baseDirectory.value || appInfo()?.defaultBaseDirectory || ''"
+                                           readonly aria-describedby="base-directory-help" />
+                                    <p-button label="Change…" icon="pi pi-folder-open" severity="secondary"
+                                              [disabled]="!persistent()" (onClick)="browseBaseDirectory()" />
+                                    @if (form.controls.workspaces.controls.baseDirectory.value) {
+                                        <p-button label="Use Default" severity="secondary" [text]="true"
+                                                  (onClick)="resetBaseDirectory()" />
                                     }
                                 </div>
                             </div>
-                        </div>
-                        @if (!form.controls.http.controls.ssl.controls.verifyCertificates.value) {
-                        <p-message severity="warn" size="small">Certificate verification is off. Use this only with trusted development servers.</p-message>
-                        }
-                    </fieldset>
-                </ng-container>
-                } @case ('about') {
-                <div class="flex flex-col gap-4 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
-                    @if (appInfo(); as info) {
-                    <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 text-sm">
-                        <dt class="text-muted-color">Version</dt>
-                        <dd class="m-0">{{ info.name }} {{ info.version }}</dd>
-                        <dt class="text-muted-color">Electron</dt>
-                        <dd class="m-0">{{ info.versions.electron }}</dd>
-                        <dt class="text-muted-color">Chromium</dt>
-                        <dd class="m-0">{{ info.versions.chrome }}</dd>
-                        <dt class="text-muted-color">Node.js</dt>
-                        <dd class="m-0">{{ info.versions.node }}</dd>
-                        <dt class="text-muted-color">Platform</dt>
-                        <dd class="m-0">{{ info.platform }}</dd>
-                    </dl>
-                    } @else {
-                    <p class="m-0 text-sm text-muted-color">Version information is only available in the desktop app.</p>
+                        </section>
+
+                        <section aria-labelledby="group-application" class="flex flex-col gap-2">
+                            <h3 id="group-application"
+                                class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">
+                                Application</h3>
+                            <div
+                                class="divide-y divide-surface-200 rounded-lg border border-surface-200 dark:divide-surface-700 dark:border-surface-700">
+                                <div class="flex items-center justify-between gap-6 px-4 py-3">
+                                    <div class="min-w-0">
+                                        <label id="minimize-to-tray-label" for="minimize-to-tray" class="font-medium">Run
+                                            in the system tray</label>
+                                        <p id="minimize-to-tray-help" class="m-0 mt-0.5 text-sm text-muted-color">Keep
+                                            Otto running in the background when the window is closed.</p>
+                                    </div>
+                                    <p-toggle-switch formControlName="minimizeToTray" inputId="minimize-to-tray"
+                                                     ariaLabelledBy="minimize-to-tray-label" />
+                                </div>
+                                <div class="flex items-center justify-between gap-6 px-4 py-3">
+                                    <div class="min-w-0">
+                                        <label id="hardware-acceleration-label" for="hardware-acceleration"
+                                               class="font-medium">Hardware acceleration</label>
+                                        <p class="m-0 mt-0.5 text-sm text-muted-color">Use the GPU to render the
+                                            application.</p>
+                                    </div>
+                                    <p-toggle-switch formControlName="hardwareAcceleration"
+                                                     inputId="hardware-acceleration"
+                                                     ariaLabelledBy="hardware-acceleration-label" />
+                                </div>
+                            </div>
+                        </section>
+
+                        <section aria-labelledby="group-requests" class="flex flex-col gap-2">
+                            <h3 id="group-requests"
+                                class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">
+                                Requests</h3>
+                            <div
+                                class="divide-y divide-surface-200 rounded-lg border border-surface-200 dark:divide-surface-700 dark:border-surface-700">
+                                <ng-container formGroupName="http">
+                                    <div class="flex items-center justify-between gap-6 px-4 py-3">
+                                        <div class="min-w-0">
+                                            <label id="follow-redirects-label" for="follow-redirects"
+                                                   class="font-medium">Follow redirects</label>
+                                            <p class="m-0 mt-0.5 text-sm text-muted-color">Automatically follow 3xx
+                                                responses.</p>
+                                        </div>
+                                        <p-toggle-switch formControlName="followRedirects" inputId="follow-redirects"
+                                                         ariaLabelledBy="follow-redirects-label" />
+                                    </div>
+                                    <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+                                        <div class="min-w-0 flex-1">
+                                            <label for="timeout" class="font-medium">Request timeout (ms)</label>
+                                            <p id="timeout-help" class="m-0 mt-0.5 text-sm text-muted-color">Use 0 to
+                                                disable the timeout. Maximum {{ maxTimeoutMs }} ms (1 hour).</p>
+                                        </div>
+                                        <p-input-number formControlName="timeoutMs" inputId="timeout" [min]="0"
+                                                        [max]="maxTimeoutMs" [useGrouping]="false"
+                                                        [invalid]="controlInvalid('http.timeoutMs')"
+                                                        ariaDescribedBy="timeout-help" inputStyleClass="w-40" />
+                                    </div>
+                                </ng-container>
+                                <div formGroupName="history"
+                                     class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+                                    <div class="min-w-0 flex-1">
+                                        <label for="history-max-entries" class="font-medium">Requests kept in
+                                            history</label>
+                                        <p id="history-help" class="m-0 mt-0.5 text-sm text-muted-color">Older entries
+                                            are removed automatically. Use 0 to stop recording history.
+                                            Maximum {{ maxHistoryEntries }}.</p>
+                                    </div>
+                                    <p-input-number formControlName="maxEntries" inputId="history-max-entries" [min]="0"
+                                                    [max]="maxHistoryEntries" [useGrouping]="false"
+                                                    [invalid]="controlInvalid('history.maxEntries')"
+                                                    ariaDescribedBy="history-help" inputStyleClass="w-40" />
+                                </div>
+                            </div>
+                        </section>
                     }
-                    <p class="m-0 text-sm text-muted-color">Open-source, offline-first API client. No accounts, no telemetry.</p>
-                </div>
-                } }
+                    @case ('themes') {
+                        <div
+                            class="flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                            <div>
+                                <span id="theme-label" class="font-medium">Theme</span>
+                                <p id="theme-help" class="m-0 mt-0.5 text-sm text-muted-color">Auto follows your
+                                    operating system. @if (theme.mode() === 'auto') {
+                                        Currently using the {{ theme.effective() }} theme.
+                                    }</p>
+                            </div>
+                            <p-select-button formControlName="theme" [options]="themeOptions" optionLabel="label"
+                                             optionValue="value" [allowEmpty]="false" ariaLabelledBy="theme-label">
+                                <ng-template #item let-option>
+                                    <i [class]="option.icon" aria-hidden="true"></i>
+                                    <span>{{ option.label }}</span>
+                                </ng-template>
+                            </p-select-button>
+                        </div>
+                    }
+                    @case ('appearance') {
+                        <div formGroupName="appearance"
+                             class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-lg border border-surface-200 px-4 py-3 dark:border-surface-700">
+                            <div class="min-w-0 flex-1">
+                                <label for="request-layout" class="font-medium">Request and response panels</label>
+                                <p id="request-layout-help" class="m-0 mt-0.5 text-sm text-muted-color">How the request
+                                    tab splits the request editor and the response. The divider between them can still
+                                    be dragged.</p>
+                            </div>
+                            <p-select formControlName="requestLayout" inputId="request-layout"
+                                      [options]="requestLayoutOptions" optionLabel="label" optionValue="value"
+                                      aria-describedby="request-layout-help" appendTo="body" class="w-full sm:w-80" />
+                        </div>
+                    }
+                    @case ('proxy') {
+                        <ng-container formGroupName="http">
+                            <fieldset formGroupName="proxy"
+                                      class="m-0 divide-y divide-surface-200 rounded-lg border border-surface-200 p-0 dark:divide-surface-700 dark:border-surface-700">
+                                <legend class="sr-only">Proxy</legend>
+                                <div class="flex items-center justify-between gap-6 px-4 py-3">
+                                    <div class="min-w-0">
+                                        <label id="proxy-enabled-label" for="proxy-enabled" class="font-medium">Use a
+                                            proxy server</label>
+                                        <p class="m-0 mt-0.5 text-sm text-muted-color">Only HTTP and HTTPS proxies are
+                                            supported.</p>
+                                    </div>
+                                    <p-toggleswitch formControlName="enabled" inputId="proxy-enabled"
+                                                    ariaLabelledBy="proxy-enabled-label" />
+                                </div>
+                                <div class="flex flex-col gap-2 px-4 py-3">
+                                    <label for="proxy-url" class="font-medium">Proxy URL</label>
+                                    <input
+                                        pInputText
+                                        id="proxy-url"
+                                        type="url"
+                                        formControlName="url"
+                                        placeholder="http://proxy.local:3128"
+                                        autocomplete="off"
+                                        spellcheck="false"
+                                        class="font-mono text-sm"
+                                        [invalid]="controlInvalid('http.proxy.url') || (form.controls.http.controls.proxy.invalid && form.controls.http.controls.proxy.touched)"
+                                        [attr.aria-invalid]="!!(proxyErrors?.['proxyUrl'] || proxyErrors?.['proxyProtocol'] || proxyErrors?.['proxyUrlRequired'])"
+                                        aria-describedby="proxy-url-error"
+                                    />
+                                    <small id="proxy-url-error" class="text-red-700 empty:hidden dark:text-red-400"
+                                           aria-live="polite">@if (proxyErrors?.['proxyUrl']) {
+                                        Enter a valid URL, for example http://proxy.local:3128.
+                                    } @else if (proxyErrors?.['proxyProtocol']) {
+                                        The proxy URL must start with http:// or https://.
+                                    } @else if (proxyErrors?.['proxyUrlRequired']) {
+                                        Enter the proxy URL or turn the proxy off.
+                                    }</small>
+                                </div>
+                                <div class="flex flex-col gap-2 px-4 py-3">
+                                    <label for="proxy-bypass" class="font-medium">Bypass proxy for</label>
+                                    <input pInputText id="proxy-bypass" formControlName="bypass" autocomplete="off"
+                                           spellcheck="false" class="font-mono text-sm"
+                                           aria-describedby="proxy-bypass-help" />
+                                    <small id="proxy-bypass-help" class="text-sm text-muted-color">Comma-separated
+                                        hosts, for example localhost, *.internal.</small>
+                                </div>
+                            </fieldset>
+                        </ng-container>
+                    }
+                    @case ('certificates') {
+                        <ng-container formGroupName="http">
+                            <fieldset formGroupName="ssl" class="m-0 flex flex-col gap-4 border-0 p-0">
+                                <legend class="sr-only">SSL/TLS certificates</legend>
+                                <div
+                                    class="divide-y divide-surface-200 rounded-lg border border-surface-200 dark:divide-surface-700 dark:border-surface-700">
+                                    <div class="flex items-center justify-between gap-6 px-4 py-3">
+                                        <div class="min-w-0">
+                                            <label id="verify-certificates-label" for="verify-certificates"
+                                                   class="font-medium">SSL/TLS certificate verification</label>
+                                            <p class="m-0 mt-0.5 text-sm text-muted-color">Reject servers whose
+                                                certificate cannot be verified.</p>
+                                        </div>
+                                        <p-toggleswitch formControlName="verifyCertificates"
+                                                        inputId="verify-certificates"
+                                                        ariaLabelledBy="verify-certificates-label" />
+                                    </div>
+                                    <div class="flex flex-col gap-3 px-4 py-3">
+                                        <div>
+                                            <label for="ca-certificate" class="font-medium">Custom CA
+                                                certificate</label>
+                                            <p id="ca-certificate-help" class="m-0 mt-0.5 text-sm text-muted-color">PEM
+                                                file trusted in addition to the built-in and operating system
+                                                certificates.</p>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <input
+                                                pInputText
+                                                id="ca-certificate"
+                                                class="min-w-0 flex-1 font-mono text-sm"
+                                                [value]="form.controls.http.controls.ssl.controls.caCertificatePath.value ?? ''"
+                                                placeholder="No certificate selected"
+                                                readonly
+                                                aria-describedby="ca-certificate-help"
+                                            />
+                                            <p-button label="Select File" icon="pi pi-folder-open" severity="secondary"
+                                                      [disabled]="!persistent()" (onClick)="browseCertificate()" />
+                                            @if (form.controls.http.controls.ssl.controls.caCertificatePath.value) {
+                                                <p-button label="Clear" icon="pi pi-times" severity="secondary"
+                                                          [text]="true" (onClick)="clearCertificate()" />
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                @if (!form.controls.http.controls.ssl.controls.verifyCertificates.value) {
+                                    <p-message severity="warn" size="small">Certificate verification is off. Use this
+                                        only with trusted development servers.
+                                    </p-message>
+                                }
+                            </fieldset>
+                        </ng-container>
+                    }
+                    @case ('about') {
+                        <div
+                            class="flex flex-col gap-4 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                            @if (appInfo(); as info) {
+                                <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 text-sm">
+                                    <dt class="text-muted-color">Version</dt>
+                                    <dd class="m-0">{{ info.name }} {{ info.version }}</dd>
+                                    <dt class="text-muted-color">Electron</dt>
+                                    <dd class="m-0">{{ info.versions.electron }}</dd>
+                                    <dt class="text-muted-color">Chromium</dt>
+                                    <dd class="m-0">{{ info.versions.chrome }}</dd>
+                                    <dt class="text-muted-color">Node.js</dt>
+                                    <dd class="m-0">{{ info.versions.node }}</dd>
+                                    <dt class="text-muted-color">Platform</dt>
+                                    <dd class="m-0">{{ info.platform }}</dd>
+                                </dl>
+                            } @else {
+                                <p class="m-0 text-sm text-muted-color">Version information is only available in the
+                                    desktop app.</p>
+                            }
+                            <p class="m-0 text-sm text-muted-color">Open-source, offline-first API client. No accounts,
+                                no telemetry.</p>
+                        </div>
+                        <div
+                            class="group relative inline-flex items-center gap-4 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-xl transition-all duration-300 dark:border-zinc-800/80 dark:bg-zinc-950/80">
+
+                            <!-- Feixe de borda iluminada suave no hover -->
+                            <div
+                                class="pointer-events-none absolute -inset-px -z-10 rounded-2xl bg-linear-to-r from-emerald-500/0 via-emerald-500/25 to-amber-400/0 opacity-0 blur-sm transition-opacity duration-300"></div>
+
+                            <!-- Efeito Shimmer sutil no hover -->
+                            <div
+                                class="pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 ease-in-out group-hover:translate-x-full dark:via-white/5"></div>
+
+                            <!-- Container da Bandeira (sem o quadro/box) -->
+                            <div class="relative flex h-10 w-10 shrink-0 items-center justify-center">
+                                <!-- Pulso suave de fundo -->
+                                <div
+                                    class="absolute inset-0 animate-ping rounded-full bg-emerald-500/15 duration-1000"></div>
+
+                                <!-- Glow gradiente verde e amarelo -->
+                                <div
+                                    class="absolute -inset-1 rounded-full bg-linear-to-tr from-emerald-500 via-teal-400 to-amber-400 opacity-30 blur-md transition-all duration-300 group-hover:scale-110 group-hover:opacity-60"></div>
+
+                                <!-- Ícone solto diretamente sobre o efeito de luz -->
+                                <img
+                                    src="assets/icons/brazil.svg"
+                                    alt="Bandeira do Brasil"
+                                    class="relative h-9 w-9 drop-shadow-md transition-transform duration-300 group-hover:scale-105"
+                                />
+                            </div>
+
+                            <!-- Textos -->
+                            <div class="flex flex-col pr-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span
+                                        class="bg-linear-to-r from-zinc-900 via-zinc-800 to-zinc-600 bg-clip-text text-sm font-bold tracking-tight text-transparent dark:from-white dark:via-zinc-200 dark:to-zinc-400">
+                                        From Brazil to the world
+                                    </span>
+                                    <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                </div>
+                                <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                                    Made with dedication to connect all peoples.
+                                </span>
+                            </div>
+                        </div>
+                    }
+                }
             </form>
         </div>
     </div>

@@ -12,6 +12,7 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { AppInfoGateway, DialogGateway } from '../../core/ports';
 import { SettingsState } from '../../core/state/settings.state';
 import { ThemeService } from '../../core/theme/theme.service';
+import { NgOptimizedImage } from '@angular/common';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -42,13 +43,13 @@ const proxyRequiresUrl: ValidatorFn = (group: AbstractControl): ValidationErrors
 
 @Component({
     selector: 'app-settings-page',
-    imports: [ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
+    imports: [ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule, NgOptimizedImage],
     templateUrl: './settings.page.html',
     styles: `
         ::ng-deep {
             .settings-dialog-custom {
-                height: calc(100% - 56px)!important;
-                top: 32px!important;
+                height: calc(100% - 56px) !important;
+                top: 32px !important;
             }
         }
     `,
