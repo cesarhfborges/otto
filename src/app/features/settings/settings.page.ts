@@ -85,6 +85,7 @@ export class SettingsPage {
     protected readonly form = this.fb.group({
         theme: this.fb.control<ThemeMode>('auto'),
         minimizeToTray: this.fb.control(true),
+        hardwareAcceleration: this.fb.control(true),
         http: this.fb.group({
             // Campos de texto salvam ao sair do campo; toggles e seletores salvam na hora.
             timeoutMs: this.fb.control(0, { validators: [Validators.required, Validators.min(0), Validators.max(MAX_TIMEOUT_MS)], updateOn: 'blur' }),

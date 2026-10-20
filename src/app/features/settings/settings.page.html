@@ -51,6 +51,10 @@
             <p-toggle-switch formControlName="minimizeToTray" inputId="minimize-to-tray" ariaLabelledBy="minimize-to-tray-label" />
             <label id="minimize-to-tray-label" for="minimize-to-tray">Keep running in the system tray when the window is closed</label>
         </div>
+        <div class="flex items-center gap-3">
+            <p-toggle-switch formControlName="hardwareAcceleration" inputId="hardware-acceleration" ariaLabelledBy="hardware-acceleration-label" />
+            <label id="hardware-acceleration-label" for="hardware-acceleration">Use hardware to accelerate application.</label>
+        </div>
         <ng-container formGroupName="http">
             <div class="flex items-center gap-3">
                 <p-toggle-switch formControlName="followRedirects" inputId="follow-redirects" ariaLabelledBy="follow-redirects-label" />
@@ -70,12 +74,12 @@
         } @case ('themes') {
         <div class="flex flex-col gap-3">
             <span id="theme-label" class="font-medium">Theme</span>
-            <p-selectbutton formControlName="theme" [options]="themeOptions" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="theme-label">
+            <p-select-button formControlName="theme" [options]="themeOptions" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="theme-label">
                 <ng-template #item let-option>
                     <i [class]="option.icon" aria-hidden="true"></i>
                     <span>{{ option.label }}</span>
                 </ng-template>
-            </p-selectbutton>
+            </p-select-button>
             <small class="text-muted-color"> Auto follows your operating system. @if (theme.mode() === 'auto') { Currently using the {{ theme.effective() }} theme. } </small>
         </div>
         } @case ('appearance') {

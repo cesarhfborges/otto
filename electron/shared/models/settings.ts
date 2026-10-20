@@ -59,6 +59,7 @@ export interface AppearanceSettings {
 export interface OttoSettings {
     /** Ao fechar a janela, mantém o Otto rodando na bandeja do sistema. */
     minimizeToTray: boolean;
+    hardwareAcceleration: boolean;
     theme: ThemeMode;
     http: HttpSettings;
     history: HistorySettings;
@@ -86,6 +87,7 @@ export const MAX_HISTORY_ENTRIES = 10_000;
 
 export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
     minimizeToTray: true,
+    hardwareAcceleration: true,
     theme: 'auto',
     http: {
         timeoutMs: 30_000,

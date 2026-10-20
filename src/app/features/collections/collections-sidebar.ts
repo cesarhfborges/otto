@@ -26,7 +26,7 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
                 <i class="pi pi-box text-sm text-muted-color" aria-hidden="true"></i>
                 <h2 id="collections-heading" class="m-0 flex-1 text-sm font-semibold">Collections</h2>
             </div>
-            <div class="flex-none">
+            <div class="flex flex-row justify-end gap-2">
                 <button type="button" class="otto-icon-button" [attr.aria-pressed]="filterVisible()" aria-label="Search collections" pTooltip="Search" tooltipPosition="bottom" (click)="filterVisible.set(!filterVisible())">
                     <i class="pi pi-search text-sm" aria-hidden="true"></i>
                 </button>
@@ -36,8 +36,6 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
                 <button type="button" class="otto-icon-button" aria-label="More collection actions" aria-haspopup="menu" (click)="moreMenu.toggle($event)">
                     <i class="pi pi-ellipsis-v text-sm" aria-hidden="true"></i>
                 </button>
-                <p-menu #addMenu [model]="addItems" [popup]="true" appendTo="body" />
-                <p-menu #moreMenu [model]="moreItems()" [popup]="true" appendTo="body" />
             </div>
         </div>
 
@@ -75,7 +73,7 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
                             <span class="sr-only">(invalid file: {{ node.data.error }})</span>
                         }
                         <!-- Atalho de mouse para o menu de contexto; teclado usa a tecla de menu/Shift+F10. -->
-                        <span class="otto-icon-button invisible !h-5 !w-5 group-hover:visible" aria-hidden="true" (click)="openMenuFor(node, $event)">
+                        <span class="otto-icon-button invisible h-5! w-5! group-hover:visible" aria-hidden="true" (click)="openMenuFor(node, $event)">
                             <i class="pi pi-ellipsis-h text-xs"></i>
                         </span>
                     </span>
@@ -93,8 +91,11 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
         }
 
         <p-context-menu #contextMenu [model]="contextItems()" appendTo="body" />
+        <p-menu #addMenu [model]="addItems" [popup]="true" appendTo="#collections-sidebar" />
+        <p-menu #moreMenu [model]="moreItems()" [popup]="true" appendTo="#collections-sidebar" />
     `,
     host: {
+        id: 'collections-sidebar',
         role: 'navigation',
         'aria-labelledby': 'collections-heading',
         class: 'flex min-h-0 flex-col border-r border-surface-200 bg-surface-50 dark:border-surface-800 dark:bg-surface-900'
@@ -138,8 +139,9 @@ export class CollectionsSidebar {
     ];
 
     protected readonly moreItems = computed<MenuItem[]>(() => [
-        { label: 'Collapse All', icon: 'pi pi-minus', command: () => this.expanded.set(new Set()), disabled: !this.expanded().size },
-        { label: 'Remove All from Workspace', icon: 'pi pi-times', command: () => void this.closeAll(), disabled: !this.collections.opened().length }
+        { label: 'Export', icon: 'pi pi-file-export', command: () => this.expanded.set(new Set()), disabled: !this.expanded().size }
+        // { label: 'Expand All', icon: 'pi pi-plus', command: () => this.expanded.set(new Set()), disabled: !!this.expanded().size }
+        // { label: 'Remove All from Workspace', icon: 'pi pi-times', command: () => void this.closeAll(), disabled: !this.collections.opened().length }
     ]);
 
     protected readonly contextItems = computed<MenuItem[]>(() => {

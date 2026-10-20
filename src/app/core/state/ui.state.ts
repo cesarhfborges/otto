@@ -30,6 +30,8 @@ export class UiState {
     readonly newWorkspaceDialog = signal(false);
     readonly importWorkspaceDialog = signal(false);
     readonly importCollectionDialog = signal(false);
+    /** Pedido para abrir a página da coleção numa aba específica (ex.: botão de sync → OpenAPI). */
+    readonly collectionSection = signal<{ collectionId: EntityId; section: 'overview' | 'headers' | 'openapi' } | null>(null);
 
     constructor() {
         effect(() => {

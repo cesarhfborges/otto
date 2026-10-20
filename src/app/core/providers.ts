@@ -15,7 +15,22 @@ import {
     ElectronWorkspacesGateway,
     ElectronOpenApiGateway
 } from './adapters/electron/electron-gateways';
-import { AppInfoGateway, CollectionFilesGateway, CollectionsGateway, DialogGateway, EnvironmentsGateway, HistoryGateway, HttpGateway, MenuEventsGateway, SettingsGateway, TabsGateway, ThemeGateway, WindowGateway, WorkspacesGateway, OpenApiGateway } from './ports';
+import {
+    AppInfoGateway,
+    CollectionFilesGateway,
+    CollectionsGateway,
+    DialogGateway,
+    EnvironmentsGateway,
+    HistoryGateway,
+    HttpGateway,
+    MenuEventsGateway,
+    SettingsGateway,
+    TabsGateway,
+    ThemeGateway,
+    WindowGateway,
+    WorkspacesGateway,
+    OpenApiGateway
+} from './ports';
 import { ThemeService } from './theme/theme.service';
 
 /** Liga os ports do renderer às implementações sobre o IPC do Electron. */

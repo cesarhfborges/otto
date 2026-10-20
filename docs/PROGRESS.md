@@ -16,7 +16,7 @@
 | 5     | Motor de requisições HTTP + histórico/métricas         | ✅ Concluída    |
 | 6     | Interface Angular (layout base e abas)                 | ✅ Concluída (adiantada, antes da 5) |
 | 7     | Editor de requisição, resposta e interpolação          | 🟡 Parcial (editor completo e interpolação prontos; falta visualizador avançado da resposta) |
-| 8     | Collections (estilo Bruno), importação e sync OpenAPI  | 🟡 Parcial (só contratos + registry) |
+| 8     | Collections (estilo Bruno), importação e sync OpenAPI  | 🟡 Parcial (página da coleção, headers e sync OpenAPI prontos; faltam Vars/Auth/Script da coleção e importar Postman/Insomnia) |
 
 ## Stack efetiva
 
@@ -255,12 +255,22 @@ Pedido do usuário: layout semelhante ao Bruno (5 telas de referência) antes da
 - [x] Main: `HttpRequest` ganhou `bodyFile`, `multipart` (arquivos lidos no envio, `FormData` do undici) e `wsse`; validação de caminhos absolutos; diálogo genérico `dialog:pick-file`
 - [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (94), no app real contra servidor de eco: URL editada, erro sem ambiente, interpolação com ambiente, params (descrição, desabilitado), headers com variável, JSON com Pretty e erro de sintaxe, Form URL Encoded + Basic, Multipart com arquivo + API Key em query, Binary + WSSE, `Ctrl+S` gravando o YAML, confirmação ao fechar ✅, **axe sem violações** em todas as seções e tipos (claro/escuro) ✅
 
+## Página da coleção e sincronização OpenAPI (Etapa 8, parte 1 — pedido do usuário)
+
+- [x] Página da coleção com abas **Overview** (local com copiar, contagens de requisições/pastas/ambientes/headers, requisições por método, arquivos inválidos, nome, versão, última abertura, criação, status OpenAPI, documentação editável gravada no `otto.yaml`), **Headers** e **OpenAPI**
+- [x] **Headers da coleção** no `otto.yaml`: enviados em todas as requisições; o header da requisição com o mesmo nome (sem diferenciar maiúsculas) prevalece (a coleção entra antes na montagem e o último vence)
+- [x] **Sincronização OpenAPI** (inspirada no Bruno): Connection Settings (origem URL ou arquivo — relativo à coleção ou absoluto —, auto-check com intervalo 5/15/30/60 min, agrupamento por tag ou caminho, Disconnect sync); Check for updates; View spec; abas Overview (alerta, resumo de endpoints, detalhes do último spec sincronizado), **Collection Changes** (edições locais × último sincronizado, diff lado a lado, Reset/Revert All) e **Spec Updates** (novos/alterados/removidos, diff, Skip/Add/Update/Remove por endpoint, Accept/Skip All, Sync Collection). Substituição completa da requisição (por enquanto); itens pulados continuam pendentes
+- [x] Main: `openapi-converter` (OpenAPI 3.x e Swagger 2.0, JSON/YAML, `$ref` locais, exemplos a partir do schema com `allOf`/`oneOf`, query/header params com descrição, corpos JSON/form/multipart com arquivos/XML/texto/binário, auth a partir de `security`: Bearer/Basic/API Key/OAuth2→Bearer, pastas por tag/caminho), `OpenApiService` (3 versões: spec × `openapi-snapshot.json` × coleção, ligadas pelo campo `operation` das requisições), ambiente "Default" com `baseUrl` criado na primeira sincronização se a coleção não tiver ambientes. Spec por URL é baixado pelo motor HTTP (proxy/SSL) sem ir para o histórico
+- [x] Renderer: `OpenApiState` (status por coleção e verificação automática com timers enquanto a coleção está aberta); botão de sync no cabeçalho da coleção mostra ponto quando há atualizações e abre a aba OpenAPI
+- [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (94), no app real com servidor local de spec: headers no `otto.yaml`, conectar por URL, 4 endpoints novos, Accept All + Sync (arquivos por tag, `operation`, snapshot, ambiente Default), edição local detectada (Bearer→WSSE) com diff, spec v2 com novo/alterado/removido, sync parcial (removido fica pendente), Reset, envio com header da coleção e sobrescrita pela requisição ✅, **axe sem violações** em todas as telas ✅
+
 ## Pendências e débitos conhecidos
 
 - O `workspace.yaml` não é observado enquanto o app está aberto: mudanças externas (git pull) entram ao trocar de workspace ou reiniciar.
 - Ambientes de workspace ficam no SQLite (não vão no `workspace.yaml` nem no .zip exportado).
 
 - `auth: inherit` ainda não envia nada (depende da auth da coleção, Etapa 8). Params não são sincronizados com a query digitada na URL (são acrescentados no envio). Editor de corpo é um `textarea` (sem destaque de sintaxe). Sem tela de histórico (os dados e o evento `history:changed` já existem; o tipo de aba `history` está reservado).
+- OpenAPI: parâmetros de caminho viram `{{nome}}` (precisam de variável no ambiente); "Preserve values" e mesclagem campo a campo ainda não existem (a sincronização substitui a requisição inteira). Verificação automática só roda com a coleção aberta.
 - Métricas não separam DNS/TCP/TLS (o `fetch` não expõe); dá para obter via `diagnostics_channel` do undici se for necessário. Proxy SOCKS não é suportado (a validação aceita só http/https). Sem certificado de cliente (mTLS).
 - Exibição do corpo limitada a 1 milhão de caracteres e sem syntax highlight (visualizador completo na Etapa 7). Renomear/mover pela árvore, arrastar e soltar e redimensionar painéis (sidebar e requisição/resposta) ainda não existem.
 - Seleção de ambiente por coleção fica em `localStorage` (preferência visual). A interpolação de `{{variáveis}}` no envio ainda é da Etapa 7.

@@ -11,6 +11,7 @@ import { EnvironmentsState } from '../core/state/environments.state';
 import { TabsState } from '../core/state/tabs.state';
 import { WorkspacesState } from '../core/state/workspaces.state';
 import { UiState } from '../core/state/ui.state';
+import { OpenApiState } from '../core/state/openapi.state';
 
 /**
  * Cabeçalho do contexto atual (acima das abas): workspace ou coleção. Na coleção
@@ -29,9 +30,11 @@ import { UiState } from '../core/state/ui.state';
             <p-menu #collectionMenu [model]="collectionItems()" [popup]="true" appendTo="body" />
 
             <div class="ml-auto flex items-center gap-2">
-                <!-- aria-disabled (e não disabled) mantém o foco e o tooltip acessíveis por teclado. -->
-                <button type="button" class="otto-icon-button" aria-disabled="true" aria-label="Check for OpenAPI updates" [pTooltip]="syncTooltip()" tooltipPosition="bottom">
-                    <i class="pi pi-sync" aria-hidden="true"></i>
+                <button type="button" class="otto-icon-button relative" [attr.aria-label]="syncTooltip()" [pTooltip]="syncTooltip()" tooltipPosition="bottom" (click)="openOpenApi(current.metadata.id)">
+                    <i class="pi pi-sync" [class.pi-spin]="syncBusy()" aria-hidden="true"></i>
+                    @if (pendingUpdates()) {
+                        <span class="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>
+                    }
                 </button>
                 <p-select [formControl]="environmentControl" [options]="environmentOptions()" optionLabel="label" optionValue="value" size="small" ariaLabel="Environment" placeholder="No Environment" class="w-48" appendTo="body">
                     <ng-template #selectedItem let-option>
@@ -55,15 +58,33 @@ export class ContextHeader {
     protected readonly workspaces = inject(WorkspacesState);
     private readonly environments = inject(EnvironmentsState);
     private readonly ui = inject(UiState);
+    private readonly openapi = inject(OpenApiState);
 
     protected readonly collection = computed(() => this.collections.find(this.tabs.context()));
     protected readonly environmentControl = new FormControl<EntityId | null>(null);
 
-    protected readonly syncTooltip = computed(() => {
-        const source = this.collection()?.metadata.source;
+    protected readonly pendingUpdates = computed(() => {
+        const id = this.tabs.context();
 
-        return source ? `Linked to ${source.location}. Update checks are not available yet.` : 'Not linked to an OpenAPI spec. Import from OpenAPI to enable update checks.';
+        return id ? this.openapi.pendingUpdates(id) : 0;
     });
+    protected readonly syncBusy = computed(() => {
+        const id = this.tabs.context();
+
+        return !!id && this.openapi.isBusy(id);
+    });
+    protected readonly syncTooltip = computed(() => {
+        const config = this.collection()?.manifest.openapi;
+        const pending = this.pendingUpdates();
+
+        return !config ? 'OpenAPI sync: not linked (open to connect a spec)' : pending ? `OpenAPI sync: ${pending} update(s) from the spec to review` : 'OpenAPI sync: up to date';
+    });
+
+    /** Abre a página da coleção já na aba OpenAPI. */
+    protected openOpenApi(collectionId: EntityId): void {
+        this.ui.collectionSection.set({ collectionId, section: 'openapi' });
+        this.tabs.open({ kind: 'collection', title: 'Overview', collectionId });
+    }
 
     protected readonly environmentOptions = computed(() => {
         const id = this.tabs.context();

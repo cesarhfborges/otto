@@ -315,4 +315,3 @@ export class OpenApiService {
         await this.collections.writeAuxFile(collectionId, OPENAPI_SNAPSHOT_FILE, `${JSON.stringify(snapshot, null, 2)}\n`);
     }
 }
-

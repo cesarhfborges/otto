@@ -132,3 +132,9 @@ body {
     outline: 2px solid var(--p-primary-color);
     outline-offset: 1px;
 }
+
+/* Item de menu destrutivo (ex.: Disconnect Sync). */
+.otto-danger-item .p-menu-item-label,
+.otto-danger-item .p-menu-item-icon {
+    color: var(--otto-method-delete);
+}

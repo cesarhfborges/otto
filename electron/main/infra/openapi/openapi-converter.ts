@@ -229,7 +229,10 @@ function authFrom(security: unknown, schemes: Json, refs: RefResolver): RequestA
 
 function serversOf(spec: Json): string[] {
     if (Array.isArray(spec['servers'])) {
-        return spec['servers'].filter(isObject).map((server) => str(server['url'])).filter(Boolean);
+        return spec['servers']
+            .filter(isObject)
+            .map((server) => str(server['url']))
+            .filter(Boolean);
     }
 
     // Swagger 2.0: schemes + host + basePath.
@@ -331,7 +334,9 @@ export function convertSpec(spec: Json, groupBy: OpenApiGrouping): ConvertedSpec
                     body = { type: 'json', content: example === null ? '' : JSON.stringify(example, null, 2) };
                 } else if (formData.length) {
                     const hasFile = formData.some((parameter) => parameter['type'] === 'file');
-                    const fields = formData.map((parameter): MultipartField => ({ key: str(parameter['name']), value: parameter['type'] === 'file' ? '' : valueOf(parameter), enabled: parameter['required'] === true, kind: parameter['type'] === 'file' ? 'file' : 'text' }));
+                    const fields = formData.map(
+                        (parameter): MultipartField => ({ key: str(parameter['name']), value: parameter['type'] === 'file' ? '' : valueOf(parameter), enabled: parameter['required'] === true, kind: parameter['type'] === 'file' ? 'file' : 'text' })
+                    );
 
                     body = hasFile ? { type: 'multipart-form', fields } : { type: 'form-urlencoded', fields: fields.map(({ kind: _kind, ...field }) => field) };
                 }
