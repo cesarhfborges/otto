@@ -1,9 +1,11 @@
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
 import xml from 'highlight.js/lib/languages/xml';
+import java from 'highlight.js/lib/languages/java';
 
 hljs.registerLanguage('json', json);
 hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('java', java);
 
 export type HighlightLanguage = 'json' | 'xml';
 

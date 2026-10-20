@@ -196,6 +196,25 @@
                             <legend class="sr-only">Syntax highlighting</legend>
                             <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
                                 <div class="min-w-0 flex-1">
+                                    <label for="code-font-size" class="font-medium">Code font size</label>
+                                    <p id="code-font-size-help" class="m-0 mt-0.5 text-sm text-muted-color">In pixels,
+                                        from {{ minCodeFontSize }} to {{ maxCodeFontSize }}.</p>
+                                </div>
+                                <div class="w-full sm:w-80">
+                                    <p-input-number
+                                        formControlName="codeFontSize"
+                                        inputId="code-font-size"
+                                        [min]="minCodeFontSize"
+                                        [max]="maxCodeFontSize"
+                                        [showButtons]="true"
+                                        suffix=" px"
+                                        ariaDescribedBy="code-font-size-help"
+                                        [fluid]="true"
+                                    />
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+                                <div class="min-w-0 flex-1">
                                     <label for="code-theme" class="font-medium">Syntax highlighting colors</label>
                                     <p id="code-theme-help" class="m-0 mt-0.5 text-sm text-muted-color">Color palette
                                         for
@@ -206,27 +225,10 @@
                                           optionLabel="label" optionValue="value" aria-describedby="code-theme-help"
                                           appendTo="body" class="w-full sm:w-80" />
                             </div>
-                            <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-                                <div class="min-w-0 flex-1">
-                                    <label for="code-font-size" class="font-medium">Code font size</label>
-                                    <p id="code-font-size-help" class="m-0 mt-0.5 text-sm text-muted-color">In pixels,
-                                        from {{ minCodeFontSize }} to {{ maxCodeFontSize }}.</p>
-                                </div>
-                                <p-input-number
-                                    formControlName="codeFontSize"
-                                    inputId="code-font-size"
-                                    [min]="minCodeFontSize"
-                                    [max]="maxCodeFontSize"
-                                    [showButtons]="true"
-                                    suffix=" px"
-                                    aria-describedby="code-font-size-help"
-                                    class="w-full sm:w-40"
-                                />
-                            </div>
                             <div class="px-4 py-3">
                                 <p id="code-preview-label" class="m-0 mb-2 text-sm font-medium">Preview</p>
                                 <pre
-                                    class="otto-code-view m-0 overflow-auto rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-900"
+                                    class="otto-code-view m-0 overflow-auto rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-800"
                                     tabindex="0" aria-labelledby="code-preview-label"><code
                                     [innerHTML]="codePreview"></code></pre>
                             </div>

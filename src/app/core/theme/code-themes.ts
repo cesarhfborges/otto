@@ -44,5 +44,40 @@ export const CODE_THEME_PALETTES: Record<CodeTheme, { label: string; light: Code
         label: 'Nord',
         light: { key: '#3b6c8e', string: '#4c7a32', number: '#8a4f7d', literal: '#2e6f78', tag: '#3b6c8e', comment: '#5e677a' },
         dark: { key: '#88c0d0', string: '#a3be8c', number: '#b48ead', literal: '#81a1c1', tag: '#81a1c1', comment: '#9aa3b5' }
+    },
+    'vs-code': {
+        label: 'vs-code',
+        light: { key: '#9ddcfe', string: '#ce9178', number: '#ffffff', literal: '#ce9178', tag: '#3b6c8e', comment: '#6a9954' },
+        dark: { key: '#9ddcfe', string: '#ce9178', number: '#ffffff', literal: '#ce9178', tag: '#81a1c1', comment: '#6a9954' }
+    },
+    'tokyo-night': {
+        label: 'Tokyo Night',
+        light: { key: '#34548a', string: '#485e30', number: '#8c4351', literal: '#0f4b6e', tag: '#8c4351', comment: '#8990a3' },
+        dark: { key: '#7aa2f7', string: '#9ece6a', number: '#ff9e64', literal: '#2ac3de', tag: '#f7768e', comment: '#565f89' }
+    },
+    catppuccin: {
+        label: 'Catppuccin',
+        light: { key: '#1e66f5', string: '#40a02b', number: '#fe640b', literal: '#ea76cb', tag: '#d20f39', comment: '#8c8fa1' }, // Latte
+        dark: { key: '#89b4fa', string: '#a6e3a1', number: '#fab387', literal: '#f5c2e7', tag: '#f38ba8', comment: '#6c7086' } // Mocha
+    },
+    material: {
+        label: 'Material Theme',
+        light: { key: '#39adb5', string: '#91b859', number: '#f76d47', literal: '#7c4dff', tag: '#e53935', comment: '#90a4ae' },
+        dark: { key: '#82aaff', string: '#c3e88d', number: '#f78c6c', literal: '#c792ea', tag: '#ff5370', comment: '#546e7a' }
+    },
+    'synthwave-84': {
+        label: "SynthWave '84",
+        light: { key: '#6b21a8', string: '#c2410c', number: '#b45309', literal: '#0e7490', tag: '#be123c', comment: '#64748b' },
+        dark: { key: '#36f9f6', string: '#ff7edb', number: '#fede5d', literal: '#fe4450', tag: '#72f1b8', comment: '#614d85' }
+    },
+    gruvbox: {
+        label: 'Gruvbox',
+        light: { key: '#458588', string: '#98971a', number: '#d79921', literal: '#b16286', tag: '#cc241d', comment: '#928374' },
+        dark: { key: '#83a598', string: '#b8bb26', number: '#fabd2f', literal: '#d3869b', tag: '#fb4934', comment: '#928374' }
+    },
+    seneca: {
+        label: 'Seneca',
+        light: { key: '#609c20', string: '#9f9425', number: '#604cd8', literal: '#604cd8', tag: '#cc241d', comment: '#575757' },
+        dark: { key: '#7ecf2b', string: '#f0e137', number: '#a896ff', literal: '#a896ff', tag: '#fb4934', comment: '#999999' }
     }
 };

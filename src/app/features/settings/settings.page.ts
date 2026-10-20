@@ -42,6 +42,14 @@ const proxyRequiresUrl: ValidatorFn = (group: AbstractControl): ValidationErrors
     return enabled && !url.trim() ? { proxyUrlRequired: true } : null;
 };
 
+const EXAMPLE = {
+    id: 42,
+    name: 'Otto',
+    active: true,
+    tags: ['api', 'client', true, 0, null],
+    owner: null,
+};
+
 @Component({
     selector: 'app-settings-page',
     imports: [ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
@@ -80,7 +88,7 @@ export class SettingsPage {
     protected readonly codeThemeOptions = Object.entries(CODE_THEME_PALETTES).map(([value, { label }]) => ({ label, value: value as CodeTheme }));
     protected readonly minCodeFontSize = MIN_CODE_FONT_SIZE;
     protected readonly maxCodeFontSize = MAX_CODE_FONT_SIZE;
-    protected readonly codePreview = highlightCode(JSON.stringify({ id: 42, name: 'Otto', active: true, tags: ['api', 'client'], owner: null }, null, 2), 'json');
+    protected readonly codePreview = highlightCode(JSON.stringify(EXAMPLE, null, 2), 'json');
     protected readonly themeOptions: Array<{ label: string; value: ThemeMode; icon: string }> = [
         { label: 'Light', value: 'light', icon: 'pi pi-sun' },
         { label: 'Dark', value: 'dark', icon: 'pi pi-moon' },
@@ -114,7 +122,7 @@ export class SettingsPage {
         }),
         appearance: this.fb.group({
             requestLayout: this.fb.control<RequestLayout>('horizontal'),
-            codeTheme: this.fb.control<CodeTheme>('github'),
+            codeTheme: this.fb.control<CodeTheme>('solarized'),
             codeFontSize: this.fb.control(14, { validators: [Validators.required, Validators.min(MIN_CODE_FONT_SIZE), Validators.max(MAX_CODE_FONT_SIZE)] })
         }),
         workspaces: this.fb.group({

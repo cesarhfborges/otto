@@ -10,7 +10,7 @@ import { SettingsDialog } from '../features/settings/settings-dialog.service';
     selector: 'app-status-bar',
     imports: [TooltipModule],
     template: `
-        <button type="button" class="otto-icon-button h-6! w-7!" aria-label="Preferences" pTooltip [tooltipOptions]="tooltipConfig" (click)="settingsDialog.open()">
+        <button type="button" class="otto-icon-button !h-6 !w-7" aria-label="Preferences" pTooltip [tooltipOptions]="tooltipConfig" (click)="settingsDialog.open()">
             <i class="pi pi-cog text-xs" aria-hidden="true"></i>
         </button>
         <button type="button" class="otto-icon-button h-6! w-7!" [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'" pTooltip [tooltipOptions]="tooltipColor" (click)="theme.toggle()">

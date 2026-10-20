@@ -53,7 +53,7 @@ export const REQUEST_LAYOUTS = ['horizontal', 'vertical'] as const;
 export type RequestLayout = (typeof REQUEST_LAYOUTS)[number];
 
 /** Paletas de realce de sintaxe (highlight.js) dos editores de corpo e da resposta. */
-export const CODE_THEMES = ['github', 'atom-one', 'monokai', 'dracula', 'solarized', 'nord'] as const;
+export const CODE_THEMES = ['github', 'atom-one', 'monokai', 'dracula', 'solarized', 'nord', 'vs-code', 'tokyo-night', 'catppuccin', 'material', 'synthwave-84', 'gruvbox', 'seneca'] as const;
 
 export type CodeTheme = (typeof CODE_THEMES)[number];
 
