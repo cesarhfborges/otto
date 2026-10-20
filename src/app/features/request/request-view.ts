@@ -103,8 +103,8 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
                     styleClass="h-full !rounded-none !border-0 !bg-transparent [&>.p-splitterpanel]:min-h-0 [&>.p-splitterpanel]:min-w-0 [&>.p-splitterpanel]:overflow-hidden"
                 >
                     <ng-template #panel>
-                        <div class="h-full w-full overflow-auto">
-                            <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="w-full px-3" scrollable>
+                        <div class="flex h-full w-full flex-col overflow-auto">
+                            <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="flex min-h-0 w-full flex-1 flex-col px-3" scrollable>
                                 <p-tablist>
                                     <p-tab value="params"
                                         >Params
@@ -134,13 +134,14 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
                                     </p-tab>
                                     <p-tab value="docs">Docs</p-tab>
                                 </p-tablist>
-                                <p-tabpanels>
+                                <p-tabpanels class="flex min-h-0 flex-1 flex-col">
                                     <p-tabpanel value="params">
                                         <app-key-value-editor [items]="req.params" (itemsChange)="update({ params: $event })" label="Query parameters" addLabel="Add Param" />
                                         <p class="m-0 mt-2 text-xs text-muted-color">Enabled params are appended to the URL query string when the request is sent.</p>
                                     </p-tabpanel>
                                     @if (bodyAllowed()) {
-                                        <p-tabpanel value="body">
+                                        <!-- Ativo vira flex para o editor ocupar a altura restante (inativo segue com [hidden]). -->
+                                        <p-tabpanel value="body" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
                                             <app-body-editor [body]="req.body" (bodyChange)="update({ body: $event })" />
                                         </p-tabpanel>
                                     }
@@ -232,7 +233,6 @@ export class RequestView {
     protected readonly error = signal<string | null>(null);
     protected readonly saveError = signal<string | null>(null);
     protected readonly saving = signal(false);
-    protected readonly section = signal<Section>('params');
     protected readonly methods = [...HTTP_METHODS];
     protected readonly methodControl = new FormControl<HttpMethod>('GET', { nonNullable: true });
     protected readonly urlExample = '{{baseUrl}}/users';
@@ -244,6 +244,12 @@ export class RequestView {
     ];
     /** GET, HEAD, TRACE e CONNECT não levam corpo: a aba Body some. */
     protected readonly bodyAllowed = computed(() => hasBody(this.request()?.method ?? 'GET'));
+    /** Aba inicial: Body quando o método aceita corpo, senão Params; volta ao padrão ao trocar de request ou de método com/sem corpo. */
+    protected readonly section = linkedSignal<{ key: string; bodyAllowed: boolean }, Section>({
+        source: () => ({ key: this.key(), bodyAllowed: this.bodyAllowed() }),
+        computation: ({ bodyAllowed }) => (bodyAllowed ? 'body' : 'params'),
+        equal: (a, b) => a === b
+    });
     protected readonly counts = computed(() => {
         const request = this.request();
 
@@ -271,13 +277,6 @@ export class RequestView {
             }
         });
         this.methodControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((method) => this.update({ method }));
-
-        // Trocar para um método sem corpo com a aba Body aberta volta para Params.
-        effect(() => {
-            if (!this.bodyAllowed() && untracked(this.section) === 'body') {
-                this.section.set('params');
-            }
-        });
     }
 
     protected update(changes: Partial<RequestDefinition>): void {

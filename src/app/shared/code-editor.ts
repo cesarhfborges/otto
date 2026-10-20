@@ -8,11 +8,10 @@ import { highlightCode, type HighlightLanguage } from './highlight';
 @Component({
     selector: 'app-code-editor',
     template: `
-        <!--        h-full-->
-        <pre #mirror class="otto-code h-full pointer-events-none absolute inset-0 m-0 overflow-hidden" aria-hidden="true"><code
+        <pre #mirror class="otto-code pointer-events-none absolute inset-0 m-0 overflow-hidden" aria-hidden="true"><code
             [innerHTML]="html()"></code></pre>
         <textarea
-            class="otto-code relative block min-h-64 h-full w-full resize-y bg-transparent text-transparent caret-(--p-text-color) placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-(--p-primary-color)"
+            class="otto-code relative block min-h-0 w-full flex-1 resize-none bg-transparent text-transparent caret-(--p-text-color) placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-(--p-primary-color)"
             [id]="inputId()"
             [value]="value()"
             [placeholder]="placeholder()"
@@ -25,7 +24,7 @@ import { highlightCode, type HighlightLanguage } from './highlight';
             (scroll)="syncScroll($any($event.target))"
         ></textarea>
     `,
-    host: { class: 'relative block rounded-md border border-surface-300 bg-surface-0 dark:border-surface-700 dark:bg-surface-950' }
+    host: { class: 'relative flex min-h-64 flex-col rounded-md border border-surface-300 bg-surface-0 dark:border-surface-700 dark:bg-surface-950' }
 })
 export class CodeEditor {
     readonly value = model('');

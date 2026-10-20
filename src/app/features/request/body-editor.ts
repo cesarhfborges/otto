@@ -38,7 +38,7 @@ const isTextType = (type: BodyType): type is TextBodyType => type === 'json' || 
         <p-selectbutton [options]="types" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" [formControl]="typeControl" ariaLabelledBy="body-type-label" class="flex-wrap [&_.p-togglebutton]:whitespace-nowrap" />
         <span id="body-type-label" class="sr-only">Body type</span>
 
-        <div class="mt-3">
+        <div class="mt-3 flex min-h-0 flex-1 flex-col">
             @switch (body().type) {
                 @case ('none') {
                     <p class="m-0 text-sm text-muted-color">This request is sent without a body.</p>
@@ -63,12 +63,13 @@ const isTextType = (type: BodyType): type is TextBodyType => type === 'json' || 
                     </div>
                 }
                 @default {
-                    <div class="flex flex-col gap-2">
+                    <div class="flex min-h-0 flex-1 flex-col gap-2">
                         <div class="flex items-center gap-2">
                             <label for="body-content" class="text-sm font-medium">{{ typeLabel() }} content</label>
                             <p-button label="Pretty" icon="pi pi-align-left" size="small" severity="secondary" [text]="true" class="ml-auto" (onClick)="prettify()" />
                         </div>
                         <app-code-editor
+                            class="flex-1"
                             inputId="body-content"
                             [value]="content()"
                             (valueChange)="setContent($event)"
@@ -85,7 +86,7 @@ const isTextType = (type: BodyType): type is TextBodyType => type === 'json' || 
             }
         </div>
     `,
-    host: { class: 'block' }
+    host: { class: 'flex min-h-0 flex-1 flex-col' }
 })
 export class BodyEditor {
     readonly body = model.required<RequestBody>();
@@ -101,7 +102,7 @@ export class BodyEditor {
     }
 
     /** Na ordem de uso: formulários, textos, arquivo e, por último, sem corpo. */
-    protected readonly types = (['multipart-form', 'form-urlencoded', 'json', 'text', 'xml', 'binary', 'none'] as const satisfies readonly BodyType[]).map((value) => ({ value, label: BODY_LABELS[value] }));
+    protected readonly types = (['multipart-form', 'form-urlencoded', 'json', 'xml', 'text', 'binary', 'none'] as const satisfies readonly BodyType[]).map((value) => ({ value, label: BODY_LABELS[value] }));
     protected readonly typeLabel = computed(() => BODY_LABELS[this.body().type]);
     protected readonly fields = computed<EditableRow[]>(() => {
         const body = this.body();
