@@ -35,6 +35,8 @@ export class WorkspacesIpcModule implements IIpcModule {
 
         ipc.handle('workspaces:remove', (_event, id) => this.workspaces.remove(parseEntityId(id)));
 
+        ipc.handle('workspaces:recreate', (_event, id) => this.workspaces.recreate(parseEntityId(id)));
+
         ipc.handle('workspaces:export', (_event, id, file) => this.workspaces.export(parseEntityId(id), parseArchivePath(file)));
 
         ipc.handle('workspaces:import', (_event, file) => this.workspaces.import(parseArchivePath(file)));

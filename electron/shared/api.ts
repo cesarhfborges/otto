@@ -112,6 +112,8 @@ export interface WorkspacesApi {
     rename(id: EntityId, name: string): Promise<Workspace>;
     /** Tira da lista; a pasta no disco não é apagada. */
     remove(id: EntityId): Promise<void>;
+    /** Recria a pasta e o `workspace.yaml` de um workspace cuja pasta sumiu (mantém as coleções que ainda existem). */
+    recreate(id: EntityId): Promise<Workspace>;
     export(id: EntityId, file: string): Promise<void>;
     /** Extrai o .zip em `<pasta base>/<nome>` e ativa. */
     import(file: string): Promise<Workspace>;

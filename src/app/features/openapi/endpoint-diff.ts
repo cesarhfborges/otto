@@ -27,7 +27,7 @@ function fields(request: RequestDefinition): Record<string, Array<[string, strin
 
     switch (auth.type) {
         case 'bearer':
-            authFields.push(['Token', auth.token]);
+            authFields.push(['Prefix', auth.prefix ?? ''], ['Token', auth.token]);
             break;
         case 'basic':
         case 'wsse':

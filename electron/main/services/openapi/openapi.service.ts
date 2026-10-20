@@ -329,12 +329,30 @@ export class OpenApiService {
         }
     }
 
-    /** Coleção sem ambientes ganha um "Default" com `baseUrl` = primeiro servidor do spec. */
+    /**
+     * Coleção sem ambientes ganha um "Default" com `baseUrl` = primeiro servidor do spec e as
+     * variáveis que as requisições usam (`{{token}}`, `{{id}}`…). Ambientes existentes só
+     * recebem as que faltam — valores já definidos nunca são sobrescritos.
+     */
     private ensureEnvironment(collectionId: EntityId, spec: ConvertedSpec): void {
         const server = spec.info.servers[0];
+        const environments = this.environments.findByCollection(collectionId);
 
-        if (server && !this.environments.findByCollection(collectionId).length) {
-            this.environments.create({ collectionId, name: 'Default', variables: [{ key: 'baseUrl', value: server, enabled: true, secret: false }] });
+        if (!environments.length) {
+            if (server || spec.variables.length) {
+                this.environments.create({ collectionId, name: 'Default', variables: [{ key: 'baseUrl', value: server ?? '', enabled: true, secret: false }, ...spec.variables] });
+            }
+
+            return;
+        }
+
+        for (const environment of environments) {
+            const defined = new Set(environment.variables.map((variable) => variable.key.trim()));
+            const missing = spec.variables.filter((variable) => !defined.has(variable.key));
+
+            if (missing.length) {
+                this.environments.update(environment.id, { variables: [...environment.variables, ...missing] });
+            }
         }
     }
 

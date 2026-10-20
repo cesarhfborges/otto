@@ -245,6 +245,10 @@ export class ElectronWorkspacesGateway extends WorkspacesGateway {
         return requireOttoApi(this.api).workspaces.remove(id);
     }
 
+    recreate(id: EntityId): Promise<Workspace> {
+        return requireOttoApi(this.api).workspaces.recreate(id);
+    }
+
     export(id: EntityId, file: string): Promise<void> {
         return requireOttoApi(this.api).workspaces.export(id, file);
     }

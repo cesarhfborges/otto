@@ -13,6 +13,9 @@ import { ConfirmState } from '../core/state/confirm.state';
                 <p class="m-0 text-sm">{{ request.message }}</p>
                 <ng-template #footer>
                     <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="confirm.answer(false)" />
+                    @if (request.alternativeLabel; as alternative) {
+                        <p-button [label]="alternative" severity="secondary" [outlined]="true" (onClick)="confirm.answer('alternative')" />
+                    }
                     <p-button [label]="request.acceptLabel" [severity]="request.severity ?? 'primary'" [autofocus]="true" (onClick)="confirm.answer(true)" />
                 </ng-template>
             </p-dialog>

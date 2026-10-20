@@ -45,9 +45,14 @@ const OPTIONS: AuthOption[] = [
                 }
                 @case ('bearer') {
                     <div class="flex flex-col gap-2">
+                        <label for="auth-prefix" class="text-sm font-medium">Prefix</label>
+                        <input pInputText id="auth-prefix" class="font-mono !text-sm" [value]="field('prefix')" autocomplete="off" spellcheck="false" placeholder="Bearer" aria-describedby="auth-prefix-help" (input)="patch({ prefix: $any($event.target).value })" />
+                        <small id="auth-prefix-help" class="text-muted-color">Optional. Leave blank to use <code>Bearer</code>.</small>
+                    </div>
+                    <div class="flex flex-col gap-2">
                         <label for="auth-token" class="text-sm font-medium">Token</label>
                         <input pInputText id="auth-token" class="font-mono !text-sm" [value]="field('token')" autocomplete="off" spellcheck="false" placeholder="{{ tokenPlaceholder }}" (input)="patch({ token: $any($event.target).value })" />
-                        <small class="text-muted-color">Sent as <code>Authorization: Bearer &lt;token&gt;</code>.</small>
+                        <small class="text-muted-color">Sent as <code>Authorization: {{ bearerPrefix() }} &lt;token&gt;</code>.</small>
                     </div>
                 }
                 @case ('apikey') {
@@ -94,6 +99,8 @@ export class AuthEditor {
     protected readonly typeControl = new FormControl<AuthType>('none', { nonNullable: true });
     /** "Inherit" só aparece para arquivos que já o usam (a auth da coleção ainda não existe). */
     protected readonly options = computed<AuthOption[]>(() => (this.auth().type === 'inherit' ? [...OPTIONS, { label: 'Inherit from Collection', value: 'inherit' }] : OPTIONS));
+
+    protected readonly bearerPrefix = computed(() => this.field('prefix').trim() || 'Bearer');
 
     constructor() {
         effect(() => this.typeControl.setValue(this.auth().type, { emitEvent: false }));

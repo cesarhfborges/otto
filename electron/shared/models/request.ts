@@ -9,7 +9,8 @@ export type AuthType = (typeof AUTH_TYPES)[number];
 export type RequestAuth =
     | { type: 'none' }
     | { type: 'inherit' }
-    | { type: 'bearer'; token: string }
+    /** `prefix` vazio/ausente usa `Bearer`. */
+    | { type: 'bearer'; token: string; prefix?: string }
     | { type: 'basic'; username: string; password: string }
     | { type: 'apikey'; key: string; value: string; in: 'header' | 'query' }
     /** WS-Security UsernameToken: o digest (nonce + data + senha) é calculado no envio. */

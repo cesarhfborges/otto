@@ -1,8 +1,9 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import type { MenuAction } from '@shared/models';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
+import { ipcErrorMessage } from '../core/bridge/ipc-error';
 import { MenuEventsGateway } from '../core/ports';
 import { CollectionsState } from '../core/state/collections.state';
 import { TabsState } from '../core/state/tabs.state';
@@ -172,6 +173,15 @@ export class Shell {
         effect(() => {
             for (const { path, error } of this.workspaces.failed()) {
                 this.messages.add({ severity: 'warn', summary: 'Collection not available', detail: `${path}: ${error}`, life: 8000 });
+            }
+        });
+
+        // Pasta do workspace ativo apagada/movida: pergunta se remove da lista ou recria.
+        effect(() => {
+            const missing = this.workspaces.missingActive();
+
+            if (missing) {
+                untracked(() => void this.workspaces.resolveMissing(missing).catch((error: unknown) => this.messages.add({ severity: 'error', summary: 'Could not fix the workspace', detail: ipcErrorMessage(error), life: 6000 })));
             }
         });
 

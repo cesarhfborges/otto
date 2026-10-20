@@ -68,6 +68,7 @@ export interface IpcInvokeContract {
     'workspaces:create': { args: [name: string]; result: Workspace };
     'workspaces:rename': { args: [id: EntityId, name: string]; result: Workspace };
     'workspaces:remove': { args: [id: EntityId]; result: void };
+    'workspaces:recreate': { args: [id: EntityId]; result: Workspace };
     'workspaces:export': { args: [id: EntityId, file: string]; result: void };
     'workspaces:import': { args: [file: string]; result: Workspace };
     'workspaces:reveal': { args: [id: EntityId]; result: void };

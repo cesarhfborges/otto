@@ -99,6 +99,7 @@ export abstract class WorkspacesGateway implements WorkspacesApi {
     abstract create(name: string): Promise<Workspace>;
     abstract rename(id: EntityId, name: string): Promise<Workspace>;
     abstract remove(id: EntityId): Promise<void>;
+    abstract recreate(id: EntityId): Promise<Workspace>;
     abstract export(id: EntityId, file: string): Promise<void>;
     abstract import(file: string): Promise<Workspace>;
     abstract reveal(id: EntityId): Promise<void>;

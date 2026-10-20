@@ -76,6 +76,7 @@ const api: OttoApi = {
         create: (name) => invoke('workspaces:create', name),
         rename: (id, name) => invoke('workspaces:rename', id, name),
         remove: (id) => invoke('workspaces:remove', id),
+        recreate: (id) => invoke('workspaces:recreate', id),
         export: (id, file) => invoke('workspaces:export', id, file),
         import: (file) => invoke('workspaces:import', file),
         reveal: (id) => invoke('workspaces:reveal', id),

@@ -40,6 +40,8 @@ export interface LoadedWorkspace {
     workspace: Workspace;
     collections: OpenedCollection[];
     failed: Array<{ path: string; error: string }>;
+    /** A pasta (ou o `workspace.yaml`) não existe mais: nenhuma coleção é aberta e o usuário escolhe remover ou recriar. */
+    missing: boolean;
     /** Local sugerido para novas coleções (`<workspace>/collections`); `null` no workspace padrão. */
     collectionsLocation: string | null;
 }

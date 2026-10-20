@@ -86,7 +86,7 @@ export function buildHttpRequest(definition: RequestDefinition, options: BuildRe
 
     switch (auth.type) {
         case 'bearer':
-            headers.set('Authorization', `Bearer ${auth.token}`);
+            headers.set('Authorization', `${auth.prefix?.trim() || 'Bearer'} ${auth.token}`);
             break;
         case 'basic':
             headers.set('Authorization', `Basic ${base64(`${auth.username}:${auth.password}`)}`);

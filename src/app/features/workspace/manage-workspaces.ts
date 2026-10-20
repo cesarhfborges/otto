@@ -18,7 +18,7 @@ import { EnterSubmit } from '../../shared/enter-submit.directive';
     selector: 'app-manage-workspaces',
     imports: [ReactiveFormsModule, ButtonModule, DialogModule, InputTextModule, MenuModule, MessageModule, EnterSubmit],
     template: `
-        <div class="flex max-w-5xl flex-col gap-4 p-4">
+        <div class="flex flex-col gap-4 p-4">
             <div class="flex flex-wrap items-center gap-2">
                 <h2 class="m-0 mr-auto text-base font-semibold">Workspaces</h2>
                 <p-button label="New Workspace" icon="pi pi-plus" size="small" (onClick)="ui.newWorkspaceDialog.set(true)" />
@@ -58,7 +58,9 @@ import { EnterSubmit } from '../../shared/enter-submit.directive';
                             <td class="border-b border-surface-100 py-2 dark:border-surface-800">
                                 <span class="flex items-center justify-end gap-1">
                                     @if (!workspace.active) {
-                                        <p-button label="Switch" size="small" severity="secondary" [text]="true" [disabled]="workspace.missing" [ariaLabel]="'Switch to ' + workspace.name" (onClick)="workspaces.switch(workspace.id)" />
+                                        <p-button label="Switch" size="small" severity="secondary" [text]="true" [ariaLabel]="'Switch to ' + workspace.name" (onClick)="open(workspace)" />
+                                    } @else if (workspace.missing) {
+                                        <p-button label="Fix" icon="pi pi-wrench" size="small" severity="danger" [text]="true" [ariaLabel]="'Fix missing folder of ' + workspace.name" (onClick)="open(workspace)" />
                                     }
                                     <button type="button" class="otto-icon-button" [attr.aria-label]="'More actions for ' + workspace.name" aria-haspopup="menu" (click)="showMenu($event, workspace)">
                                         <i class="pi pi-ellipsis-h" aria-hidden="true"></i>
@@ -113,10 +115,20 @@ export class ManageWorkspaces {
             { label: 'Rename', icon: 'pi pi-pencil', command: () => this.startRename(workspace) },
             { label: 'Export', icon: 'pi pi-upload', disabled: workspace.missing, command: () => void this.export(workspace) },
             { label: 'Show in Folder', icon: 'pi pi-external-link', disabled: !workspace.path || workspace.missing, command: () => void this.workspaces.reveal(workspace.id) },
+            ...(workspace.missing ? [{ label: 'Recreate Folder', icon: 'pi pi-folder-plus', command: () => void this.recreate(workspace) }] : []),
             { separator: true },
             { label: 'Remove from List', icon: 'pi pi-trash', disabled: workspace.id === DEFAULT_WORKSPACE_ID, command: () => void this.remove(workspace) }
         ]);
         this.rowMenu().toggle(event);
+    }
+
+    /** Troca de workspace; com a pasta ausente, pergunta se remove ou recria. */
+    protected async open(workspace: WorkspaceSummary): Promise<void> {
+        try {
+            await this.workspaces.open(workspace);
+        } catch (error) {
+            this.messages.add({ severity: 'error', summary: 'Could not open the workspace', detail: ipcErrorMessage(error), life: 6000 });
+        }
     }
 
     protected async rename(): Promise<void> {
@@ -149,6 +161,15 @@ export class ManageWorkspaces {
             }
         } catch (error) {
             this.messages.add({ severity: 'error', summary: 'Could not export the workspace', detail: ipcErrorMessage(error), life: 6000 });
+        }
+    }
+
+    private async recreate(workspace: WorkspaceSummary): Promise<void> {
+        try {
+            await this.workspaces.recreate(workspace.id);
+            this.messages.add({ severity: 'success', summary: 'Workspace folder recreated', detail: workspace.path ?? '', life: 5000 });
+        } catch (error) {
+            this.messages.add({ severity: 'error', summary: 'Could not recreate the workspace folder', detail: ipcErrorMessage(error), life: 6000 });
         }
     }
 

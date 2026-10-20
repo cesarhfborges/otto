@@ -1,8 +1,8 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
-import type { EntityId, LoadedWorkspace, Workspace, WorkspaceSummary } from '@shared/models';
-import { ipcErrorMessage } from '../bridge/ipc-error';
+import { DEFAULT_WORKSPACE_ID, type EntityId, type LoadedWorkspace, type Workspace, type WorkspaceSummary } from '@shared/models';
 import { DialogGateway, WorkspacesGateway } from '../ports';
 import { CollectionsState } from './collections.state';
+import { ConfirmState } from './confirm.state';
 import { EnvironmentsState } from './environments.state';
 import { TabsState } from './tabs.state';
 
@@ -14,6 +14,7 @@ import { TabsState } from './tabs.state';
 export class WorkspacesState {
     private readonly gateway = inject(WorkspacesGateway);
     private readonly dialogs = inject(DialogGateway);
+    private readonly confirm = inject(ConfirmState);
     private readonly collections = inject(CollectionsState);
     private readonly environments = inject(EnvironmentsState);
     private readonly tabs = inject(TabsState);
@@ -22,6 +23,7 @@ export class WorkspacesState {
     private readonly activeState = signal<Workspace | null>(null);
     private readonly collectionsLocationState = signal<string | null>(null);
     private readonly failedState = signal<LoadedWorkspace['failed']>([]);
+    private readonly missingState = signal<Workspace | null>(null);
     private readonly busyState = signal(false);
 
     readonly list = this.listState.asReadonly();
@@ -31,6 +33,8 @@ export class WorkspacesState {
     readonly collectionsLocation = this.collectionsLocationState.asReadonly();
     /** Coleções listadas no workspace que não puderam ser abertas neste computador. */
     readonly failed = this.failedState.asReadonly();
+    /** Workspace ativo cuja pasta sumiu (nada foi aberto); emite de novo a cada carga. */
+    readonly missingActive = this.missingState.asReadonly();
     readonly busy = this.busyState.asReadonly();
 
     constructor() {
@@ -47,6 +51,7 @@ export class WorkspacesState {
             this.activeState.set(loaded.workspace);
             this.collectionsLocationState.set(loaded.collectionsLocation);
             this.failedState.set(loaded.failed);
+            this.missingState.set(loaded.missing ? { ...loaded.workspace } : null);
             this.collections.replace(loaded.collections);
             this.environments.reset();
             await this.tabs.restore(loaded.workspace.id, new Set(loaded.collections.map((c) => c.metadata.id)));
@@ -114,6 +119,51 @@ export class WorkspacesState {
             await this.load();
         } else {
             await this.refreshList();
+        }
+    }
+
+    /** Recria a pasta de um workspace que sumiu; se for o ativo, recarrega. */
+    async recreate(id: EntityId): Promise<void> {
+        await this.gateway.recreate(id);
+
+        if (id === this.activeState()?.id) {
+            await this.load();
+        } else {
+            await this.refreshList();
+        }
+    }
+
+    /** Troca para o workspace; se a pasta dele sumiu, pergunta antes o que fazer. */
+    async open(workspace: WorkspaceSummary): Promise<void> {
+        if (!workspace.missing) {
+            await this.switch(workspace.id);
+        } else if (workspace.id === DEFAULT_WORKSPACE_ID) {
+            // O padrão não pode ser removido: recria sem perguntar.
+            await this.recreate(workspace.id);
+            await this.switch(workspace.id);
+        } else {
+            await this.resolveMissing(workspace);
+        }
+    }
+
+    /**
+     * Pasta do workspace não encontrada: remover da lista, recriar a pasta (e ativar)
+     * ou cancelar. Lança o erro da ação escolhida para quem chamou exibir.
+     */
+    async resolveMissing(workspace: Workspace): Promise<void> {
+        const answer = await this.confirm.choose({
+            header: 'Workspace Folder Not Found',
+            message: `The folder of "${workspace.name}" no longer exists (${workspace.path}). Remove the workspace from the list, or recreate the folder in the same place with the collections that still exist.`,
+            acceptLabel: 'Remove from List',
+            severity: 'danger',
+            alternativeLabel: 'Recreate Folder'
+        });
+
+        if (answer === 'accept') {
+            await this.remove(workspace.id);
+        } else if (answer === 'alternative') {
+            await this.recreate(workspace.id);
+            await this.switch(workspace.id);
         }
     }
 

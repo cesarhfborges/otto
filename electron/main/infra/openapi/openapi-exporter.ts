@@ -97,7 +97,7 @@ export function buildOpenApiSpec(collection: ExportableCollection): Json {
         const method = request.method.toLowerCase() as Lowercase<HttpMethod>;
         const item = (paths[route] ??= {});
 
-        // Duas requisições para o mesmo `MÉTODO caminho` não cabem no OpenAPI: vale a primeira.
+        // Duas requisições para o mesmo `METODO caminho` não cabem no OpenAPI: vale a primeira.
         if (item[method]) {
             continue;
         }

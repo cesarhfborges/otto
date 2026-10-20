@@ -1,4 +1,5 @@
-import { HTTP_METHODS, type HttpMethod, type KeyValue, type MultipartField, type OpenApiGrouping, type OpenApiSpecInfo, type RequestAuth, type RequestBody, type RequestDefinition } from '../../../shared/models';
+import { interpolateRequest } from '../../../shared/http/interpolate';
+import { type EnvironmentVariable, HTTP_METHODS, type HttpMethod, type KeyValue, type MultipartField, type OpenApiGrouping, type OpenApiSpecInfo, type RequestAuth, type RequestBody, type RequestDefinition } from '../../../shared/models';
 import { parseYaml } from '../yaml';
 
 type Json = Record<string, unknown>;
@@ -18,9 +19,14 @@ export interface SpecOperation {
 export interface ConvertedSpec {
     info: OpenApiSpecInfo;
     operations: SpecOperation[];
+    /** Variáveis usadas pelas requisições (exceto `baseUrl`), com o exemplo do spec quando houver. */
+    variables: EnvironmentVariable[];
 }
 
 const MAX_SCHEMA_DEPTH = 8;
+
+/** Variáveis de credencial geradas pelo `authFrom` (ficam marcadas como secretas). */
+const SECRET_VARIABLES = new Set(['token', 'password', 'apiKey']);
 
 const isObject = (value: unknown): value is Json => typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -284,6 +290,8 @@ export function convertSpec(spec: Json, groupBy: OpenApiGrouping): ConvertedSpec
     const info = isObject(spec['info']) ? spec['info'] : {};
     const operations: SpecOperation[] = [];
     const seqByFolder = new Map<string, number>();
+    /** Exemplo de cada parâmetro de caminho (o primeiro não vazio vence). */
+    const pathExamples = new Map<string, string>();
 
     for (const [path, pathItemRaw] of Object.entries(spec['paths'] as Json)) {
         const pathItem = refs.resolve(pathItemRaw);
@@ -321,6 +329,16 @@ export function convertSpec(spec: Json, groupBy: OpenApiGrouping): ConvertedSpec
 
                         return { key: str(parameter['name']), value: valueOf(parameter) === 'null' ? '' : valueOf(parameter), enabled: parameter['required'] === true, ...(description && { description }) };
                     });
+
+            for (const parameter of parameters.values()) {
+                const name = str(parameter['name']);
+                const schema = refs.resolve(parameter['schema']);
+                const example = parameter['example'] ?? parameter['x-example'] ?? parameter['default'] ?? (isObject(schema) ? (schema['example'] ?? schema['default']) : undefined);
+
+                if (parameter['in'] === 'path' && name && !pathExamples.get(name)) {
+                    pathExamples.set(name, sampleText(example));
+                }
+            }
 
             const headers = pairsIn('header').filter((header) => !/^(authorization|content-type|accept)$/i.test(header.key));
             let body: RequestBody = { type: 'none' };
@@ -384,7 +402,13 @@ export function convertSpec(spec: Json, groupBy: OpenApiGrouping): ConvertedSpec
         }
     }
 
+    // Tudo que as requisições referenciam e ninguém define: auth (`{{token}}`…), caminho (`{{id}}`)…
+    const names = new Set(operations.flatMap((operation) => interpolateRequest(operation.request, new Map()).unresolved));
+
+    names.delete('baseUrl');
+
     return {
+        variables: [...names].map((key) => ({ key, value: pathExamples.get(key) ?? '', enabled: true, secret: SECRET_VARIABLES.has(key) })),
         info: {
             title: str(info['title']) || 'Untitled API',
             version: str(info['version']),

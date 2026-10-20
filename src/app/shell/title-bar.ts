@@ -1,8 +1,10 @@
 import { NgOptimizedImage } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
+import type { WorkspaceSummary } from '@shared/models';
 import { MessageService, type MenuItem, TooltipOptions } from 'primeng/api';
 import { MenuModule } from 'primeng/menu';
 import { TooltipModule } from 'primeng/tooltip';
+import { ipcErrorMessage } from '../core/bridge/ipc-error';
 import { TabsState } from '../core/state/tabs.state';
 import { UiState } from '../core/state/ui.state';
 import { WindowControlsState } from '../core/state/window-controls.state';
@@ -115,10 +117,10 @@ export class TitleBar {
             (workspace, _, all): MenuItem => ({
                 // Nomes repetidos (ex.: o mesmo workspace importado duas vezes) ganham a pasta onde estão.
                 label: all.filter((w) => w.name === workspace.name).length > 1 && workspace.path ? `${workspace.name} (${workspace.path.split(/[\\/]/).at(-2)})` : workspace.name,
-                icon: workspace.active ? 'pi pi-check' : workspace.path ? 'pi pi-folder' : 'pi pi-desktop',
-                title: workspace.path ?? 'Local workspace',
-                disabled: workspace.missing,
-                command: () => void this.workspaces.switch(workspace.id)
+                icon: workspace.missing ? 'pi pi-exclamation-triangle' : workspace.active ? 'pi pi-check' : workspace.path ? 'pi pi-folder' : 'pi pi-desktop',
+                title: workspace.missing ? `Folder not found: ${workspace.path}` : (workspace.path ?? 'Local workspace'),
+                // Pasta ausente não desabilita: abrir pergunta se remove da lista ou recria.
+                command: () => void this.open(workspace)
             })
         ),
         { separator: true },
@@ -126,6 +128,14 @@ export class TitleBar {
         { label: 'Import Workspace', icon: 'pi pi-download', command: () => this.ui.importWorkspaceDialog.set(true) },
         { label: 'Manage Workspaces', icon: 'pi pi-cog', command: () => this.tabs.open({ kind: 'workspaces', title: 'Workspaces', collectionId: null }) }
     ]);
+
+    private async open(workspace: WorkspaceSummary): Promise<void> {
+        try {
+            await this.workspaces.open(workspace);
+        } catch (error) {
+            this.messages.add({ severity: 'error', summary: 'Could not open the workspace', detail: ipcErrorMessage(error), life: 6000 });
+        }
+    }
 
     protected goHome(): void {
         this.tabs.setContext(null);

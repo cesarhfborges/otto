@@ -250,7 +250,7 @@ export class RequestView {
     private readonly key = computed(() => draftKey(this.collectionId(), this.path()));
     protected readonly request = computed(() => this.drafts.draft(this.key()));
     protected readonly dirty = computed(() => this.drafts.isDirty(this.key()));
-    /** Aba inicial: Body quando o método aceita corpo, senão Params; volta ao padrão ao trocar de request ou de método com/sem corpo. */
+    /** Aba inicial: Body quando o metodo aceita corpo, senão Params; volta ao padrão ao trocar de request ou de método com/sem corpo. */
     protected readonly section = linkedSignal<{ key: string; bodyAllowed: boolean }, Section>({
         source: () => ({ key: this.key(), bodyAllowed: this.bodyAllowed() }),
         computation: ({ bodyAllowed }) => (bodyAllowed ? 'body' : 'params')

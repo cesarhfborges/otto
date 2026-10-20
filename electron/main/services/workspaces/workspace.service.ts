@@ -81,7 +81,7 @@ export class WorkspaceService {
                 ...workspace,
                 active: workspace.id === activeId,
                 collectionCount: this.workspaces.collectionIds(workspace.id).length,
-                missing: workspace.path !== null && !(await this.store.exists(workspace.path, this.format.manifestFile).catch(() => false))
+                missing: await this.isMissing(workspace)
             }))
         );
     }
@@ -89,12 +89,23 @@ export class WorkspaceService {
     /**
      * Carrega o workspace ativo: relê o `workspace.yaml` (mudanças vindas do Git)
      * e abre as coleções. As que falham (pasta ausente neste computador) vêm em `failed`.
+     * Se a pasta do workspace sumiu, nada é aberto e o resultado vem com `missing`
+     * (o padrão, que não pode ser removido, é recriado na hora).
      */
     async load(): Promise<LoadedWorkspace> {
-        const workspace = await this.ensureFolder(this.workspaces.active());
+        let workspace = await this.ensureFolder(this.workspaces.active());
         const failed: LoadedWorkspace['failed'] = [];
 
         this.collectionService.closeAll();
+
+        if (await this.isMissing(workspace)) {
+            if (workspace.id !== DEFAULT_WORKSPACE_ID) {
+                return { workspace, collections: [], failed, missing: true, collectionsLocation: null };
+            }
+
+            workspace = await this.recreateFolder(workspace);
+        }
+
         failed.push(...(await this.syncFromManifest(workspace)));
 
         const opened: OpenedCollection[] = [];
@@ -113,7 +124,7 @@ export class WorkspaceService {
             }
         }
 
-        return { workspace, collections: opened, failed, collectionsLocation: workspace.path ? path.join(workspace.path, COLLECTIONS_FOLDER) : null };
+        return { workspace, collections: opened, failed, missing: false, collectionsLocation: workspace.path ? path.join(workspace.path, COLLECTIONS_FOLDER) : null };
     }
 
     switch(id: EntityId): Workspace {
@@ -139,7 +150,7 @@ export class WorkspaceService {
 
     /** Cria `<workspace ativo>/collections/<slug>` e inclui no workspace. */
     async createCollection(name: string): Promise<OpenedCollection> {
-        const workspace = await this.ensureFolder(this.workspaces.active());
+        const workspace = await this.activeFolder();
         const created = await this.collectionService.create(path.join(workspace.path!, COLLECTIONS_FOLDER), name);
 
         await this.addCollection(created.metadata.id);
@@ -152,7 +163,7 @@ export class WorkspaceService {
      * `<workspace ativo>/collections/<slug do nome>`, recria os ambientes e inclui no workspace.
      */
     async importCollection(file: string): Promise<OpenedCollection> {
-        const workspace = await this.ensureFolder(this.workspaces.active());
+        const workspace = await this.activeFolder();
         const files = readZip(await this.archives.read(file));
         const prefix = archiveRoot([...files.keys()], COLLECTION_MANIFEST);
 
@@ -196,7 +207,8 @@ export class WorkspaceService {
     async rename(id: EntityId, name: string): Promise<Workspace> {
         const workspace = this.require(id);
 
-        if (workspace.path) {
+        // Sem a pasta, renomeia só na lista (o `workspace.yaml` é recriado com o nome atual).
+        if (workspace.path && !(await this.isMissing(workspace))) {
             await this.updateManifest(workspace, (manifest) => ({ ...manifest, name }));
         }
 
@@ -221,6 +233,16 @@ export class WorkspaceService {
 
         this.workspaces.delete(id);
         this.emitChanged();
+    }
+
+    /** Recria a pasta e o `workspace.yaml` (com as coleções que ainda existem) de um workspace cuja pasta sumiu. */
+    async recreate(id: EntityId): Promise<Workspace> {
+        const workspace = await this.ensureFolder(this.require(id));
+        const recreated = (await this.isMissing(workspace)) ? await this.recreateFolder(workspace) : workspace;
+
+        this.emitChanged();
+
+        return recreated;
     }
 
     /** Inclui a coleção no workspace ativo (e no `workspace.yaml`, se houver). */
@@ -400,6 +422,50 @@ export class WorkspaceService {
         await this.writeNewWorkspace(root, workspace.name, collections);
 
         return this.workspaces.update(workspace.id, { path: root })!;
+    }
+
+    /** A pasta do workspace (ou o `workspace.yaml` dela) não existe mais. */
+    private async isMissing(workspace: Workspace): Promise<boolean> {
+        return workspace.path !== null && !(await this.store.exists(workspace.path, this.format.manifestFile).catch(() => false));
+    }
+
+    /** Workspace ativo com pasta; recusa operações em disco se a pasta sumiu. */
+    private async activeFolder(): Promise<Workspace> {
+        const workspace = await this.ensureFolder(this.workspaces.active());
+
+        if (await this.isMissing(workspace)) {
+            throw new Error(`The folder of the workspace "${workspace.name}" was not found (${workspace.path}). Recreate it or remove the workspace in Manage Workspaces.`);
+        }
+
+        return workspace;
+    }
+
+    /** Recria `<pasta>/workspace.yaml` e `collections/`; a lista fica só com as coleções cujas pastas ainda existem. */
+    private async recreateFolder(workspace: Workspace): Promise<Workspace> {
+        const root = workspace.path!;
+        const existing = [];
+
+        for (const id of this.workspaces.collectionIds(workspace.id)) {
+            const collection = this.collections.findById(id);
+
+            if (collection && (await this.store.isDirectory(collection.path))) {
+                existing.push(collection);
+            }
+        }
+
+        if (!(await this.store.isDirectory(root))) {
+            await this.store.createRoot(root);
+        }
+
+        await this.store.writeFile(root, this.format.manifestFile, this.format.serializeManifest({ version: WORKSPACE_FORMAT_VERSION, name: workspace.name, collections: existing.map((c) => ({ path: toManifestPath(root, c.path) })) }));
+
+        if (!(await this.store.isDirectory(path.join(root, COLLECTIONS_FOLDER)))) {
+            await this.store.createDirectory(root, COLLECTIONS_FOLDER);
+        }
+
+        this.workspaces.setCollections(workspace.id, existing.map((c) => c.id));
+
+        return workspace;
     }
 
     /** Arquivos da coleção + backup dos ambientes dela. */

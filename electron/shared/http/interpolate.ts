@@ -58,7 +58,7 @@ export function interpolateRequest(definition: RequestDefinition, variables: Rea
 
         switch (current.type) {
             case 'bearer':
-                return { ...current, token: text(current.token) };
+                return { ...current, token: text(current.token), ...(current.prefix && { prefix: text(current.prefix) }) };
             case 'basic':
             case 'wsse':
                 return { ...current, username: text(current.username), password: text(current.password) };
