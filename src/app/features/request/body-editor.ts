@@ -35,7 +35,7 @@ const isTextType = (type: BodyType): type is TextBodyType => type === 'json' || 
     selector: 'app-body-editor',
     imports: [ReactiveFormsModule, SelectButtonModule, ButtonModule, InputTextModule, MessageModule, KeyValueEditor, CodeEditor],
     template: `
-        <p-selectbutton [options]="types" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" [formControl]="typeControl" ariaLabelledBy="body-type-label" class="flex-wrap [&_.p-togglebutton]:whitespace-nowrap" />
+        <p-select-button [options]="types" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" [formControl]="typeControl" ariaLabelledBy="body-type-label" class="flex-wrap [&_.p-togglebutton]:whitespace-nowrap" />
         <span id="body-type-label" class="sr-only">Body type</span>
 
         <div class="mt-3 flex min-h-0 flex-1 flex-col">

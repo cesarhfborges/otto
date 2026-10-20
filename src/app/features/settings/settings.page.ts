@@ -123,7 +123,7 @@ export class SettingsPage {
         }),
         appearance: this.fb.group({
             requestLayout: this.fb.control<RequestLayout>('horizontal'),
-            codeTheme: this.fb.control<CodeTheme>('solarized'),
+            codeTheme: this.fb.control<CodeTheme>('seneca'),
             codeFontSize: this.fb.control(14, { validators: [Validators.required, Validators.min(MIN_CODE_FONT_SIZE), Validators.max(MAX_CODE_FONT_SIZE)] })
         }),
         workspaces: this.fb.group({

@@ -59,7 +59,7 @@ export class ThemeService {
         // Paleta e fonte do realce de sintaxe (highlight.js) como variáveis CSS globais.
         effect(() => {
             const { codeTheme, codeFontSize } = this.settings.settings().appearance;
-            const palette = CODE_THEME_PALETTES[codeTheme] ?? CODE_THEME_PALETTES.github;
+            const palette = CODE_THEME_PALETTES[codeTheme] ?? CODE_THEME_PALETTES.seneca;
             const style = this.document.documentElement.style;
 
             for (const [token, color] of Object.entries(this.isDark() ? palette.dark : palette.light)) {

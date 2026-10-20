@@ -108,5 +108,5 @@ export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
     },
     history: { maxEntries: 500 },
     workspaces: { baseDirectory: '' },
-    appearance: { requestLayout: 'horizontal', codeTheme: 'github', codeFontSize: 14 }
+    appearance: { requestLayout: 'horizontal', codeTheme: 'seneca', codeFontSize: 14 }
 };
