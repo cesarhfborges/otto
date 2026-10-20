@@ -82,7 +82,7 @@ function prettyBody(response: HttpResponse): string {
                                 >
                                 <p-tab value="timings">Timings</p-tab>
                             </p-tablist>
-                            <p-tabpanels>
+                            <p-tabpanels class="h-full">
                                 <p-tabpanel value="body">
                                     @if (res.bodyEncoding === 'base64') {
                                         @if (imageSrc(); as src) {
@@ -96,7 +96,11 @@ function prettyBody(response: HttpResponse): string {
                                         @if (partial()) {
                                             <p class="m-0 mb-2 text-xs text-muted-color">Showing the first 1,000,000 characters.</p>
                                         }
-                                        <pre class="m-0 overflow-auto whitespace-pre-wrap break-all rounded-md bg-surface-100 p-3 font-mono text-sm dark:bg-surface-900" tabindex="0" aria-label="Response body"><code [innerHTML]="body()"></code></pre>
+                                        <pre
+                                            class="m-0 h-full overflow-auto whitespace-pre-wrap break-all otto-code-view rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-900"
+                                            tabindex="0"
+                                            aria-label="Response body"
+                                        ><code [innerHTML]="body()"></code></pre>
                                     }
                                 </p-tabpanel>
                                 <p-tabpanel value="headers">
@@ -145,33 +149,12 @@ function prettyBody(response: HttpResponse): string {
 })
 export class ResponsePanel {
     readonly entry = input.required<ResponseEntry>();
-
-    private readonly result = computed(() => {
-        const entry = this.entry();
-
-        return entry.status === 'done' ? entry.result : null;
-    });
-
-    protected readonly failure = computed(() => {
-        const result = this.result();
-
-        return result && !result.ok ? result.error : null;
-    });
-
-    protected readonly response = computed(() => {
-        const result = this.result();
-
-        return result?.ok ? result.response : null;
-    });
-
     protected readonly body = computed(() => {
         const response = this.response();
 
         return response?.bodyEncoding === 'utf8' ? prettyBody(response) : '';
     });
-
     protected readonly partial = computed(() => (this.response()?.body.length ?? 0) > MAX_DISPLAYED_CHARS);
-
     protected readonly imageSrc = computed(() => {
         const response = this.response();
         const mime = response?.contentType?.split(';')[0]?.trim().toLowerCase();
@@ -179,8 +162,22 @@ export class ResponsePanel {
         // Em <img> o SVG não executa scripts, então todas as imagens podem ser exibidas.
         return response?.bodyEncoding === 'base64' && !response.truncated && mime?.startsWith('image/') ? `data:${mime};base64,${response.body}` : null;
     });
-
     protected readonly statusColor = computed(() => STATUS_COLORS[Math.min(Math.floor((this.response()?.status ?? 0) / 100) - 1, 4)] ?? STATUS_COLORS[0]);
+    private readonly result = computed(() => {
+        const entry = this.entry();
+
+        return entry.status === 'done' ? entry.result : null;
+    });
+    protected readonly failure = computed(() => {
+        const result = this.result();
+
+        return result && !result.ok ? result.error : null;
+    });
+    protected readonly response = computed(() => {
+        const result = this.result();
+
+        return result?.ok ? result.response : null;
+    });
 
     protected readonly bytes = formatBytes;
     protected readonly duration = formatDuration;

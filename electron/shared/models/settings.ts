@@ -52,8 +52,19 @@ export const REQUEST_LAYOUTS = ['horizontal', 'vertical'] as const;
 
 export type RequestLayout = (typeof REQUEST_LAYOUTS)[number];
 
+/** Paletas de realce de sintaxe (highlight.js) dos editores de corpo e da resposta. */
+export const CODE_THEMES = ['github', 'atom-one', 'monokai', 'dracula', 'solarized', 'nord'] as const;
+
+export type CodeTheme = (typeof CODE_THEMES)[number];
+
+export const MIN_CODE_FONT_SIZE = 10;
+export const MAX_CODE_FONT_SIZE = 24;
+
 export interface AppearanceSettings {
     requestLayout: RequestLayout;
+    codeTheme: CodeTheme;
+    /** Tamanho da fonte (px) dos editores de corpo e da resposta. */
+    codeFontSize: number;
 }
 
 export interface OttoSettings {
@@ -97,5 +108,5 @@ export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
     },
     history: { maxEntries: 500 },
     workspaces: { baseDirectory: '' },
-    appearance: { requestLayout: 'horizontal' }
+    appearance: { requestLayout: 'horizontal', codeTheme: 'github', codeFontSize: 14 }
 };

@@ -8,13 +8,15 @@ import { highlightCode, type HighlightLanguage } from './highlight';
 @Component({
     selector: 'app-code-editor',
     template: `
-        <pre #mirror class="otto-code pointer-events-none absolute inset-0 m-0 overflow-hidden" aria-hidden="true"><code [innerHTML]="html()"></code></pre>
+        <!--        h-full-->
+        <pre #mirror class="otto-code h-full pointer-events-none absolute inset-0 m-0 overflow-hidden" aria-hidden="true"><code
+            [innerHTML]="html()"></code></pre>
         <textarea
-            class="otto-code relative block min-h-64 w-full resize-y bg-transparent text-transparent caret-[var(--p-text-color)] placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-[var(--p-primary-color)]"
+            class="otto-code relative block min-h-64 h-full w-full resize-y bg-transparent text-transparent caret-(--p-text-color) placeholder:text-muted-color focus-visible:outline-2 focus-visible:outline-(--p-primary-color)"
             [id]="inputId()"
             [value]="value()"
             [placeholder]="placeholder()"
-            wrap="off"
+            wrap="soft"
             spellcheck="false"
             autocomplete="off"
             [attr.aria-invalid]="invalid()"

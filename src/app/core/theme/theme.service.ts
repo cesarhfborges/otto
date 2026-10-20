@@ -2,6 +2,7 @@ import { computed, DestroyRef, DOCUMENT, effect, inject, Injectable, signal } fr
 import type { EffectiveTheme, ThemeMode, ThemeState } from '@shared/models';
 import { ThemeGateway } from '../ports';
 import { SettingsState } from '../state/settings.state';
+import { CODE_THEME_PALETTES } from './code-themes';
 
 /** Classe usada pelo PrimeNG (`darkModeSelector`) e pelos estilos do layout. */
 export const DARK_CLASS = 'app-dark';
@@ -54,6 +55,19 @@ export class ThemeService {
         );
 
         effect(() => this.document.documentElement.classList.toggle(DARK_CLASS, this.isDark()));
+
+        // Paleta e fonte do realce de sintaxe (highlight.js) como variáveis CSS globais.
+        effect(() => {
+            const { codeTheme, codeFontSize } = this.settings.settings().appearance;
+            const palette = CODE_THEME_PALETTES[codeTheme] ?? CODE_THEME_PALETTES.github;
+            const style = this.document.documentElement.style;
+
+            for (const [token, color] of Object.entries(this.isDark() ? palette.dark : palette.light)) {
+                style.setProperty(`--otto-hl-${token}`, color);
+            }
+
+            style.setProperty('--otto-code-font-size', `${codeFontSize}px`);
+        });
     }
 
     setMode(mode: ThemeMode): Promise<unknown> {

@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors, type ValidatorFn } from '@angular/forms';
-import { MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, type AppInfo, type OttoSettings, type ThemeMode, type RequestLayout } from '@shared/models';
+import { type AbstractControl, FormBuilder, ReactiveFormsModule, type ValidationErrors, type ValidatorFn, Validators } from '@angular/forms';
+import { type AppInfo, type CodeTheme, MAX_CODE_FONT_SIZE, MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, MIN_CODE_FONT_SIZE, type OttoSettings, type RequestLayout, type ThemeMode } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
@@ -12,7 +12,8 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { AppInfoGateway, DialogGateway } from '../../core/ports';
 import { SettingsState } from '../../core/state/settings.state';
 import { ThemeService } from '../../core/theme/theme.service';
-import { NgOptimizedImage } from '@angular/common';
+import { CODE_THEME_PALETTES } from '../../core/theme/code-themes';
+import { highlightCode } from '../../shared/highlight';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -43,7 +44,7 @@ const proxyRequiresUrl: ValidatorFn = (group: AbstractControl): ValidationErrors
 
 @Component({
     selector: 'app-settings-page',
-    imports: [ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule, NgOptimizedImage],
+    imports: [ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
     templateUrl: './settings.page.html',
     styles: `
         ::ng-deep {
@@ -56,10 +57,7 @@ const proxyRequiresUrl: ValidatorFn = (group: AbstractControl): ValidationErrors
     host: { class: 'flex h-full min-h-0 w-full' }
 })
 export class SettingsPage {
-    private readonly settingsState = inject(SettingsState);
-    private readonly dialogs = inject(DialogGateway);
     protected readonly theme = inject(ThemeService);
-
     protected readonly sections: Array<{ id: PreferencesSection; label: string; icon: string; description: string }> = [
         { id: 'general', label: 'General', icon: 'pi pi-cog', description: 'Workspaces location, application behavior and request defaults.' },
         { id: 'themes', label: 'Themes', icon: 'pi pi-palette', description: 'Color scheme used across the application.' },
@@ -68,27 +66,29 @@ export class SettingsPage {
         { id: 'certificates', label: 'Certificates', icon: 'pi pi-shield', description: 'SSL/TLS verification and trusted certificate authorities.' },
         { id: 'about', label: 'About', icon: 'pi pi-info-circle', description: 'Version and runtime information.' }
     ];
-
     protected readonly section = signal<PreferencesSection>('general');
     protected readonly current = computed(() => this.sections.find((s) => s.id === this.section())!);
     protected readonly appInfo = signal<AppInfo | null>(null);
     protected readonly maxTimeoutMs = MAX_TIMEOUT_MS;
     protected readonly maxHistoryEntries = MAX_HISTORY_ENTRIES;
-    protected readonly persistent = this.settingsState.persistent;
     protected readonly status = signal<SaveStatus>('idle');
     protected readonly errorMessage = signal<string | null>(null);
-
     protected readonly requestLayoutOptions: Array<{ label: string; value: RequestLayout }> = [
         { label: 'Side by side (request | response)', value: 'horizontal' },
         { label: 'Stacked (request above response)', value: 'vertical' }
     ];
-
+    protected readonly codeThemeOptions = Object.entries(CODE_THEME_PALETTES).map(([value, { label }]) => ({ label, value: value as CodeTheme }));
+    protected readonly minCodeFontSize = MIN_CODE_FONT_SIZE;
+    protected readonly maxCodeFontSize = MAX_CODE_FONT_SIZE;
+    protected readonly codePreview = highlightCode(JSON.stringify({ id: 42, name: 'Otto', active: true, tags: ['api', 'client'], owner: null }, null, 2), 'json');
     protected readonly themeOptions: Array<{ label: string; value: ThemeMode; icon: string }> = [
         { label: 'Light', value: 'light', icon: 'pi pi-sun' },
         { label: 'Dark', value: 'dark', icon: 'pi pi-moon' },
         { label: 'Auto', value: 'auto', icon: 'pi pi-desktop' }
     ];
-
+    private readonly settingsState = inject(SettingsState);
+    protected readonly persistent = this.settingsState.persistent;
+    private readonly dialogs = inject(DialogGateway);
     private readonly fb = inject(FormBuilder).nonNullable;
 
     protected readonly form = this.fb.group({
@@ -113,7 +113,9 @@ export class SettingsPage {
             })
         }),
         appearance: this.fb.group({
-            requestLayout: this.fb.control<RequestLayout>('horizontal')
+            requestLayout: this.fb.control<RequestLayout>('horizontal'),
+            codeTheme: this.fb.control<CodeTheme>('github'),
+            codeFontSize: this.fb.control(14, { validators: [Validators.required, Validators.min(MIN_CODE_FONT_SIZE), Validators.max(MAX_CODE_FONT_SIZE)] })
         }),
         workspaces: this.fb.group({
             baseDirectory: this.fb.control('')
@@ -145,16 +147,16 @@ export class SettingsPage {
         this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => void this.save());
     }
 
-    protected controlInvalid(path: string): boolean {
-        const control = this.form.get(path);
-
-        return !!control && control.invalid && (control.dirty || control.touched);
-    }
-
     protected get proxyErrors(): ValidationErrors | null {
         const proxy = this.form.controls.http.controls.proxy;
 
         return { ...proxy.errors, ...proxy.controls.url.errors };
+    }
+
+    protected controlInvalid(path: string): boolean {
+        const control = this.form.get(path);
+
+        return !!control && control.invalid && (control.dirty || control.touched);
     }
 
     protected async browseCertificate(): Promise<void> {

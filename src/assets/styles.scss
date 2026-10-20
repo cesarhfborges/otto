@@ -145,54 +145,38 @@ body {
     padding: 0.75rem;
     border: 0;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
-    font-size: 0.875rem;
+    font-size: var(--otto-code-font-size, 14px);
     line-height: 1.5;
     tab-size: 4;
     white-space: pre;
     overflow-wrap: normal;
 }
 
-/* Realce do highlight.js (paleta do GitHub, contraste AA nas superfícies claras e escuras). */
+/* Realce do highlight.js: cores definidas pela paleta escolhida em Settings → Appearance (ThemeService). */
 .hljs-attr,
-.hljs-number,
 .hljs-attribute {
-    color: #0550ae;
+    color: var(--otto-hl-key);
 }
 .hljs-string {
-    color: #0a3069;
+    color: var(--otto-hl-string);
+}
+.hljs-number {
+    color: var(--otto-hl-number);
 }
 .hljs-literal,
 .hljs-keyword {
-    color: #cf222e;
+    color: var(--otto-hl-literal);
 }
 .hljs-name,
 .hljs-tag {
-    color: #116329;
+    color: var(--otto-hl-tag);
 }
 .hljs-comment,
 .hljs-meta {
-    color: #57606a;
+    color: var(--otto-hl-comment);
 }
 
-:root.app-dark {
-    .hljs-attr,
-    .hljs-number,
-    .hljs-attribute {
-        color: #79c0ff;
-    }
-    .hljs-string {
-        color: #a5d6ff;
-    }
-    .hljs-literal,
-    .hljs-keyword {
-        color: #ff7b72;
-    }
-    .hljs-name,
-    .hljs-tag {
-        color: #7ee787;
-    }
-    .hljs-comment,
-    .hljs-meta {
-        color: #8b949e;
-    }
+.otto-code-view {
+    font-size: var(--otto-code-font-size, 14px);
+    line-height: 1.5;
 }
