@@ -139,13 +139,13 @@ export class CollectionsSidebar {
     });
 
     protected readonly addItems: MenuItem[] = [
-        { label: 'Create Collection', icon: 'pi pi-plus', command: () => this.ui.newCollectionDialog.set(true) },
+        { label: 'New Collection', icon: 'pi pi-plus', command: () => this.ui.newCollectionDialog.set(true) },
         { label: 'Import Collection', icon: 'pi pi-download', command: () => this.ui.importCollectionDialog.set(true) }
     ];
 
     protected readonly moreItems = computed<MenuItem[]>(() => [
-        { label: 'Export', icon: 'pi pi-file-export', command: () => this.expanded.set(new Set()), disabled: !this.expanded().size }
-        // { label: 'Expand All', icon: 'pi pi-plus', command: () => this.expanded.set(new Set()), disabled: !!this.expanded().size }
+        // { label: 'Export', icon: 'pi pi-file-export', command: () => this.expanded.set(new Set()), disabled: !this.expanded().size }
+        { label: 'Expand All', icon: 'pi pi-plus', command: () => this.expanded.set(new Set()), disabled: !!this.expanded().size }
         // { label: 'Remove All from Workspace', icon: 'pi pi-times', command: () => void this.closeAll(), disabled: !this.collections.opened().length }
     ]);
 
