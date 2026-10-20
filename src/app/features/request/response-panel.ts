@@ -57,10 +57,11 @@ function prettyBody(response: HttpResponse): PrettyBody {
             }
             @case ('done') {
                 <div class="flex h-full min-h-0 flex-col">
-                    <dl class="m-0 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-surface-200 px-3 py-2 text-sm dark:border-surface-700" aria-label="Response summary">
-                        <div class="flex gap-1">
+                    <!-- Cada item é uma "tag" com a mesma caixa (altura, borda, raio, espaçamento); só a de status troca o fundo pela cor da faixa. -->
+                    <dl class="m-0 flex shrink-0 flex-wrap items-center gap-2 border-b border-surface-200 px-3 py-2 text-xs dark:border-surface-700" aria-label="Response summary">
+                        <div class="flex items-center gap-1.5 rounded-md border border-transparent px-2 py-1 font-semibold text-surface-0 dark:text-surface-950" [style.background-color]="statusColor()">
                             <dt class="sr-only">Status</dt>
-                            <dd class="m-0 rounded px-2 py-0.5 text-xs font-semibold text-surface-0 dark:text-surface-950" [style.background-color]="statusColor()">
+                            <dd class="m-0">
                                 @if (response(); as res) {
                                     {{ res.status }} {{ res.statusText }}
                                 } @else {
@@ -68,18 +69,18 @@ function prettyBody(response: HttpResponse): PrettyBody {
                                 }
                             </dd>
                         </div>
-                        <div class="flex gap-1">
+                        <div class="flex items-center gap-1.5 rounded-md border border-surface-200 bg-surface-50 px-2 py-1 dark:border-surface-700 dark:bg-surface-900">
                             <dt class="text-muted-color">Time</dt>
-                            <dd class="m-0">{{ duration(timeMs()) }}</dd>
+                            <dd class="m-0 font-medium tabular-nums">{{ duration(timeMs()) }}</dd>
                         </div>
-                        <div class="flex gap-1">
+                        <div class="flex items-center gap-1.5 rounded-md border border-surface-200 bg-surface-50 px-2 py-1 dark:border-surface-700 dark:bg-surface-900">
                             <dt class="text-muted-color">Size</dt>
-                            <dd class="m-0">{{ bytes(response()?.size ?? 0) }}</dd>
+                            <dd class="m-0 font-medium tabular-nums">{{ bytes(response()?.size ?? 0) }}</dd>
                         </div>
                         @if (response()?.redirected) {
-                            <div class="flex min-w-0 gap-1">
-                                <dt class="text-muted-color">Redirected to</dt>
-                                <dd class="m-0 truncate font-mono text-xs" [title]="response()!.url">{{ response()!.url }}</dd>
+                            <div class="flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-surface-200 bg-surface-50 px-2 py-1 dark:border-surface-700 dark:bg-surface-900">
+                                <dt class="shrink-0 text-muted-color">Redirected to</dt>
+                                <dd class="m-0 truncate font-mono font-medium" [title]="response()!.url">{{ response()!.url }}</dd>
                             </div>
                         }
                     </dl>
@@ -119,7 +120,11 @@ function prettyBody(response: HttpResponse): PrettyBody {
                                         @if (partial()) {
                                             <p class="m-0 mb-2 text-xs text-muted-color">Showing the first 1,000,000 characters.</p>
                                         }
-                                        <pre class="m-0 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all otto-code-view rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-900" tabindex="0" aria-label="Response body">@switch (body().language) {
+                                        <pre
+                                            class="m-0 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all otto-code-view rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-900"
+                                            tabindex="0"
+                                            aria-label="Response body"
+                                        >@switch (body().language) {
                                             @case ('json') {<code [highlight]="body().code" language="json" ignoreIllegals lineNumbers codeFold="json"></code>}
                                             @case ('xml') {<code [highlight]="body().code" language="xml" ignoreIllegals lineNumbers codeFold="xml"></code>}
                                             @case ('plaintext') {<code [highlight]="body().code" language="plaintext" lineNumbers></code>}

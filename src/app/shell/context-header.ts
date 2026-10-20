@@ -26,7 +26,7 @@ import { TieredMenuModule } from 'primeng/tieredmenu';
             <button type="button" class="otto-icon-button w-auto! gap-2 px-2! text-color!" aria-haspopup="menu" (click)="collectionMenu.toggle($event)">
                 <i class="pi pi-box text-muted-color" aria-hidden="true"></i>
                 <h1 class="m-0 truncate text-base font-semibold">{{ current.metadata.name }}</h1>
-                <i class="pi pi-chevron-down text-xs text-muted-color" aria-hidden="true"></i>
+                <i class="pi pi-chevron-down text-xs text-muted-color ml-4!" aria-hidden="true"></i>
             </button>
             <p-tiered-menu #collectionMenu [model]="collectionItems()" [popup]="true" appendTo="body" />
 
