@@ -34,6 +34,7 @@ const folderName = (value: string): string =>
         .trim()
         .slice(0, 80);
 
+// noinspection RegExpRedundantEscape
 /** `{id}` (OpenAPI) → `{{id}}` (variável do Otto). */
 const toOttoPath = (path: string): string => path.replace(/\{([^}]+)\}/g, '{{$1}}');
 

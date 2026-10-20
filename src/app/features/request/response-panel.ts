@@ -6,6 +6,7 @@ import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TabsModule } from 'primeng/tabs';
 import type { ResponseEntry } from '../../core/state/responses.state';
+import { HighlightCodeFold } from '../../shared/code-fold';
 import { formatBytes, formatDuration } from '../../shared/format';
 import { highlightLanguageFor, type HighlightLanguage } from '../../shared/highlight';
 
@@ -42,7 +43,7 @@ function prettyBody(response: HttpResponse): PrettyBody {
 /** Painel de resposta: estado de envio, erro ou status/tempo/tamanho + corpo, headers e tempos. */
 @Component({
     selector: 'app-response-panel',
-    imports: [Highlight, HighlightLineNumbers, MessageModule, ProgressSpinnerModule, TabsModule],
+    imports: [Highlight, HighlightCodeFold, HighlightLineNumbers, MessageModule, ProgressSpinnerModule, TabsModule],
     template: `
         @switch (entry().status) {
             @case ('sending') {
@@ -112,8 +113,8 @@ function prettyBody(response: HttpResponse): PrettyBody {
                                             tabindex="0"
                                             aria-label="Response body"
                                         >@switch (body().language) {
-                                            @case ('json') {<code [highlight]="body().code" language="json" ignoreIllegals lineNumbers></code>}
-                                            @case ('xml') {<code [highlight]="body().code" language="xml" ignoreIllegals lineNumbers></code>}
+                                            @case ('json') {<code [highlight]="body().code" language="json" ignoreIllegals lineNumbers codeFold="json"></code>}
+                                            @case ('xml') {<code [highlight]="body().code" language="xml" ignoreIllegals lineNumbers codeFold="xml"></code>}
                                             @case ('plaintext') {<code [highlight]="body().code" language="plaintext" lineNumbers></code>}
                                             @default {<code>{{ body().code }}</code>}
                                         }</pre>
