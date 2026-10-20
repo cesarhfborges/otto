@@ -5,17 +5,46 @@ import { APP_NAME, assetPath, REPOSITORY_URL } from '../config';
 export class DialogService {
     constructor(private readonly parent: () => BrowserWindow | null) {}
 
-    /** Pasta de uma coleção a importar (será copiada para o workspace). */
-    pickCollectionFolder(): Promise<string | null> {
-        return this.pickPath({ title: 'Import Collection from Folder', buttonLabel: 'Import', properties: ['openDirectory'] });
+    /** Spec OpenAPI/Swagger local a importar como coleção. */
+    pickOpenApiFile(): Promise<string | null> {
+        return this.pickPath({
+            title: 'Import OpenAPI Spec',
+            buttonLabel: 'Import',
+            properties: ['openFile'],
+            filters: [
+                { name: 'OpenAPI / Swagger (JSON, YAML)', extensions: ['json', 'yaml', 'yml'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
     }
 
     pickCollectionArchive(): Promise<string | null> {
-        return this.pickPath({ title: 'Import Collection', buttonLabel: 'Import', properties: ['openFile'], filters: [{ name: 'Otto collection (ZIP)', extensions: ['zip'] }] });
+        return this.pickPath({ title: 'Import Otto Backup', buttonLabel: 'Import', properties: ['openFile'], filters: [{ name: 'Otto backup (ZIP)', extensions: ['zip'] }] });
     }
 
     saveCollectionArchive(defaultName: string): Promise<string | null> {
-        return this.savePath('Export Collection', defaultName, 'Otto collection (ZIP)');
+        return this.savePath('Export Collection Backup', defaultName, 'Otto backup (ZIP)');
+    }
+
+    /** Salvar o spec OpenAPI; sem extensão conhecida, grava como .yaml. */
+    async saveOpenApiSpec(defaultName: string): Promise<string | null> {
+        const options: Electron.SaveDialogOptions = {
+            title: 'Export OpenAPI Spec',
+            buttonLabel: 'Export',
+            defaultPath: defaultName,
+            filters: [
+                { name: 'OpenAPI (YAML)', extensions: ['yaml', 'yml'] },
+                { name: 'OpenAPI (JSON)', extensions: ['json'] }
+            ]
+        };
+        const win = this.parent();
+        const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+
+        if (result.canceled || !result.filePath) {
+            return null;
+        }
+
+        return /\.(ya?ml|json)$/i.test(result.filePath) ? result.filePath : `${result.filePath}.yaml`;
     }
 
     chooseBaseDirectory(defaultPath?: string): Promise<string | null> {

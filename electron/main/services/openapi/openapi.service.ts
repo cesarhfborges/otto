@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
-import type { EndpointChange, EntityId, IsoDateTime, OpenApiConfig, OpenApiStatus, RequestDefinition } from '../../../shared/models';
+import type { EndpointChange, EntityId, IsoDateTime, OpenApiConfig, OpenApiStatus, OpenedCollection, RequestDefinition } from '../../../shared/models';
 import type { IClock, IEnvironmentRepository, IHttpExecutor } from '../../core/contracts';
 import { convertSpec, parseSpec, type ConvertedSpec } from '../../infra/openapi/openapi-converter';
+import { buildOpenApiSpec } from '../../infra/openapi/openapi-exporter';
+import { toYaml } from '../../infra/yaml';
 import type { CollectionService } from '../collections/collection.service';
 
 /** Último spec sincronizado, na raiz da coleção (vai junto no Git e na exportação). */
@@ -22,9 +24,10 @@ interface CachedSpec {
     checkedAt: IsoDateTime;
 }
 
-/** Leitura de arquivos fora da coleção (spec local escolhido pelo usuário). */
-export interface SpecFileReader {
+/** Arquivos fora da coleção: spec local escolhido pelo usuário e spec exportado. */
+export interface SpecFiles {
     read(file: string): Promise<string>;
+    write(file: string, content: string): Promise<void>;
 }
 
 const EMPTY_SNAPSHOT = (): Snapshot => ({ version: 1, syncedAt: '', specVersion: '', operations: {} });
@@ -51,7 +54,7 @@ export class OpenApiService {
     constructor(
         private readonly collections: CollectionService,
         private readonly http: IHttpExecutor,
-        private readonly files: SpecFileReader,
+        private readonly files: SpecFiles,
         private readonly environments: IEnvironmentRepository,
         private readonly clock: IClock
     ) {}
@@ -99,6 +102,42 @@ export class OpenApiService {
             specUpdates,
             collectionChanges
         };
+    }
+
+    /**
+     * Cria uma coleção a partir de um spec (URL ou arquivo): o nome vem de `info.title`,
+     * todas as operações viram requisições, o ambiente "Default" recebe o `baseUrl` e a
+     * coleção fica ligada ao spec (verificação automática só se `autoSync`).
+     */
+    async importSpec(source: OpenApiConfig['source'], autoSync: boolean, create: (name: string) => Promise<OpenedCollection>): Promise<OpenedCollection> {
+        const config: OpenApiConfig = { source, autoCheck: autoSync, intervalMinutes: 15, groupBy: 'tags' };
+        const text = await this.load(null, config);
+        const converted = convertSpec(parseSpec(text), config.groupBy);
+        const opened = await create(converted.info.title.trim() || 'Imported API');
+        const id = opened.metadata.id;
+
+        await this.collections.updateManifest(id, (manifest) => ({ ...manifest, openapi: config }));
+        this.cache.set(id, { text, converted, error: null, checkedAt: this.clock.now() });
+        await this.sync(id, converted.operations.map((operation) => operation.key));
+
+        return { ...opened, manifest: await this.collections.manifest(id), tree: await this.collections.tree(id) };
+    }
+
+    /** Gera um spec OpenAPI 3.0 da coleção (`.json` ou YAML, conforme a extensão). */
+    async exportSpec(collectionId: EntityId, file: string): Promise<void> {
+        const manifest = await this.collections.manifest(collectionId);
+        const servers = [
+            ...new Set(
+                this.environments
+                    .findByCollection(collectionId)
+                    .flatMap((environment) => environment.variables)
+                    .filter((variable) => variable.enabled && variable.key === 'baseUrl' && /^https?:\/\//i.test(variable.value))
+                    .map((variable) => variable.value)
+            )
+        ];
+        const spec = buildOpenApiSpec({ name: manifest.name, description: manifest.description, servers, requests: await this.collections.requests(collectionId) });
+
+        await this.files.write(file, file.toLowerCase().endsWith('.json') ? `${JSON.stringify(spec, null, 2)}\n` : toYaml(spec));
     }
 
     /** Liga (ou reconfigura) a coleção a um spec e verifica na hora. */
@@ -248,10 +287,10 @@ export class OpenApiService {
         return entry;
     }
 
-    private async load(collectionId: EntityId, config: OpenApiConfig): Promise<string> {
+    private async load(collectionId: EntityId | null, config: OpenApiConfig): Promise<string> {
         if (config.source.type === 'file') {
             // Caminho relativo = relativo à pasta da coleção (portável no Git).
-            const root = (await this.collections.manifestRoot(collectionId)) ?? '';
+            const root = (collectionId && (await this.collections.manifestRoot(collectionId))) || '';
             const file = path.isAbsolute(config.source.location) ? config.source.location : path.resolve(root, config.source.location);
 
             return this.files.read(file);

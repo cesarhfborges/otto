@@ -6,6 +6,8 @@
 import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi } from '@shared/api';
 import type {
     AppInfo,
+    CollectionExportFormat,
+    CollectionImportRequest,
     CollectionMetadata,
     CollectionTree,
     OpenedCollection,
@@ -65,9 +67,10 @@ export abstract class HttpGateway implements HttpApi {
 export abstract class DialogGateway implements DialogApi {
     abstract pickCertificate(): Promise<string | null>;
     abstract pickFile(title: string): Promise<string | null>;
-    abstract pickCollectionFolder(): Promise<string | null>;
+    abstract pickOpenApiFile(): Promise<string | null>;
     abstract pickCollectionArchive(): Promise<string | null>;
     abstract saveCollectionArchive(defaultName: string): Promise<string | null>;
+    abstract saveOpenApiSpec(defaultName: string): Promise<string | null>;
     abstract pickWorkspaceArchive(): Promise<string | null>;
     abstract saveWorkspaceArchive(defaultName: string): Promise<string | null>;
     abstract chooseBaseDirectory(current?: string): Promise<string | null>;
@@ -117,8 +120,8 @@ export abstract class CollectionsGateway implements CollectionsApi {
     abstract update(id: EntityId, patch: Partial<NewCollectionMetadata>): Promise<CollectionMetadata | null>;
     abstract delete(id: EntityId): Promise<boolean>;
     abstract createOnDisk(name: string): Promise<OpenedCollection>;
-    abstract import(source: string): Promise<OpenedCollection>;
-    abstract export(id: EntityId, file: string): Promise<void>;
+    abstract import(request: CollectionImportRequest): Promise<OpenedCollection>;
+    abstract export(id: EntityId, format: CollectionExportFormat, file: string): Promise<void>;
     abstract close(id: EntityId): Promise<void>;
     abstract trash(id: EntityId): Promise<void>;
     abstract tree(id: EntityId): Promise<CollectionTree>;

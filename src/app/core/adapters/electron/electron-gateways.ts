@@ -1,6 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import type {
     AppInfo,
+    CollectionExportFormat,
+    CollectionImportRequest,
     CollectionMetadata,
     CollectionTree,
     OpenedCollection,
@@ -143,8 +145,8 @@ export class ElectronDialogGateway extends DialogGateway {
         return requireOttoApi(this.api).dialog.pickFile(title);
     }
 
-    pickCollectionFolder(): Promise<string | null> {
-        return requireOttoApi(this.api).dialog.pickCollectionFolder();
+    pickOpenApiFile(): Promise<string | null> {
+        return requireOttoApi(this.api).dialog.pickOpenApiFile();
     }
 
     pickCollectionArchive(): Promise<string | null> {
@@ -153,6 +155,10 @@ export class ElectronDialogGateway extends DialogGateway {
 
     saveCollectionArchive(defaultName: string): Promise<string | null> {
         return requireOttoApi(this.api).dialog.saveCollectionArchive(defaultName);
+    }
+
+    saveOpenApiSpec(defaultName: string): Promise<string | null> {
+        return requireOttoApi(this.api).dialog.saveOpenApiSpec(defaultName);
     }
 
     pickWorkspaceArchive(): Promise<string | null> {
@@ -309,12 +315,12 @@ export class ElectronCollectionsGateway extends CollectionsGateway {
         return requireOttoApi(this.api).collections.createOnDisk(name);
     }
 
-    import(source: string): Promise<OpenedCollection> {
-        return requireOttoApi(this.api).collections.import(source);
+    import(request: CollectionImportRequest): Promise<OpenedCollection> {
+        return requireOttoApi(this.api).collections.import(request);
     }
 
-    export(id: EntityId, file: string): Promise<void> {
-        return requireOttoApi(this.api).collections.export(id, file);
+    export(id: EntityId, format: CollectionExportFormat, file: string): Promise<void> {
+        return requireOttoApi(this.api).collections.export(id, format, file);
     }
 
     close(id: EntityId): Promise<void> {

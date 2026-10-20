@@ -1,9 +1,10 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 import { DEFAULT_WORKSPACE_ID, WORKSPACE_FORMAT_VERSION, type EntityId, type LoadedWorkspace, type OpenedCollection, type Workspace, type WorkspaceManifest, type WorkspaceSummary } from '../../../shared/models';
-import type { IClock, ICollectionMetadataRepository, ICollectionStore, IWorkspaceFormat, IWorkspaceRepository } from '../../core/contracts';
+import type { IClock, ICollectionMetadataRepository, ICollectionStore, IEnvironmentRepository, IWorkspaceFormat, IWorkspaceRepository } from '../../core/contracts';
 import { createZip, readZip } from '../../infra/workspaces/zip-archive';
 import type { CollectionService } from '../collections/collection.service';
+import { ENVIRONMENTS_BACKUP_FILE, restoreEnvironments, serializeEnvironments } from '../collections/environment-backup';
 import { slugify } from '../collections/slug';
 
 /** Pasta (dentro do workspace) onde novas coleções são criadas por padrão. */
@@ -58,6 +59,7 @@ export class WorkspaceService {
         private readonly store: ICollectionStore,
         private readonly format: IWorkspaceFormat,
         private readonly archives: ArchiveFiles,
+        private readonly environments: IEnvironmentRepository,
         private readonly clock: IClock,
         /** Pasta base atual (preferência `workspaces.baseDirectory` ou o padrão). */
         private readonly baseDirectory: () => string
@@ -146,17 +148,19 @@ export class WorkspaceService {
     }
 
     /**
-     * Copia uma coleção (pasta com `otto.yaml` ou .zip exportado pelo Otto) para
-     * `<workspace ativo>/collections/<slug do nome>` e inclui no workspace.
+     * Restaura um backup do Otto (.zip gerado por `exportCollection`) em
+     * `<workspace ativo>/collections/<slug do nome>`, recria os ambientes e inclui no workspace.
      */
-    async importCollection(source: string): Promise<OpenedCollection> {
+    async importCollection(file: string): Promise<OpenedCollection> {
         const workspace = await this.ensureFolder(this.workspaces.active());
-        const files = source.toLowerCase().endsWith('.zip') ? readZip(await this.archives.read(source)) : await this.readFolder(source);
+        const files = readZip(await this.archives.read(file));
         const prefix = archiveRoot([...files.keys()], COLLECTION_MANIFEST);
 
         if (prefix === null) {
-            throw new Error(`No ${COLLECTION_MANIFEST} found: this is not an Otto collection`);
+            throw new Error(`No ${COLLECTION_MANIFEST} found: this is not an Otto backup`);
         }
+
+        const environments = files.get(prefix + ENVIRONMENTS_BACKUP_FILE);
 
         const manifest = this.collectionService.parseManifest(new TextDecoder().decode(files.get(prefix + COLLECTION_MANIFEST)));
         const root = path.join(workspace.path!, COLLECTIONS_FOLDER, slugify(manifest.name, 'collection'));
@@ -168,21 +172,25 @@ export class WorkspaceService {
         await this.store.createRoot(root);
 
         for (const [name, content] of files) {
-            if (name.startsWith(prefix)) {
+            if (name.startsWith(prefix) && name !== prefix + ENVIRONMENTS_BACKUP_FILE) {
                 await this.store.writeFile(root, name.slice(prefix.length), content, { createOnly: true });
             }
         }
 
         const opened = await this.collectionService.open(root);
 
+        if (environments) {
+            restoreEnvironments(environments, this.environments, opened.metadata.id);
+        }
+
         await this.addCollection(opened.metadata.id);
 
         return opened;
     }
 
-    /** .zip com os arquivos da coleção (`otto.yaml` na raiz). */
+    /** Backup .zip: arquivos da coleção (`otto.yaml` na raiz) + ambientes da coleção. */
     async exportCollection(id: EntityId, file: string): Promise<void> {
-        await this.archives.write(file, createZip(await this.collectionService.files(id)));
+        await this.archives.write(file, createZip(await this.collectionFiles(id)));
     }
 
     async rename(id: EntityId, name: string): Promise<Workspace> {
@@ -290,12 +298,13 @@ export class WorkspaceService {
             used.add(folder);
             entries.push({ path: `${COLLECTIONS_FOLDER}/${folder}` });
 
-            for (const [relative, content] of await this.collectionService.files(collectionId)) {
+            for (const [relative, content] of await this.collectionFiles(collectionId)) {
                 files.set(`${COLLECTIONS_FOLDER}/${folder}/${relative}`, content);
             }
         }
 
         files.set(this.format.manifestFile, new TextEncoder().encode(this.format.serializeManifest({ version: WORKSPACE_FORMAT_VERSION, name: workspace.name, collections: entries })));
+        files.set(ENVIRONMENTS_BACKUP_FILE, serializeEnvironments(this.environments.findByCollection(null, id)));
         await this.archives.write(file, createZip(files));
     }
 
@@ -313,9 +322,20 @@ export class WorkspaceService {
 
         await this.store.createRoot(root);
 
+        // Backups de ambientes (`otto-environments.json`) não vão para o disco: são recriados no banco.
+        const environments = new Map<string, Uint8Array>();
+
         for (const [name, content] of files) {
-            if (name.startsWith(prefix) && name !== prefix + this.format.manifestFile) {
-                await this.store.writeFile(root, name.slice(prefix.length), content, { createOnly: true });
+            if (!name.startsWith(prefix) || name === prefix + this.format.manifestFile) {
+                continue;
+            }
+
+            const relative = name.slice(prefix.length);
+
+            if (path.posix.basename(relative) === ENVIRONMENTS_BACKUP_FILE) {
+                environments.set(path.posix.dirname(relative), content);
+            } else {
+                await this.store.writeFile(root, relative, content, { createOnly: true });
             }
         }
 
@@ -324,7 +344,11 @@ export class WorkspaceService {
 
         await this.store.writeFile(root, this.format.manifestFile, this.format.serializeManifest({ ...manifest, version: WORKSPACE_FORMAT_VERSION, collections }), { createOnly: true });
 
-        return this.switch(this.workspaces.create({ name: manifest.name, path: root }).id);
+        const created = this.workspaces.create({ name: manifest.name, path: root });
+
+        await this.restoreWorkspaceEnvironments(created.id, root, environments, collections);
+
+        return this.switch(created.id);
     }
 
     onChanged(listener: () => void): () => void {
@@ -378,27 +402,37 @@ export class WorkspaceService {
         return this.workspaces.update(workspace.id, { path: root })!;
     }
 
-    /** Arquivos de uma pasta de coleção (sem ocultos e symlinks), com caminhos relativos. */
-    private async readFolder(folder: string): Promise<Map<string, Uint8Array>> {
-        const root = path.resolve(folder);
-        const files = new Map<string, Uint8Array>();
-        const collect = async (entries: Awaited<ReturnType<ICollectionStore['list']>>): Promise<void> => {
-            for (const entry of entries) {
-                if (entry.kind === 'directory') {
-                    await collect(entry.children);
-                } else {
-                    files.set(entry.path, await this.store.readBytes(root, entry.path));
-                }
-            }
-        };
+    /** Arquivos da coleção + backup dos ambientes dela. */
+    private async collectionFiles(id: EntityId): Promise<Map<string, Uint8Array>> {
+        const files = await this.collectionService.files(id);
 
-        if (!(await this.store.isDirectory(root))) {
-            throw new Error(`Folder "${root}" does not exist`);
-        }
-
-        await collect(await this.store.list(root));
+        files.set(ENVIRONMENTS_BACKUP_FILE, serializeEnvironments(this.environments.findByCollection(id)));
 
         return files;
+    }
+
+    /** Recria os ambientes globais (raiz do .zip) e os de cada coleção (pasta da coleção). */
+    private async restoreWorkspaceEnvironments(workspaceId: EntityId, root: string, environments: Map<string, Uint8Array>, collections: WorkspaceManifest['collections']): Promise<void> {
+        const globals = environments.get('.');
+
+        if (globals) {
+            restoreEnvironments(globals, this.environments, null, workspaceId);
+        }
+
+        for (const entry of collections) {
+            const content = environments.get(entry.path.replace(/\/+$/, ''));
+
+            if (content) {
+                try {
+                    const { metadata } = await this.collectionService.register(fromManifestPath(root, entry.path));
+
+                    restoreEnvironments(content, this.environments, metadata.id);
+                } catch (error) {
+                    // Coleção inválida no pacote: aparece como falha ao carregar o workspace.
+                    console.warn('[otto] could not restore environments of', entry.path, error);
+                }
+            }
+        }
     }
 
     /** Registra as coleções listadas no `workspace.yaml` e atualiza a lista do banco. */

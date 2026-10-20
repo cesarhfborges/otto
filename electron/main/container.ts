@@ -109,6 +109,7 @@ export function createContainer(): Container {
         store,
         new YamlWorkspaceFormat(),
         archives,
+        environments,
         systemClock,
         () => settings.get().workspaces.baseDirectory || defaultBaseDirectory()
     );
@@ -131,7 +132,8 @@ export function createContainer(): Container {
                 }
 
                 return fs.readFile(file, 'utf8');
-            }
+            },
+            write: (file, content) => fs.writeFile(file, content, 'utf8')
         },
         environments,
         systemClock
@@ -165,7 +167,7 @@ export function createContainer(): Container {
             new TabsIpcModule(tabs),
             new WorkspacesIpcModule(workspaceService, window, (folder) => shell.showItemInFolder(path.join(folder, 'workspace.yaml'))),
             new EnvironmentsIpcModule(environments, () => workspaceService.active().id),
-            new CollectionsIpcModule(collections, collectionService, workspaceService, window),
+            new CollectionsIpcModule(collections, collectionService, workspaceService, openapi, window),
             new OpenApiIpcModule(openapi),
             new CollectionFilesIpcModule(collectionService)
         ],

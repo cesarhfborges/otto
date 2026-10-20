@@ -3,6 +3,8 @@
  * cada consumidor no Angular depende apenas da fatia que usa.
  */
 import type {
+    CollectionExportFormat,
+    CollectionImportRequest,
     AppInfo,
     CollectionMetadata,
     CollectionTree,
@@ -71,11 +73,13 @@ export interface DialogApi {
     pickCertificate(): Promise<string | null>;
     /** Arquivo qualquer (corpo File/Binary ou campo de arquivo do multipart). */
     pickFile(title: string): Promise<string | null>;
-    /** Pasta de uma coleção existente, para importar (copiar) para o workspace. */
-    pickCollectionFolder(): Promise<string | null>;
-    /** Arquivo .zip de uma coleção exportada pelo Otto. */
+    /** Spec OpenAPI/Swagger local (.json/.yaml) para importar como coleção. */
+    pickOpenApiFile(): Promise<string | null>;
+    /** Arquivo .zip de um backup de coleção do Otto. */
     pickCollectionArchive(): Promise<string | null>;
     saveCollectionArchive(defaultName: string): Promise<string | null>;
+    /** Destino do spec OpenAPI exportado (.yaml ou .json). */
+    saveOpenApiSpec(defaultName: string): Promise<string | null>;
     /** Arquivo .zip de um workspace exportado pelo Otto. */
     pickWorkspaceArchive(): Promise<string | null>;
     saveWorkspaceArchive(defaultName: string): Promise<string | null>;
@@ -134,9 +138,10 @@ export interface CollectionsApi {
     delete(id: EntityId): Promise<boolean>;
     /** Cria `<workspace>/collections/<nome>` com o manifesto e inclui no workspace ativo. */
     createOnDisk(name: string): Promise<OpenedCollection>;
-    /** Copia uma coleção (pasta com `otto.yaml` ou .zip exportado) para o workspace ativo. */
-    import(source: string): Promise<OpenedCollection>;
-    export(id: EntityId, file: string): Promise<void>;
+    /** Importa para o workspace ativo um backup do Otto (.zip) ou um spec OpenAPI (URL/arquivo). */
+    import(request: CollectionImportRequest): Promise<OpenedCollection>;
+    /** `backup`: .zip com arquivos e ambientes da coleção; `openapi`: spec OpenAPI 3 (.yaml/.json). */
+    export(id: EntityId, format: CollectionExportFormat, file: string): Promise<void>;
     close(id: EntityId): Promise<void>;
     /** Tira do workspace ativo e envia a pasta da coleção para a lixeira do sistema. */
     trash(id: EntityId): Promise<void>;

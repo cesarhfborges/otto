@@ -6,6 +6,8 @@
  * e só pode importar *tipos* deste arquivo (`import type`).
  */
 import type {
+    CollectionExportFormat,
+    CollectionImportRequest,
     AppInfo,
     CollectionMetadata,
     CollectionTree,
@@ -48,9 +50,10 @@ export interface IpcInvokeContract {
     'http:cancel': { args: [id: string]; result: boolean };
     'dialog:pick-certificate': { args: []; result: string | null };
     'dialog:pick-file': { args: [title: string]; result: string | null };
-    'dialog:pick-collection-folder': { args: []; result: string | null };
+    'dialog:pick-openapi-file': { args: []; result: string | null };
     'dialog:pick-collection-archive': { args: []; result: string | null };
     'dialog:save-collection-archive': { args: [defaultName: string]; result: string | null };
+    'dialog:save-openapi-spec': { args: [defaultName: string]; result: string | null };
     'dialog:pick-workspace-archive': { args: []; result: string | null };
     'dialog:save-workspace-archive': { args: [defaultName: string]; result: string | null };
     'dialog:choose-base-directory': { args: [current?: string]; result: string | null };
@@ -79,8 +82,8 @@ export interface IpcInvokeContract {
     'collections:update': { args: [id: EntityId, patch: Partial<NewCollectionMetadata>]; result: CollectionMetadata | null };
     'collections:delete': { args: [id: EntityId]; result: boolean };
     'collections:new': { args: [name: string]; result: OpenedCollection };
-    'collections:import': { args: [source: string]; result: OpenedCollection };
-    'collections:export': { args: [id: EntityId, file: string]; result: void };
+    'collections:import': { args: [request: CollectionImportRequest]; result: OpenedCollection };
+    'collections:export': { args: [id: EntityId, format: CollectionExportFormat, file: string]; result: void };
     'collections:close': { args: [id: EntityId]; result: void };
     'collections:trash': { args: [id: EntityId]; result: void };
     'collections:tree': { args: [id: EntityId]; result: CollectionTree };

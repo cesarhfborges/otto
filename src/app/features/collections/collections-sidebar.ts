@@ -6,6 +6,7 @@ import { MenuModule } from 'primeng/menu';
 import { TooltipModule } from 'primeng/tooltip';
 import { TreeModule } from 'primeng/tree';
 import type { TreeNodeCollapseEvent, TreeNodeContextMenuSelectEvent, TreeNodeExpandEvent, TreeNodeSelectEvent } from 'primeng/types/tree';
+import type { CollectionExportFormat } from '@shared/models';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { CollectionFilesGateway } from '../../core/ports';
 import { CollectionsState } from '../../core/state/collections.state';
@@ -167,7 +168,14 @@ export class CollectionsSidebar {
                     { separator: true },
                     { label: 'Overview', icon: 'pi pi-info-circle', command: () => this.openCollectionTab(target.collectionId) },
                     { label: 'Environments', icon: 'pi pi-globe', command: () => this.tabs.open({ kind: 'environments', title: 'Environments', collectionId: target.collectionId }) },
-                    { label: 'Export Collection', icon: 'pi pi-upload', command: () => void this.exportCollection(target.collectionId) },
+                    {
+                        label: 'Export Collection',
+                        icon: 'pi pi-upload',
+                        items: [
+                            { label: 'Otto Backup (ZIP)', icon: 'pi pi-box', command: () => void this.exportCollection(target.collectionId, 'backup') },
+                            { label: 'OpenAPI Spec', icon: 'pi pi-file', command: () => void this.exportCollection(target.collectionId, 'openapi') }
+                        ]
+                    },
                     { separator: true },
                     { label: 'Remove from Workspace', icon: 'pi pi-times', command: () => this.ui.removeCollectionDialog.set(target.collectionId) }
                 ];
@@ -264,7 +272,7 @@ export class CollectionsSidebar {
         this.tabs.open({ kind: 'request', title: label, collectionId: data.collectionId, resourceRef: data.path });
     }
 
-    private async exportCollection(collectionId: string): Promise<void> {
+    private async exportCollection(collectionId: string, format: CollectionExportFormat): Promise<void> {
         const collection = this.collections.find(collectionId);
 
         if (!collection) {
@@ -272,7 +280,7 @@ export class CollectionsSidebar {
         }
 
         try {
-            const file = await this.collections.export(collection.metadata);
+            const file = await this.collections.export(collection.metadata, format);
 
             if (file) {
                 this.messages.add({ severity: 'success', summary: 'Collection exported', detail: file, life: 5000 });

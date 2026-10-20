@@ -1,5 +1,5 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
-import type { CollectionManifestPatch, CollectionMetadata, CollectionNode, EntityId, OpenedCollection } from '@shared/models';
+import type { CollectionExportFormat, CollectionImportRequest, CollectionManifestPatch, CollectionMetadata, CollectionNode, EntityId, OpenedCollection } from '@shared/models';
 import { ipcErrorMessage } from '../bridge/ipc-error';
 import { CollectionsGateway, DialogGateway } from '../ports';
 
@@ -57,17 +57,17 @@ export class CollectionsState {
         return this.track(await this.gateway.createOnDisk(name));
     }
 
-    /** Copia uma coleção (pasta ou .zip) para o workspace ativo. Lança o erro para o diálogo exibir. */
-    async import(source: string): Promise<OpenedCollection> {
-        return this.track(await this.gateway.import(source));
+    /** Importa um backup do Otto ou um spec OpenAPI para o workspace ativo. Lança o erro para o diálogo exibir. */
+    async import(request: CollectionImportRequest): Promise<OpenedCollection> {
+        return this.track(await this.gateway.import(request));
     }
 
-    /** Pergunta o destino e exporta como .zip. Retorna o arquivo, ou `null` se cancelado. */
-    async export(collection: CollectionMetadata): Promise<string | null> {
-        const file = await this.dialogs.saveCollectionArchive(`${collection.name}.zip`);
+    /** Pergunta o destino e exporta como backup (.zip) ou spec OpenAPI. Retorna o arquivo, ou `null` se cancelado. */
+    async export(collection: CollectionMetadata, format: CollectionExportFormat): Promise<string | null> {
+        const file = format === 'backup' ? await this.dialogs.saveCollectionArchive(`${collection.name}.zip`) : await this.dialogs.saveOpenApiSpec(`${collection.name}.openapi.yaml`);
 
         if (file) {
-            await this.gateway.export(collection.id, file);
+            await this.gateway.export(collection.id, format, file);
         }
 
         return file;

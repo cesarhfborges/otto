@@ -1,42 +1,99 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, type WritableSignal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import type { CollectionImportRequest } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
+import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
+import { SelectButtonModule } from 'primeng/selectbutton';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { DialogGateway } from '../../core/ports';
 import { CollectionsState } from '../../core/state/collections.state';
 import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
 
+type ImportType = CollectionImportRequest['type'];
+type SpecSource = 'url' | 'file';
+
 /**
- * Traz uma coleção para o workspace ativo copiando-a para `<workspace>/collections`:
- * de um .zip exportado pelo Otto ou de uma pasta com `otto.yaml`. A origem não é alterada.
+ * Importa uma coleção para o workspace ativo: backup do Otto (.zip com arquivos e
+ * ambientes, gerado por "Export Collection") ou spec OpenAPI/Swagger (URL ou arquivo).
  */
 @Component({
     selector: 'app-import-collection-dialog',
-    imports: [DialogModule, InputTextModule, ButtonModule, MessageModule],
+    imports: [ReactiveFormsModule, DialogModule, InputTextModule, ButtonModule, MessageModule, SelectButtonModule, CheckboxModule],
     template: `
-        <p-dialog closeAriaLabel="Close" header="Import Collection" [modal]="true" [visible]="ui.importCollectionDialog()" (visibleChange)="!$event && close()" [style]="{ width: '34rem' }" [draggable]="false" appendTo="body">
-            <div class="flex flex-col gap-4">
+        <p-dialog closeAriaLabel="Close" header="Import Collection" [modal]="true" [visible]="ui.importCollectionDialog()" (visibleChange)="!$event && close()" [style]="{ width: '36rem' }" [draggable]="false" appendTo="body">
+            <form class="flex flex-col gap-4" [formGroup]="form" (ngSubmit)="submit()">
                 <div class="flex flex-col gap-2">
-                    <label for="import-collection-source" class="font-medium">Source</label>
-                    <input pInputText id="import-collection-source" [value]="source() ?? ''" readonly placeholder="Choose a .zip file or a collection folder" aria-describedby="import-collection-help" />
-                    <div class="flex flex-wrap gap-2">
-                        <p-button label="Choose .zip…" icon="pi pi-file" severity="secondary" size="small" (onClick)="browseArchive()" />
-                        <p-button label="Choose Folder…" icon="pi pi-folder-open" severity="secondary" size="small" (onClick)="browseFolder()" />
-                    </div>
-                    <small id="import-collection-help" class="text-muted-color">The collection is copied into the <code>collections</code> folder of the current workspace. The original is not changed.</small>
+                    <span id="import-type-label" class="font-medium">Import from</span>
+                    <p-selectbutton formControlName="type" [options]="types" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="import-type-label" />
                 </div>
+
+                @if (type() === 'backup') {
+                    <p-message severity="info" icon="pi pi-box">
+                        <div class="flex flex-col gap-1">
+                            <strong>Otto → Otto (recommended)</strong>
+                            <span>The most complete option: restores requests, folders, collection headers and docs, its <strong>environments and variables</strong> (secrets included) and the OpenAPI link, all ready to use. Create the file with <em>Export Collection → Otto Backup (ZIP)</em>.</span>
+                        </div>
+                    </p-message>
+
+                    <div class="flex flex-col gap-2">
+                        <label for="import-backup-file" class="font-medium">Backup file</label>
+                        <div class="flex gap-2">
+                            <input pInputText id="import-backup-file" class="flex-1" [value]="archive() ?? ''" readonly placeholder="Choose an Otto backup (.zip)" />
+                            <p-button label="Choose .zip…" icon="pi pi-file" severity="secondary" (onClick)="browseArchive()" />
+                        </div>
+                    </div>
+                } @else {
+                    <p-message severity="info" icon="pi pi-info-circle">
+                        <div class="flex flex-col gap-1">
+                            <strong>OpenAPI 3.x / Swagger 2.0</strong>
+                            <span>Each operation becomes a request, grouped in folders by tag. Parameters, headers, example bodies and auth schemes are converted, and a <em>Default</em> environment is created with <code>baseUrl</code> from the first server. Responses, scripts and secret values are not part of a spec. The collection stays linked to the spec so you can review and sync changes later.</span>
+                        </div>
+                    </p-message>
+
+                    <div class="flex flex-col gap-2">
+                        <span id="import-spec-source-label" class="font-medium">Spec source</span>
+                        <p-selectbutton formControlName="specSource" [options]="sources" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="import-spec-source-label" size="small" />
+                    </div>
+
+                    @if (specSource() === 'url') {
+                        <div class="flex flex-col gap-2">
+                            <label for="import-spec-url" class="font-medium">Spec URL</label>
+                            <input pInputText id="import-spec-url" type="url" formControlName="url" placeholder="https://api.example.com/openapi.json" aria-describedby="import-spec-url-help" />
+                            <small id="import-spec-url-help" class="text-muted-color">JSON or YAML, over http(s).</small>
+                        </div>
+                    } @else {
+                        <div class="flex flex-col gap-2">
+                            <label for="import-spec-file" class="font-medium">Spec file</label>
+                            <div class="flex gap-2">
+                                <input pInputText id="import-spec-file" class="flex-1" [value]="specFile() ?? ''" readonly placeholder="Choose a .json or .yaml file" />
+                                <p-button label="Choose File…" icon="pi pi-file" severity="secondary" (onClick)="browseSpec()" />
+                            </div>
+                        </div>
+                    }
+
+                    <div class="flex items-start gap-2">
+                        <p-checkbox formControlName="autoSync" [binary]="true" inputId="import-auto-sync" ariaLabelledBy="import-auto-sync-label" />
+                        <div class="flex flex-col">
+                            <label id="import-auto-sync-label" for="import-auto-sync" class="font-medium">Enable auto sync</label>
+                            <small class="text-muted-color">Otto checks the spec for updates periodically and lets you review them. You can change this later in the collection's OpenAPI settings.</small>
+                        </div>
+                    </div>
+                }
+
                 @if (error(); as message) {
                     <p-message severity="error"
                         ><span role="alert">{{ message }}</span></p-message
                     >
                 }
-            </div>
+            </form>
             <ng-template #footer>
                 <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="close()" />
-                <p-button label="Import" icon="pi pi-download" [loading]="busy()" [disabled]="!source()" (onClick)="submit()" />
+                <p-button label="Import" icon="pi pi-download" [loading]="busy()" [disabled]="!request()" (onClick)="submit()" />
             </ng-template>
         </p-dialog>
     `
@@ -47,22 +104,63 @@ export class ImportCollectionDialog {
     private readonly tabs = inject(TabsState);
     private readonly dialogs = inject(DialogGateway);
 
-    protected readonly source = signal<string | null>(null);
+    protected readonly types: Array<{ label: string; value: ImportType }> = [
+        { label: 'Otto Backup (ZIP)', value: 'backup' },
+        { label: 'OpenAPI Spec', value: 'openapi' }
+    ];
+
+    protected readonly sources: Array<{ label: string; value: SpecSource }> = [
+        { label: 'URL', value: 'url' },
+        { label: 'File', value: 'file' }
+    ];
+
+    protected readonly form = inject(FormBuilder).nonNullable.group({
+        type: 'backup' as ImportType,
+        specSource: 'url' as SpecSource,
+        url: '',
+        autoSync: false
+    });
+
+    private readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
+
+    protected readonly type = computed(() => this.value().type);
+    protected readonly specSource = computed(() => this.value().specSource);
+    protected readonly archive = signal<string | null>(null);
+    protected readonly specFile = signal<string | null>(null);
     protected readonly busy = signal(false);
     protected readonly error = signal<string | null>(null);
 
+    /** Pedido de importação montado do formulário; `null` enquanto falta a origem. */
+    protected readonly request = computed<CollectionImportRequest | null>(() => {
+        const { type, specSource, url, autoSync } = { ...this.form.getRawValue(), ...this.value() };
+
+        if (type === 'backup') {
+            const file = this.archive();
+
+            return file ? { type, file } : null;
+        }
+
+        const location = specSource === 'url' ? url.trim() : this.specFile();
+
+        if (!location || (specSource === 'url' && !/^https?:\/\/\S+$/i.test(location))) {
+            return null;
+        }
+
+        return { type, source: { type: specSource, location }, autoSync };
+    });
+
     protected async browseArchive(): Promise<void> {
-        this.pick(await this.dialogs.pickCollectionArchive());
+        this.pick(this.archive, await this.dialogs.pickCollectionArchive());
     }
 
-    protected async browseFolder(): Promise<void> {
-        this.pick(await this.dialogs.pickCollectionFolder());
+    protected async browseSpec(): Promise<void> {
+        this.pick(this.specFile, await this.dialogs.pickOpenApiFile());
     }
 
     protected async submit(): Promise<void> {
-        const source = this.source();
+        const request = this.request();
 
-        if (!source || this.busy()) {
+        if (!request || this.busy()) {
             return;
         }
 
@@ -70,7 +168,7 @@ export class ImportCollectionDialog {
         this.error.set(null);
 
         try {
-            const imported = await this.collections.import(source);
+            const imported = await this.collections.import(request);
 
             this.tabs.open({ kind: 'collection', title: 'Overview', collectionId: imported.metadata.id });
             this.close();
@@ -83,13 +181,15 @@ export class ImportCollectionDialog {
 
     protected close(): void {
         this.ui.importCollectionDialog.set(false);
-        this.source.set(null);
+        this.form.reset();
+        this.archive.set(null);
+        this.specFile.set(null);
         this.error.set(null);
     }
 
-    private pick(source: string | null): void {
-        if (source) {
-            this.source.set(source);
+    private pick(target: WritableSignal<string | null>, file: string | null): void {
+        if (file) {
+            target.set(file);
             this.error.set(null);
         }
     }

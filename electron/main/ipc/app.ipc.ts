@@ -24,11 +24,13 @@ export class AppIpcModule implements IIpcModule {
 
         ipc.handle('dialog:pick-file', (_event, title) => this.dialogs.pickFile(typeof title === 'string' && title.length <= 200 ? title : 'Select File'));
 
-        ipc.handle('dialog:pick-collection-folder', () => this.dialogs.pickCollectionFolder());
+        ipc.handle('dialog:pick-openapi-file', () => this.dialogs.pickOpenApiFile());
 
         ipc.handle('dialog:pick-collection-archive', () => this.dialogs.pickCollectionArchive());
 
         ipc.handle('dialog:save-collection-archive', (_event, defaultName) => this.dialogs.saveCollectionArchive(parseEntryName(defaultName)));
+
+        ipc.handle('dialog:save-openapi-spec', (_event, defaultName) => this.dialogs.saveOpenApiSpec(parseEntryName(defaultName)));
 
         ipc.handle('dialog:pick-workspace-archive', () => this.dialogs.pickWorkspaceArchive());
 

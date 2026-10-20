@@ -75,3 +75,18 @@ export interface OpenedCollection {
     manifest: CollectionManifest;
     tree: CollectionTree;
 }
+
+/** Formatos de exportação: backup completo do Otto (.zip com ambientes) ou spec OpenAPI 3. */
+export const COLLECTION_EXPORT_FORMATS = ['backup', 'openapi'] as const;
+
+export type CollectionExportFormat = (typeof COLLECTION_EXPORT_FORMATS)[number];
+
+/** O que importar: um backup do Otto (.zip) ou um spec OpenAPI/Swagger (URL ou arquivo). */
+export type CollectionImportRequest =
+    | { type: 'backup'; file: string }
+    | {
+          type: 'openapi';
+          source: OpenApiConfig['source'];
+          /** Liga a verificação automática de atualizações do spec. */
+          autoSync: boolean;
+      };
