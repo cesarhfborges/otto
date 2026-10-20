@@ -53,6 +53,7 @@ export class WindowManager implements IRendererNotifier {
             title: APP_NAME,
             icon: assetPath('icons', 'icon.png'),
             show: false,
+            frame: false,
             // Sem moldura nativa: a barra de título é desenhada pelo Angular (estilo Bruno).
             // No macOS mantemos os botões "semáforo" nativos sobre a nossa barra.
             ...(isMac ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 12, y: 12 } } : { frame: false }),

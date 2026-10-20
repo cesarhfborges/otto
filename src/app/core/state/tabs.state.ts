@@ -10,7 +10,7 @@ export interface TabSpec {
     resourceRef?: string | null;
 }
 
-/** `null` = workspace (Overview, Environments, Preferences). */
+/** `null` = workspace (Overview, Environments). */
 export type TabContext = EntityId | null;
 
 const SAVE_DELAY_MS = 300;
@@ -59,7 +59,8 @@ export class TabsState {
         this.contextState.set(null);
 
         try {
-            const saved = (await this.gateway.list(workspaceId)).filter((tab) => tab.collectionId === null || openCollectionIds.has(tab.collectionId));
+            // Preferences virou modal (`SettingsDialog`): abas `settings` salvas por versões antigas são descartadas.
+            const saved = (await this.gateway.list(workspaceId)).filter((tab) => tab.kind !== 'settings' && (tab.collectionId === null || openCollectionIds.has(tab.collectionId)));
 
             this.tabsState.set(saved);
             this.activeByContext.set(Object.fromEntries(saved.map((tab) => [tab.collectionId ?? '', tab.id])));

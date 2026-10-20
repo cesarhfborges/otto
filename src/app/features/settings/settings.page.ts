@@ -44,24 +44,32 @@ const proxyRequiresUrl: ValidatorFn = (group: AbstractControl): ValidationErrors
     selector: 'app-settings-page',
     imports: [ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
     templateUrl: './settings.page.html',
-    host: { class: 'flex h-full min-h-0' }
+    styles: `
+        ::ng-deep {
+            .settings-dialog-custom {
+                height: calc(100% - 56px)!important;
+                top: 32px!important;
+            }
+        }
+    `,
+    host: { class: 'flex h-full min-h-0 w-full' }
 })
 export class SettingsPage {
     private readonly settingsState = inject(SettingsState);
     private readonly dialogs = inject(DialogGateway);
     protected readonly theme = inject(ThemeService);
 
-    protected readonly sections: Array<{ id: PreferencesSection; label: string; icon: string }> = [
-        { id: 'general', label: 'General', icon: 'pi pi-cog' },
-        { id: 'themes', label: 'Themes', icon: 'pi pi-palette' },
-        { id: 'appearance', label: 'Appearance', icon: 'pi pi-desktop' },
-        { id: 'proxy', label: 'Proxy', icon: 'pi pi-server' },
-        { id: 'certificates', label: 'Certificates', icon: 'pi pi-shield' },
-        { id: 'about', label: 'About', icon: 'pi pi-info-circle' }
+    protected readonly sections: Array<{ id: PreferencesSection; label: string; icon: string; description: string }> = [
+        { id: 'general', label: 'General', icon: 'pi pi-cog', description: 'Workspaces location, application behavior and request defaults.' },
+        { id: 'themes', label: 'Themes', icon: 'pi pi-palette', description: 'Color scheme used across the application.' },
+        { id: 'appearance', label: 'Appearance', icon: 'pi pi-desktop', description: 'How panels are arranged in the request tab.' },
+        { id: 'proxy', label: 'Proxy', icon: 'pi pi-server', description: 'Route outgoing requests through an HTTP or HTTPS proxy.' },
+        { id: 'certificates', label: 'Certificates', icon: 'pi pi-shield', description: 'SSL/TLS verification and trusted certificate authorities.' },
+        { id: 'about', label: 'About', icon: 'pi pi-info-circle', description: 'Version and runtime information.' }
     ];
 
     protected readonly section = signal<PreferencesSection>('general');
-    protected readonly currentLabel = computed(() => `${this.sections.find((s) => s.id === this.section())?.label} settings`);
+    protected readonly current = computed(() => this.sections.find((s) => s.id === this.section())!);
     protected readonly appInfo = signal<AppInfo | null>(null);
     protected readonly maxTimeoutMs = MAX_TIMEOUT_MS;
     protected readonly maxHistoryEntries = MAX_HISTORY_ENTRIES;

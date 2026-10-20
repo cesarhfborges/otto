@@ -51,13 +51,14 @@ import { WorkspacesState } from '../core/state/workspaces.state';
 
             @if (windowControls.available && !windowControls.isMac) {
                 <span class="mx-1 h-4 w-px bg-surface-200 dark:bg-surface-700" aria-hidden="true"></span>
-                <button type="button" class="otto-icon-button !w-10" aria-label="Minimize" (click)="windowControls.minimize()">
-                    <i class="pi pi-minus text-xs" aria-hidden="true"></i>
+                <button type="button" class="otto-icon-button w-10!" aria-label="Minimize" (click)="windowControls.minimize()">
+                    <i class="pi minimize-icon" aria-hidden="true"></i>
                 </button>
-                <button type="button" class="otto-icon-button !w-10" [attr.aria-label]="windowControls.maximized() ? 'Restore' : 'Maximize'" (click)="windowControls.toggleMaximize()">
+                <button type="button" class="otto-icon-button w-10!" [attr.aria-label]="windowControls.maximized() ? 'Restore' : 'Maximize'" (click)="windowControls.toggleMaximize()">
                     <i class="pi text-xs" [class.pi-clone]="windowControls.maximized()" [class.pi-stop]="!windowControls.maximized()" aria-hidden="true"></i>
+<!--                    <i class="pi maximize-icon" aria-hidden="true"></i>-->
                 </button>
-                <button type="button" class="otto-icon-button !w-10 hover:!bg-red-600 hover:!text-white" aria-label="Close" (click)="windowControls.close()">
+                <button type="button" class="otto-icon-button w-10! hover:bg-red-600! hover:text-white!" aria-label="Close" (click)="windowControls.close()">
                     <i class="pi pi-times text-xs" aria-hidden="true"></i>
                 </button>
             }
@@ -67,7 +68,27 @@ import { WorkspacesState } from '../core/state/workspaces.state';
         role: 'banner',
         class: 'app-drag relative flex h-9 shrink-0 items-center border-b border-surface-200 bg-surface-50 px-1.5 dark:border-surface-800 dark:bg-surface-900',
         '(dblclick)': 'onDoubleClick($event)'
-    }
+    },
+    styles: `
+        .minimize-icon {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            background-color: currentColor;
+            -webkit-mask: url('/assets/icons/minimize.svg') no-repeat center / contain;
+            mask: url('/assets/icons/minimize.svg') no-repeat center / contain;
+            vertical-align: middle;
+        }
+        .maximize-icon {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            background-color: currentColor;
+            -webkit-mask: url('/assets/icons/maximize.svg') no-repeat center / contain;
+            mask: url('/assets/icons/maximize.svg') no-repeat center / contain;
+            vertical-align: middle;
+        }
+    `
 })
 export class TitleBar {
     protected readonly windowControls = inject(WindowControlsState);

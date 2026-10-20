@@ -17,6 +17,7 @@ import { NewRequestDialog } from '../features/collections/new-request-dialog';
 import { ImportCollectionDialog } from '../features/collections/import-collection-dialog';
 import { ImportWorkspaceDialog } from '../features/workspace/import-workspace-dialog';
 import { NewWorkspaceDialog } from '../features/workspace/new-workspace-dialog';
+import { SettingsDialog } from '../features/settings/settings-dialog.service';
 import { ConfirmHost } from './confirm-host';
 import { ContextHeader } from './context-header';
 import { StatusBar } from './status-bar';
@@ -72,7 +73,7 @@ function savedSplitterSize(key: string, fallback: number): number {
                 O <main> envolve o splitter: o divisor entre a barra lateral e o conteúdo precisa estar
                 dentro de um landmark (axe "region"), e um <header> interno não vira banner.
             -->
-            <main class="flex min-h-0 flex-1">
+            <main id="main-content" class="flex min-h-0 flex-1">
                 <p-splitter
                     [pt]="sidebarSplitterPt()"
                     [panelSizes]="sidebarSizes"
@@ -154,6 +155,7 @@ export class Shell {
     private readonly theme = inject(ThemeService);
     private readonly messages = inject(MessageService);
     private readonly workspaces = inject(WorkspacesState);
+    private readonly settingsDialog = inject(SettingsDialog);
     /** Também registra a confirmação ao fechar abas com alterações não salvas. */
     private readonly drafts = inject(RequestDraftsState);
 
@@ -213,7 +215,7 @@ export class Shell {
                 void this.theme.toggle();
                 break;
             case 'open-settings':
-                this.tabs.open({ kind: 'settings', title: 'Preferences', collectionId: null });
+                void this.settingsDialog.open();
                 break;
             case 'import-collection':
                 this.ui.importCollectionDialog.set(true);

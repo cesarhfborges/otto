@@ -7,6 +7,7 @@ import { CollectionsState } from '../core/state/collections.state';
 import { TabsState } from '../core/state/tabs.state';
 import { UiState } from '../core/state/ui.state';
 import { draftKey, RequestDraftsState } from '../core/state/request-drafts.state';
+import { SettingsDialog } from '../features/settings/settings-dialog.service';
 import { MethodBadge } from '../shared/method-badge';
 import { TAB_ICONS } from '../shared/tab-icon';
 
@@ -71,6 +72,7 @@ export class TabStrip {
     private readonly collections = inject(CollectionsState);
     private readonly ui = inject(UiState);
     private readonly drafts = inject(RequestDraftsState);
+    private readonly settingsDialog = inject(SettingsDialog);
     private readonly tablist = viewChild.required<ElementRef<HTMLElement>>('tablist');
     private readonly addMenu = viewChild.required<Menu>('addMenu');
 
@@ -81,7 +83,7 @@ export class TabStrip {
     protected readonly workspaceAddItems: MenuItem[] = [
         { label: 'Overview', icon: 'pi pi-home', command: () => this.tabs.open({ kind: 'overview', title: 'Overview', collectionId: null }) },
         { label: 'Environments', icon: 'pi pi-globe', command: () => this.tabs.open({ kind: 'environments', title: 'Environments', collectionId: null }) },
-        { label: 'Preferences', icon: 'pi pi-cog', command: () => this.tabs.open({ kind: 'settings', title: 'Preferences', collectionId: null }) }
+        { label: 'Preferences', icon: 'pi pi-cog', command: () => void this.settingsDialog.open() }
     ];
 
     /** Método do rascunho em edição; sem rascunho, o da árvore (reflete edições feitas fora do app). */

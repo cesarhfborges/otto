@@ -2,7 +2,6 @@ import { Component, inject } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
 import { CollectionOverview } from '../features/collection/collection-overview';
 import { RequestView } from '../features/request/request-view';
-import { SettingsPage } from '../features/settings/settings.page';
 import { EnvironmentsPage } from '../features/environments/environments-page';
 import { ManageWorkspaces } from '../features/workspace/manage-workspaces';
 import { WorkspaceOverview } from '../features/workspace/workspace-overview';
@@ -13,7 +12,7 @@ import { TAB_PANEL_ID } from './tab-strip';
 /** Conteúdo da aba ativa. Cada tipo é carregado sob demanda (`@defer` → chunk separado). */
 @Component({
     selector: 'app-tab-host',
-    imports: [ButtonModule, ManageWorkspaces, WorkspaceOverview, EnvironmentsPage, SettingsPage, CollectionOverview, RequestView],
+    imports: [ButtonModule, ManageWorkspaces, WorkspaceOverview, EnvironmentsPage, CollectionOverview, RequestView],
     template: `
         @if (tabs.active(); as tab) {
             <div role="tabpanel" [id]="panelId" [attr.aria-labelledby]="'tab-' + tab.id" class="h-full min-h-0 overflow-auto" tabindex="-1">
@@ -31,11 +30,6 @@ import { TAB_PANEL_ID } from './tab-strip';
                     @case ('workspaces') {
                         @defer {
                             <app-manage-workspaces />
-                        }
-                    }
-                    @case ('settings') {
-                        @defer {
-                            <app-settings-page />
                         }
                     }
                     @case ('collection') {

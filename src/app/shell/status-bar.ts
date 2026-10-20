@@ -1,16 +1,16 @@
 import { Component, inject, signal } from '@angular/core';
 import { TooltipModule } from 'primeng/tooltip';
 import { AppInfoGateway } from '../core/ports';
-import { TabsState } from '../core/state/tabs.state';
 import { ThemeService } from '../core/theme/theme.service';
 import { TooltipOptions } from 'primeng/api';
+import { SettingsDialog } from '../features/settings/settings-dialog.service';
 
 /** Barra de status: atalhos para preferências e tema, versão do app. */
 @Component({
     selector: 'app-status-bar',
     imports: [TooltipModule],
     template: `
-        <button type="button" class="otto-icon-button h-6! w-7!" aria-label="Preferences" pTooltip [tooltipOptions]="tooltipConfig" (click)="openPreferences()">
+        <button type="button" class="otto-icon-button h-6! w-7!" aria-label="Preferences" pTooltip [tooltipOptions]="tooltipConfig" (click)="settingsDialog.open()">
             <i class="pi pi-cog text-xs" aria-hidden="true"></i>
         </button>
         <button type="button" class="otto-icon-button h-6! w-7!" [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'" pTooltip [tooltipOptions]="tooltipColor" (click)="theme.toggle()">
@@ -24,8 +24,8 @@ import { TooltipOptions } from 'primeng/api';
     }
 })
 export class StatusBar {
+    protected readonly settingsDialog = inject(SettingsDialog);
     protected readonly theme = inject(ThemeService);
-    private readonly tabs = inject(TabsState);
     protected readonly version = signal('');
     protected readonly tooltipConfig: TooltipOptions = {
         tooltipLabel: 'Preferences',
@@ -55,9 +55,5 @@ export class StatusBar {
                 (info) => this.version.set(`v${info.version}`),
                 () => undefined
             );
-    }
-
-    protected openPreferences(): void {
-        this.tabs.open({ kind: 'settings', title: 'Preferences', collectionId: null });
     }
 }
