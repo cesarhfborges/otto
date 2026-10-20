@@ -22,7 +22,7 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
     selector: 'app-collections-sidebar',
     imports: [TreeModule, PrimeTemplate, ContextMenuModule, MenuModule, ButtonModule, TooltipModule, MethodBadge, TreeToggleLabel],
     template: `
-        <div class="flex items-center gap-2 h-9 px-2 border-b border-surface-200 dark:border-surface-800">
+        <div class="flex items-center gap-2 h-9 px-2 border-b border-surface-200 dark:border-surface-800 py-5">
             <div class="flex-1 flex items-center gap-2">
                 <i class="pi pi-box text-sm text-muted-color" aria-hidden="true"></i>
                 <h2 id="collections-heading" class="m-0 flex-1 text-sm font-semibold">Collections</h2>

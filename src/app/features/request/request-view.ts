@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, input, linkedSignal, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -20,6 +20,7 @@ import { AuthEditor } from './auth-editor';
 import { BodyEditor } from './body-editor';
 import { KeyValueEditor } from './key-value-editor';
 import { ResponsePanel } from './response-panel';
+import { EditorModule } from 'primeng/editor';
 
 const REQUEST_SPLITTER_KEY = 'otto.splitter.request';
 
@@ -45,7 +46,7 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
  */
 @Component({
     selector: 'app-request-view',
-    imports: [ReactiveFormsModule, TabsModule, ButtonModule, InputTextModule, MessageModule, SelectModule, SplitterModule, MethodBadge, KeyValueEditor, BodyEditor, AuthEditor, ResponsePanel],
+    imports: [ReactiveFormsModule, FormsModule, TabsModule, ButtonModule, InputTextModule, MessageModule, SelectModule, SplitterModule, MethodBadge, KeyValueEditor, BodyEditor, AuthEditor, ResponsePanel, EditorModule],
     template: `
         @if (error(); as message) {
             <p-message severity="error" styleClass="m-4"
@@ -151,15 +152,16 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
                                     <p-tabpanel value="auth">
                                         <app-auth-editor [auth]="req.auth" (authChange)="update({ auth: $event })" />
                                     </p-tabpanel>
-                                    <p-tabpanel value="docs">
+                                    <p-tabpanel value="docs" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
                                         <label for="request-docs" class="mb-2 block text-sm font-medium">Documentation (Markdown)</label>
                                         <textarea
                                             id="request-docs"
-                                            class="min-h-48 w-full resize-y rounded-md border border-surface-300 bg-surface-0 p-3 text-sm text-color focus-visible:outline-2 focus-visible:outline-[var(--p-primary-color)] dark:border-surface-700 dark:bg-surface-950"
+                                            class="block min-h-0 w-full flex-1 resize-none bg-surface-0 dark:border-surface-700 dark:bg-surface-950 caret-(--p-text-color) placeholder:text-muted-color rounded-md border border-surface-300 p-3 text-sm text-color outline-0!"
                                             [value]="req.docs"
                                             placeholder="Describe what this request does, its parameters and expected responses."
                                             (input)="update({ docs: $any($event.target).value })"
                                         ></textarea>
+                                        <!-- <p-editor [(ngModel)]="req.docs" [style]="{ height: '320px' }" (ngModelChange)="update({ docs: $event }); teste($event)" [formats]="quillFormats" [modules]="quillModules" />-->
                                     </p-tabpanel>
                                 </p-tabpanels>
                             </p-tabs>
@@ -200,19 +202,10 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
 export class RequestView {
     readonly collectionId = input.required<EntityId>();
     readonly path = input.required<string>();
-    private readonly settings = inject(SettingsState);
-    private readonly files = inject(CollectionFilesGateway);
-    private readonly collections = inject(CollectionsState);
-    private readonly responses = inject(ResponsesState);
-    private readonly drafts = inject(RequestDraftsState);
-
-    /** Layout escolhido em Preferences → Appearance. */
-    protected readonly panelSplitterDir = computed(() => this.settings.settings().appearance.requestLayout);
     protected readonly splitterStateKey = computed(() => `${REQUEST_SPLITTER_KEY}.${this.panelSplitterDir()}`);
     protected readonly splitterSizes = [50, 50];
     /** Largura do painel da requisição (%), para o `aria-valuenow` do divisor. */
     protected readonly requestSize = linkedSignal(() => savedSplitterSize(this.splitterStateKey(), this.splitterSizes[0]!));
-    protected readonly firstSize = (event: SplitterResizeEndEvent): number => Number(event.sizes[0]);
     /** O puxador (focável, responde às setas) é o separador acessível; ver `Shell`. */
     protected readonly splitterPt = computed<SplitterPassThrough>(() => ({
         panel: {},
@@ -226,10 +219,6 @@ export class RequestView {
             'aria-valuenow': Math.round(this.requestSize())
         }
     }));
-
-    private readonly key = computed(() => draftKey(this.collectionId(), this.path()));
-    protected readonly request = computed(() => this.drafts.draft(this.key()));
-    protected readonly dirty = computed(() => this.drafts.isDirty(this.key()));
     protected readonly error = signal<string | null>(null);
     protected readonly saveError = signal<string | null>(null);
     protected readonly saving = signal(false);
@@ -244,18 +233,28 @@ export class RequestView {
     ];
     /** GET, HEAD, TRACE e CONNECT não levam corpo: a aba Body some. */
     protected readonly bodyAllowed = computed(() => hasBody(this.request()?.method ?? 'GET'));
-    /** Aba inicial: Body quando o método aceita corpo, senão Params; volta ao padrão ao trocar de request ou de método com/sem corpo. */
-    protected readonly section = linkedSignal<{ key: string; bodyAllowed: boolean }, Section>({
-        source: () => ({ key: this.key(), bodyAllowed: this.bodyAllowed() }),
-        computation: ({ bodyAllowed }) => (bodyAllowed ? 'body' : 'params')
-    });
     protected readonly counts = computed(() => {
         const request = this.request();
 
         return { params: request ? enabledCount(request.params) : 0, headers: request ? enabledCount(request.headers) : 0 };
     });
-    protected readonly response = computed(() => this.responses.get(responseKey(this.collectionId(), this.path())));
     protected readonly sending = computed(() => this.response()?.status === 'sending');
+    private readonly settings = inject(SettingsState);
+    /** Layout escolhido em Preferences → Appearance. */
+    protected readonly panelSplitterDir = computed(() => this.settings.settings().appearance.requestLayout);
+    private readonly files = inject(CollectionFilesGateway);
+    private readonly collections = inject(CollectionsState);
+    private readonly responses = inject(ResponsesState);
+    protected readonly response = computed(() => this.responses.get(responseKey(this.collectionId(), this.path())));
+    private readonly drafts = inject(RequestDraftsState);
+    private readonly key = computed(() => draftKey(this.collectionId(), this.path()));
+    protected readonly request = computed(() => this.drafts.draft(this.key()));
+    protected readonly dirty = computed(() => this.drafts.isDirty(this.key()));
+    /** Aba inicial: Body quando o método aceita corpo, senão Params; volta ao padrão ao trocar de request ou de método com/sem corpo. */
+    protected readonly section = linkedSignal<{ key: string; bodyAllowed: boolean }, Section>({
+        source: () => ({ key: this.key(), bodyAllowed: this.bodyAllowed() }),
+        computation: ({ bodyAllowed }) => (bodyAllowed ? 'body' : 'params')
+    });
 
     constructor() {
         // Lê o arquivo ao abrir e quando a árvore da coleção muda (edição externa, git pull);
@@ -277,6 +276,8 @@ export class RequestView {
         });
         this.methodControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((method) => this.update({ method }));
     }
+
+    protected readonly firstSize = (event: SplitterResizeEndEvent): number => Number(event.sizes[0]);
 
     protected update(changes: Partial<RequestDefinition>): void {
         this.drafts.update(this.key(), (draft) => ({ ...draft, ...changes }));
@@ -313,6 +314,10 @@ export class RequestView {
         if (!this.sending()) {
             this.send();
         }
+    }
+
+    protected teste(event: any): void {
+        console.log(event);
     }
 
     private async load(collectionId: EntityId, path: string): Promise<void> {
