@@ -50,7 +50,7 @@ import { TAB_PANEL_ID } from './tab-strip';
         } @else if (tabs.context(); as collectionId) {
             <div class="flex h-full flex-col items-center justify-center gap-3 text-center">
                 <i class="pi pi-send !text-5xl text-surface-300 dark:text-surface-600" aria-hidden="true"></i>
-                <p class="m-0 text-sm text-muted-color">No open tabs. Pick a request in the sidebar or create a new one.</p>
+                <p class="m-0 text-sm text-muted-color select-none">No open tabs. Pick a request in the sidebar or create a new one.</p>
                 <p-button label="New Request" icon="pi pi-plus" size="small" (onClick)="ui.newRequestDialog.set({ collectionId, folder: '' })" />
             </div>
         }
