@@ -59,7 +59,7 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
                 (onNodeContextMenuSelect)="onContextMenu($event)"
             >
                 <ng-template pTemplate="otto" let-node>
-                    <span class="group flex min-w-0 flex-1 items-center gap-2.5 text-sm">
+                    <span class="group flex min-w-0 flex-1 items-center gap-2.5 text-sm py-1 px-2">
                         @switch (node.data.kind) {
                             @case ('collection') {
                                 <i class="pi pi-box text-xs text-muted-color" aria-hidden="true"></i>
@@ -68,7 +68,7 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
                                 <i class="pi pi-folder text-xs text-muted-color" aria-hidden="true"></i>
                             }
                             @case ('request') {
-<!--                                <i class="pi pi-envelope text-xs text-muted-color" aria-hidden="true"></i>-->
+                                <!--                                <i class="pi pi-envelope text-xs text-muted-color" aria-hidden="true"></i>-->
                                 <app-method-badge [method]="node.data.method" [compact]="true" />
                             }
                         }
@@ -78,7 +78,7 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
                             <span class="sr-only">(invalid file: {{ node.data.error }})</span>
                         }
                         <!-- Atalho de mouse para o menu de contexto; teclado usa a tecla de menu/Shift+F10. -->
-                        <span class="otto-icon-button invisible h-5! w-5! group-hover:visible" aria-hidden="true" (click)="openMenuFor(node, $event)">
+                        <span class="otto-icon-button invisible h-5! w-5! group-hover:visible hover:bg-(transparent)" aria-hidden="true" (click)="openMenuFor(node, $event)">
                             <i class="pi pi-ellipsis-h text-xs"></i>
                         </span>
                     </span>
