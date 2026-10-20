@@ -1,23 +1,32 @@
 import { Component, computed, input } from '@angular/core';
 import type { HttpResponse } from '@shared/models';
+import { Highlight } from 'ngx-highlightjs';
+import { HighlightLineNumbers } from 'ngx-highlightjs/line-numbers';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TabsModule } from 'primeng/tabs';
 import type { ResponseEntry } from '../../core/state/responses.state';
 import { formatBytes, formatDuration } from '../../shared/format';
-import { highlightCode } from '../../shared/highlight';
+import { highlightLanguageFor, type HighlightLanguage } from '../../shared/highlight';
 
 /** Acima disso o corpo é exibido parcialmente (o visualizador completo chega na Etapa 7). */
 const MAX_DISPLAYED_CHARS = 1_000_000;
 
 const STATUS_COLORS = ['var(--otto-method-other)', 'var(--otto-method-get)', 'var(--otto-method-post)', 'var(--otto-method-put)', 'var(--otto-method-delete)'];
 
-function prettyBody(response: HttpResponse): string {
+interface PrettyBody {
+    code: string;
+    language: HighlightLanguage | null;
+}
+
+function prettyBody(response: HttpResponse): PrettyBody {
     const looksJson = /\bjson\b|\+json/i.test(response.contentType ?? '') || /^\s*[[{]/.test(response.body);
 
     if (looksJson && response.body.length <= MAX_DISPLAYED_CHARS) {
         try {
-            return highlightCode(JSON.stringify(JSON.parse(response.body), null, 2), 'json');
+            const code = JSON.stringify(JSON.parse(response.body), null, 2);
+
+            return { code, language: highlightLanguageFor(code, 'json') };
         } catch {
             // Não é JSON válido: mostra como veio.
         }
@@ -25,13 +34,15 @@ function prettyBody(response: HttpResponse): string {
 
     const looksXml = /\b(xml|html)\b|\+xml/i.test(response.contentType ?? '');
 
-    return highlightCode(response.body.slice(0, MAX_DISPLAYED_CHARS), looksXml ? 'xml' : null);
+    const code = response.body.slice(0, MAX_DISPLAYED_CHARS);
+
+    return { code, language: highlightLanguageFor(code, looksXml ? 'xml' : 'plaintext') };
 }
 
 /** Painel de resposta: estado de envio, erro ou status/tempo/tamanho + corpo, headers e tempos. */
 @Component({
     selector: 'app-response-panel',
-    imports: [MessageModule, ProgressSpinnerModule, TabsModule],
+    imports: [Highlight, HighlightLineNumbers, MessageModule, ProgressSpinnerModule, TabsModule],
     template: `
         @switch (entry().status) {
             @case ('sending') {
@@ -100,7 +111,12 @@ function prettyBody(response: HttpResponse): string {
                                             class="m-0 h-full overflow-auto whitespace-pre-wrap break-all otto-code-view rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-900"
                                             tabindex="0"
                                             aria-label="Response body"
-                                        ><code [innerHTML]="body()"></code></pre>
+                                        >@switch (body().language) {
+                                            @case ('json') {<code [highlight]="body().code" language="json" ignoreIllegals lineNumbers></code>}
+                                            @case ('xml') {<code [highlight]="body().code" language="xml" ignoreIllegals lineNumbers></code>}
+                                            @case ('plaintext') {<code [highlight]="body().code" language="plaintext" lineNumbers></code>}
+                                            @default {<code>{{ body().code }}</code>}
+                                        }</pre>
                                     }
                                 </p-tabpanel>
                                 <p-tabpanel value="headers">
@@ -149,10 +165,10 @@ function prettyBody(response: HttpResponse): string {
 })
 export class ResponsePanel {
     readonly entry = input.required<ResponseEntry>();
-    protected readonly body = computed(() => {
+    protected readonly body = computed<PrettyBody>(() => {
         const response = this.response();
 
-        return response?.bodyEncoding === 'utf8' ? prettyBody(response) : '';
+        return response?.bodyEncoding === 'utf8' ? prettyBody(response) : { code: '', language: null };
     });
     protected readonly partial = computed(() => (this.response()?.body.length ?? 0) > MAX_DISPLAYED_CHARS);
     protected readonly imageSrc = computed(() => {

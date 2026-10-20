@@ -180,3 +180,15 @@ body {
     font-size: var(--otto-code-font-size, 14px);
     line-height: 1.5;
 }
+
+/* Números de linha: tabela do plugin `lineNumbers` (ngx-highlightjs) e calha do app-code-editor. */
+.hljs-ln td.hljs-ln-numbers,
+.otto-code-gutter {
+    color: var(--p-text-muted-color);
+    text-align: right;
+    user-select: none;
+}
+.hljs-ln td.hljs-ln-numbers {
+    padding-right: 1rem;
+    vertical-align: top;
+}

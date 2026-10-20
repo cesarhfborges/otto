@@ -2,6 +2,8 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { type AbstractControl, FormBuilder, ReactiveFormsModule, type ValidationErrors, type ValidatorFn, Validators } from '@angular/forms';
 import { type AppInfo, type CodeTheme, MAX_CODE_FONT_SIZE, MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, MIN_CODE_FONT_SIZE, type OttoSettings, type RequestLayout, type ThemeMode } from '@shared/models';
+import { Highlight } from 'ngx-highlightjs';
+import { HighlightLineNumbers } from 'ngx-highlightjs/line-numbers';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
@@ -13,7 +15,6 @@ import { AppInfoGateway, DialogGateway } from '../../core/ports';
 import { SettingsState } from '../../core/state/settings.state';
 import { ThemeService } from '../../core/theme/theme.service';
 import { CODE_THEME_PALETTES } from '../../core/theme/code-themes';
-import { highlightCode } from '../../shared/highlight';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -52,7 +53,7 @@ const EXAMPLE = {
 
 @Component({
     selector: 'app-settings-page',
-    imports: [ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
+    imports: [Highlight, HighlightLineNumbers, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
     templateUrl: './settings.page.html',
     styles: `
         ::ng-deep {
@@ -88,7 +89,7 @@ export class SettingsPage {
     protected readonly codeThemeOptions = Object.entries(CODE_THEME_PALETTES).map(([value, { label }]) => ({ label, value: value as CodeTheme }));
     protected readonly minCodeFontSize = MIN_CODE_FONT_SIZE;
     protected readonly maxCodeFontSize = MAX_CODE_FONT_SIZE;
-    protected readonly codePreview = highlightCode(JSON.stringify(EXAMPLE, null, 2), 'json');
+    protected readonly codePreview = JSON.stringify(EXAMPLE, null, 2);
     protected readonly themeOptions: Array<{ label: string; value: ThemeMode; icon: string }> = [
         { label: 'Light', value: 'light', icon: 'pi pi-sun' },
         { label: 'Dark', value: 'dark', icon: 'pi pi-moon' },
