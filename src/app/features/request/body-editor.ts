@@ -7,6 +7,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { DialogGateway } from '../../core/ports';
+import { CodeEditor } from '../../shared/code-editor';
 import { formatJson, formatText, formatXml, validateBody, type FormatResult } from './body-format';
 import { KeyValueEditor, type EditableRow } from './key-value-editor';
 
@@ -32,7 +33,7 @@ const isTextType = (type: BodyType): type is TextBodyType => type === 'json' || 
  */
 @Component({
     selector: 'app-body-editor',
-    imports: [ReactiveFormsModule, SelectButtonModule, ButtonModule, InputTextModule, MessageModule, KeyValueEditor],
+    imports: [ReactiveFormsModule, SelectButtonModule, ButtonModule, InputTextModule, MessageModule, KeyValueEditor, CodeEditor],
     template: `
         <p-selectbutton [options]="types" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" [formControl]="typeControl" ariaLabelledBy="body-type-label" class="flex-wrap [&_.p-togglebutton]:whitespace-nowrap" />
         <span id="body-type-label" class="sr-only">Body type</span>
@@ -67,17 +68,15 @@ const isTextType = (type: BodyType): type is TextBodyType => type === 'json' || 
                             <label for="body-content" class="text-sm font-medium">{{ typeLabel() }} content</label>
                             <p-button label="Pretty" icon="pi pi-align-left" size="small" severity="secondary" [text]="true" class="ml-auto" (onClick)="prettify()" />
                         </div>
-                        <textarea
-                            id="body-content"
-                            class="min-h-64 w-full resize-y rounded-md border border-surface-300 bg-surface-0 p-3 font-mono text-sm text-color focus-visible:outline-2 focus-visible:outline-[var(--p-primary-color)] dark:border-surface-700 dark:bg-surface-950"
+                        <app-code-editor
+                            inputId="body-content"
                             [value]="content()"
+                            (valueChange)="setContent($event)"
+                            [language]="language()"
                             [placeholder]="placeholder()"
-                            spellcheck="false"
-                            autocomplete="off"
-                            [attr.aria-invalid]="!!problem()"
-                            [attr.aria-describedby]="problem() ? 'body-content-error' : null"
-                            (input)="setContent($any($event.target).value)"
-                        ></textarea>
+                            [invalid]="!!problem()"
+                            [describedBy]="problem() ? 'body-content-error' : null"
+                        />
                         @if (problem(); as message) {
                             <small id="body-content-error" class="text-red-700 dark:text-red-400" aria-live="polite">{{ message }}</small>
                         }
@@ -123,6 +122,11 @@ export class BodyEditor {
         const type = this.body().type;
 
         return isTextType(type) ? TEXT_PLACEHOLDERS[type] : '';
+    });
+    protected readonly language = computed(() => {
+        const type = this.body().type;
+
+        return type === 'json' || type === 'xml' ? type : null;
     });
     /** Erro de sintaxe (JSON/XML) mostrado enquanto digita. */
     protected readonly problem = computed(() => {

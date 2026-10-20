@@ -138,3 +138,61 @@ body {
 .otto-danger-item .p-menu-item-icon {
     color: var(--otto-method-delete);
 }
+
+/* Editor com realce (app-code-editor): textarea e espelho precisam da mesma caixa de texto. */
+.otto-code {
+    box-sizing: border-box;
+    padding: 0.75rem;
+    border: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    tab-size: 4;
+    white-space: pre;
+    overflow-wrap: normal;
+}
+
+/* Realce do highlight.js (paleta do GitHub, contraste AA nas superfícies claras e escuras). */
+.hljs-attr,
+.hljs-number,
+.hljs-attribute {
+    color: #0550ae;
+}
+.hljs-string {
+    color: #0a3069;
+}
+.hljs-literal,
+.hljs-keyword {
+    color: #cf222e;
+}
+.hljs-name,
+.hljs-tag {
+    color: #116329;
+}
+.hljs-comment,
+.hljs-meta {
+    color: #57606a;
+}
+
+:root.app-dark {
+    .hljs-attr,
+    .hljs-number,
+    .hljs-attribute {
+        color: #79c0ff;
+    }
+    .hljs-string {
+        color: #a5d6ff;
+    }
+    .hljs-literal,
+    .hljs-keyword {
+        color: #ff7b72;
+    }
+    .hljs-name,
+    .hljs-tag {
+        color: #7ee787;
+    }
+    .hljs-comment,
+    .hljs-meta {
+        color: #8b949e;
+    }
+}

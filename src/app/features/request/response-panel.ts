@@ -5,6 +5,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TabsModule } from 'primeng/tabs';
 import type { ResponseEntry } from '../../core/state/responses.state';
 import { formatBytes, formatDuration } from '../../shared/format';
+import { highlightCode } from '../../shared/highlight';
 
 /** Acima disso o corpo é exibido parcialmente (o visualizador completo chega na Etapa 7). */
 const MAX_DISPLAYED_CHARS = 1_000_000;
@@ -16,13 +17,15 @@ function prettyBody(response: HttpResponse): string {
 
     if (looksJson && response.body.length <= MAX_DISPLAYED_CHARS) {
         try {
-            return JSON.stringify(JSON.parse(response.body), null, 2);
+            return highlightCode(JSON.stringify(JSON.parse(response.body), null, 2), 'json');
         } catch {
             // Não é JSON válido: mostra como veio.
         }
     }
 
-    return response.body.slice(0, MAX_DISPLAYED_CHARS);
+    const looksXml = /\b(xml|html)\b|\+xml/i.test(response.contentType ?? '');
+
+    return highlightCode(response.body.slice(0, MAX_DISPLAYED_CHARS), looksXml ? 'xml' : null);
 }
 
 /** Painel de resposta: estado de envio, erro ou status/tempo/tamanho + corpo, headers e tempos. */
@@ -93,7 +96,7 @@ function prettyBody(response: HttpResponse): string {
                                         @if (partial()) {
                                             <p class="m-0 mb-2 text-xs text-muted-color">Showing the first 1,000,000 characters.</p>
                                         }
-                                        <pre class="m-0 overflow-auto whitespace-pre-wrap break-all rounded-md bg-surface-100 p-3 font-mono text-sm dark:bg-surface-900" tabindex="0" aria-label="Response body">{{ body() }}</pre>
+                                        <pre class="m-0 overflow-auto whitespace-pre-wrap break-all rounded-md bg-surface-100 p-3 font-mono text-sm dark:bg-surface-900" tabindex="0" aria-label="Response body"><code [innerHTML]="body()"></code></pre>
                                     }
                                 </p-tabpanel>
                                 <p-tabpanel value="headers">
