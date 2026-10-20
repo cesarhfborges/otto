@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
-import { FormArray, FormBuilder, ReactiveFormsModule, Validators, type FormGroup, type FormControl } from '@angular/forms';
+import { FormArray, FormBuilder, type FormControl, type FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import type { EntityId, Environment, EnvironmentVariable } from '@shared/models';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -24,7 +24,7 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
     template: `
         <nav class="flex w-60 shrink-0 flex-col gap-2 border-r border-surface-200 p-3 dark:border-surface-700" aria-labelledby="environments-heading">
             <div class="flex items-center gap-2">
-                <h2 id="environments-heading" class="m-0 flex-1 text-sm font-semibold">{{ scopeLabel() }}</h2>
+                <h2 id="environments-heading" class="m-0 flex-1 text-sm font-semibold">Environment</h2>
                 <button type="button" class="otto-icon-button" aria-label="New environment" pTooltip="New environment" tooltipPosition="bottom" (click)="create()">
                     <i class="pi pi-plus" aria-hidden="true"></i>
                 </button>
@@ -148,34 +148,22 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
 export class EnvironmentsPage {
     /** `null` = ambientes globais do workspace. */
     readonly collectionId = input<EntityId | null>(null);
-
-    private readonly state = inject(EnvironmentsState);
-    private readonly collections = inject(CollectionsState);
-    private readonly confirm = inject(ConfirmState);
-    private readonly messages = inject(MessageService);
-    private readonly fb = inject(FormBuilder).nonNullable;
-
     protected readonly example = '{{baseUrl}}';
     protected readonly selectedId = signal<EntityId | null>(null);
     protected readonly saving = signal(false);
     protected readonly error = signal<string | null>(null);
-
-    protected readonly environments = computed(() => this.state.list(this.collectionId()));
     protected readonly selected = computed(() => this.environments().find((env) => env.id === this.selectedId()) ?? null);
-    protected readonly scopeLabel = computed(() => {
-        const id = this.collectionId();
-
-        return id ? `${this.collections.find(id)?.metadata.name ?? 'Collection'} environments` : 'Global environments';
-    });
-
+    private readonly state = inject(EnvironmentsState);
+    protected readonly environments = computed(() => this.state.list(this.collectionId()));
+    private readonly collections = inject(CollectionsState);
+    private readonly confirm = inject(ConfirmState);
+    private readonly messages = inject(MessageService);
+    private readonly fb = inject(FormBuilder).nonNullable;
     protected readonly form = this.fb.group({
         name: this.fb.control('', [Validators.required, Validators.maxLength(200)]),
         variables: this.fb.array<VariableForm>([])
     });
-
-    protected get variables(): FormArray<VariableForm> {
-        return this.form.controls.variables;
-    }
+    private loadedId: EntityId | null = null;
 
     constructor() {
         effect(() => {
@@ -207,7 +195,9 @@ export class EnvironmentsPage {
         });
     }
 
-    private loadedId: EntityId | null = null;
+    protected get variables(): FormArray<VariableForm> {
+        return this.form.controls.variables;
+    }
 
     protected async select(id: EntityId): Promise<void> {
         if (id === this.selectedId() || !(await this.confirmDiscard())) {
