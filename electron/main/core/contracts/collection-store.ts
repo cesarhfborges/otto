@@ -30,6 +30,8 @@ export interface ICollectionStore {
     move(root: string, from: string, to: string): Promise<void>;
     /** Envia para a lixeira do sistema (recuperável). */
     remove(root: string, relativePath: string): Promise<void>;
+    /** Envia a pasta raiz inteira da coleção para a lixeira do sistema (recuperável). */
+    removeRoot(absolutePath: string): Promise<void>;
 }
 
 /**

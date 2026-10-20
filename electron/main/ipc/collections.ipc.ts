@@ -39,6 +39,9 @@ export class CollectionsIpcModule implements IIpcModule {
 
         ipc.handle('collections:close', (_event, id) => this.workspaces.removeCollection(parseEntityId(id)));
 
+        // Tira do workspace e envia a pasta da coleção para a lixeira do sistema.
+        ipc.handle('collections:trash', (_event, id) => this.workspaces.trashCollection(parseEntityId(id)));
+
         ipc.handle('collections:tree', (_event, id) => this.service.tree(parseEntityId(id)));
 
         ipc.handle('collections:manifest', (_event, id) => this.service.manifest(parseEntityId(id)));

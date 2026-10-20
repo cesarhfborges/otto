@@ -250,6 +250,19 @@ export class WorkspaceService {
         this.emitChanged();
     }
 
+    /** Tira a coleção do workspace ativo, envia a pasta para a lixeira e esquece a coleção no app. */
+    async trashCollection(collectionId: EntityId): Promise<void> {
+        const collection = this.collections.findById(collectionId);
+
+        if (!collection) {
+            throw new Error(`Collection "${collectionId}" not found`);
+        }
+
+        await this.removeCollection(collectionId);
+        await this.store.removeRoot(collection.path);
+        this.collections.delete(collectionId);
+    }
+
     /**
      * Gera um .zip autocontido: `workspace.yaml` + `collections/<pasta>/...` de cada
      * coleção (inclusive as que estão fora da pasta do workspace).

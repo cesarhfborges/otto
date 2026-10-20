@@ -138,6 +138,8 @@ export interface CollectionsApi {
     import(source: string): Promise<OpenedCollection>;
     export(id: EntityId, file: string): Promise<void>;
     close(id: EntityId): Promise<void>;
+    /** Tira do workspace ativo e envia a pasta da coleção para a lixeira do sistema. */
+    trash(id: EntityId): Promise<void>;
     tree(id: EntityId): Promise<CollectionTree>;
     /** `otto.yaml` atual (descrição, headers da coleção, ligação OpenAPI). */
     manifest(id: EntityId): Promise<CollectionManifest>;

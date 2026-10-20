@@ -97,14 +97,7 @@ export class WorkspaceOverview {
         this.rowItems.set([
             { label: 'Open', icon: 'pi pi-folder-open', command: () => this.openCollection(collection) },
             { separator: true },
-            {
-                label: 'Remove from Workspace',
-                icon: 'pi pi-minus-circle',
-                command: () => {
-                    this.tabs.closeCollection(collection.id);
-                    void this.collections.close(collection.id);
-                }
-            }
+            { label: 'Remove from Workspace', icon: 'pi pi-minus-circle', command: () => this.ui.removeCollectionDialog.set(collection.id) }
         ]);
         // O conteúdo do popup é renderizado depois, já com o modelo atualizado.
         this.rowMenu().toggle(event);

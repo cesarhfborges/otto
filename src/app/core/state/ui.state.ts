@@ -30,6 +30,8 @@ export class UiState {
     readonly newWorkspaceDialog = signal(false);
     readonly importWorkspaceDialog = signal(false);
     readonly importCollectionDialog = signal(false);
+    /** Coleção a remover do workspace (o diálogo confirma e oferece apagar a pasta). */
+    readonly removeCollectionDialog = signal<EntityId | null>(null);
     /** Pedido para abrir a página da coleção numa aba específica (ex.: botão de sync → OpenAPI). */
     readonly collectionSection = signal<{ collectionId: EntityId; section: 'overview' | 'headers' | 'openapi' } | null>(null);
 

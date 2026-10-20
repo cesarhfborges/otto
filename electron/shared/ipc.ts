@@ -82,6 +82,7 @@ export interface IpcInvokeContract {
     'collections:import': { args: [source: string]; result: OpenedCollection };
     'collections:export': { args: [id: EntityId, file: string]; result: void };
     'collections:close': { args: [id: EntityId]; result: void };
+    'collections:trash': { args: [id: EntityId]; result: void };
     'collections:tree': { args: [id: EntityId]; result: CollectionTree };
     'collections:manifest': { args: [id: EntityId]; result: CollectionManifest };
     'collections:update-manifest': { args: [id: EntityId, patch: CollectionManifestPatch]; result: CollectionManifest };

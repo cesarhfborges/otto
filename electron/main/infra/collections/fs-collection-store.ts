@@ -172,4 +172,16 @@ export class FsCollectionStore implements ICollectionStore {
 
         await this.trashBin.trash(absolute);
     }
+
+    async removeRoot(absolutePath: string): Promise<void> {
+        if (!path.isAbsolute(absolutePath)) {
+            throw new Error('Collection folder must be an absolute path');
+        }
+
+        if (!(await this.isDirectory(absolutePath))) {
+            throw new Error(`Folder "${absolutePath}" does not exist`);
+        }
+
+        await this.trashBin.trash(absolutePath);
+    }
 }

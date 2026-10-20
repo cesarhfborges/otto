@@ -97,6 +97,7 @@ const api: OttoApi = {
         import: (source) => invoke('collections:import', source),
         export: (id, file) => invoke('collections:export', id, file),
         close: (id) => invoke('collections:close', id),
+        trash: (id) => invoke('collections:trash', id),
         tree: (id) => invoke('collections:tree', id),
         manifest: (id) => invoke('collections:manifest', id),
         updateManifest: (id, patch) => invoke('collections:update-manifest', id, patch),

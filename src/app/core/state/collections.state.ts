@@ -79,6 +79,13 @@ export class CollectionsState {
         await this.loadKnown();
     }
 
+    /** Tira do workspace e envia a pasta da coleção para a lixeira. Lança o erro para o diálogo exibir. */
+    async trash(id: EntityId): Promise<void> {
+        await this.gateway.trash(id);
+        this.openedState.update((list) => list.filter((c) => c.metadata.id !== id));
+        await this.loadKnown();
+    }
+
     /** Esquece a coleção no app (não apaga nada do disco). */
     async forget(id: EntityId): Promise<void> {
         await this.gateway.delete(id);

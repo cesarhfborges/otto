@@ -15,6 +15,7 @@ import { NewCollectionDialog } from '../features/collections/new-collection-dial
 import { NewFolderDialog } from '../features/collections/new-folder-dialog';
 import { NewRequestDialog } from '../features/collections/new-request-dialog';
 import { ImportCollectionDialog } from '../features/collections/import-collection-dialog';
+import { RemoveCollectionDialog } from '../features/collections/remove-collection-dialog';
 import { ImportWorkspaceDialog } from '../features/workspace/import-workspace-dialog';
 import { NewWorkspaceDialog } from '../features/workspace/new-workspace-dialog';
 import { SettingsDialog } from '../features/settings/settings-dialog.service';
@@ -59,6 +60,7 @@ function savedSplitterSize(key: string, fallback: number): number {
         NewWorkspaceDialog,
         ImportWorkspaceDialog,
         ImportCollectionDialog,
+        RemoveCollectionDialog,
         ConfirmHost,
         ToastModule,
         SplitterModule,
@@ -113,6 +115,7 @@ function savedSplitterSize(key: string, fallback: number): number {
         <app-new-workspace-dialog />
         <app-import-workspace-dialog />
         <app-import-collection-dialog />
+        <app-remove-collection-dialog />
         <p-toast position="top-right" />
         <app-confirm-host />
     `,

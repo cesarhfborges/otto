@@ -120,6 +120,7 @@ export abstract class CollectionsGateway implements CollectionsApi {
     abstract import(source: string): Promise<OpenedCollection>;
     abstract export(id: EntityId, file: string): Promise<void>;
     abstract close(id: EntityId): Promise<void>;
+    abstract trash(id: EntityId): Promise<void>;
     abstract tree(id: EntityId): Promise<CollectionTree>;
     abstract manifest(id: EntityId): Promise<CollectionManifest>;
     abstract updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<CollectionManifest>;

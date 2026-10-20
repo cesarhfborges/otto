@@ -321,6 +321,10 @@ export class ElectronCollectionsGateway extends CollectionsGateway {
         return requireOttoApi(this.api).collections.close(id);
     }
 
+    trash(id: EntityId): Promise<void> {
+        return requireOttoApi(this.api).collections.trash(id);
+    }
+
     tree(id: EntityId): Promise<CollectionTree> {
         return requireOttoApi(this.api).collections.tree(id);
     }

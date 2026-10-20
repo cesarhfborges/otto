@@ -169,7 +169,7 @@ export class CollectionsSidebar {
                     { label: 'Environments', icon: 'pi pi-globe', command: () => this.tabs.open({ kind: 'environments', title: 'Environments', collectionId: target.collectionId }) },
                     { label: 'Export Collection', icon: 'pi pi-upload', command: () => void this.exportCollection(target.collectionId) },
                     { separator: true },
-                    { label: 'Remove from Workspace', icon: 'pi pi-times', command: () => void this.close(target.collectionId) }
+                    { label: 'Remove from Workspace', icon: 'pi pi-times', command: () => this.ui.removeCollectionDialog.set(target.collectionId) }
                 ];
             case 'folder':
                 return [...create, { separator: true }, { label: 'Delete', icon: 'pi pi-trash', command: () => void this.confirmDelete(target) }];
@@ -284,17 +284,6 @@ export class CollectionsSidebar {
 
     private openCollectionTab(collectionId: string): void {
         this.tabs.open({ kind: 'collection', title: 'Overview', collectionId });
-    }
-
-    private async close(collectionId: string): Promise<void> {
-        this.tabs.closeCollection(collectionId);
-        await this.collections.close(collectionId);
-    }
-
-    private async closeAll(): Promise<void> {
-        for (const collection of this.collections.opened()) {
-            await this.close(collection.metadata.id);
-        }
     }
 
     private async confirmDelete(target: SidebarNodeData): Promise<void> {
