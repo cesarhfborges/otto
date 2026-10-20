@@ -376,12 +376,24 @@ export class ElectronCollectionFilesGateway extends CollectionFilesGateway {
         return requireOttoApi(this.api).collectionFiles.move(collectionId, from, to);
     }
 
+    duplicate(collectionId: EntityId, path: string, name: string): Promise<string> {
+        return requireOttoApi(this.api).collectionFiles.duplicate(collectionId, path, name);
+    }
+
+    rename(collectionId: EntityId, path: string, name: string): Promise<string> {
+        return requireOttoApi(this.api).collectionFiles.rename(collectionId, path, name);
+    }
+
     reorder(collectionId: EntityId, entries: string[]): Promise<void> {
         return requireOttoApi(this.api).collectionFiles.reorder(collectionId, entries);
     }
 
     remove(collectionId: EntityId, path: string): Promise<void> {
         return requireOttoApi(this.api).collectionFiles.remove(collectionId, path);
+    }
+
+    reveal(collectionId: EntityId, path: string): Promise<void> {
+        return requireOttoApi(this.api).collectionFiles.reveal(collectionId, path);
     }
 }
 

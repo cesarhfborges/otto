@@ -20,6 +20,8 @@ export interface ICollectionStore {
     /** Lista recursivamente, ignorando entradas ocultas, symlinks e pastas reservadas. */
     list(root: string): Promise<CollectionEntry[]>;
     exists(root: string, relativePath: string): Promise<boolean>;
+    /** Caminho absoluto de uma entrada existente (ex.: para mostrá-la no gerenciador de arquivos). */
+    absolutePath(root: string, relativePath: string): Promise<string>;
     readFile(root: string, relativePath: string): Promise<string>;
     /** Conteúdo bruto (exportação de arquivos que não são texto). */
     readBytes(root: string, relativePath: string): Promise<Uint8Array>;

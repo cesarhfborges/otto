@@ -176,10 +176,16 @@ export interface CollectionFilesApi {
     createRequest(collectionId: EntityId, folder: string, request: RequestDefinition): Promise<string>;
     createFolder(collectionId: EntityId, parent: string, name: string): Promise<string>;
     move(collectionId: EntityId, from: string, to: string): Promise<void>;
+    /** Copia a requisição ou a pasta (com tudo dentro) na mesma pasta, com o novo nome; retorna o caminho criado. */
+    duplicate(collectionId: EntityId, path: string, name: string): Promise<string>;
+    /** Renomeia a requisição (nome e arquivo) ou a pasta; retorna o novo caminho. */
+    rename(collectionId: EntityId, path: string, name: string): Promise<string>;
     /** Grava a ordem dos itens (requisições e pastas) de uma mesma pasta, na ordem recebida. */
     reorder(collectionId: EntityId, entries: string[]): Promise<void>;
     /** Envia para a lixeira do sistema. */
     remove(collectionId: EntityId, path: string): Promise<void>;
+    /** Mostra o item no gerenciador de arquivos do sistema ('' = a pasta da coleção). */
+    reveal(collectionId: EntityId, path: string): Promise<void>;
 }
 
 export interface EventsApi {

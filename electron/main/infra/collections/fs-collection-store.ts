@@ -88,6 +88,16 @@ export class FsCollectionStore implements ICollectionStore {
         return exists((await resolveInside(root, relativePath)).absolute);
     }
 
+    async absolutePath(root: string, relativePath: string): Promise<string> {
+        const { absolute } = await resolveInside(root, relativePath);
+
+        if (!(await exists(absolute))) {
+            throw new Error(`"${relativePath}" not found`);
+        }
+
+        return absolute;
+    }
+
     async readFile(root: string, relativePath: string): Promise<string> {
         const { absolute } = await resolveInside(root, relativePath);
 

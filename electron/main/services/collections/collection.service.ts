@@ -8,6 +8,50 @@ const MAX_NAME_ATTEMPTS = 1_000;
 
 const joinRelative = (folder: string, name: string): string => (folder ? `${folder.replace(/\/+$/, '')}/${name}` : name);
 
+/** Pasta que contém o item ('' = raiz da coleção). */
+const parentOf = (entryPath: string): string => {
+    const parent = path.posix.dirname(entryPath);
+
+    return parent === '.' ? '' : parent;
+};
+
+/** Mesma regra do `parseEntryName`: um único segmento, sem separadores e sem começar com ponto. */
+const folderName = (name: string): string => {
+    const value = name.trim();
+
+    if (!value || /[/\\\0]/.test(value) || value.startsWith('.')) {
+        throw new Error('Folder names cannot be empty, contain "/" or "\\" or start with "."');
+    }
+
+    return value;
+};
+
+const requestName = (name: string): string => {
+    const value = name.trim();
+
+    if (!value) {
+        throw new Error('The request name cannot be empty');
+    }
+
+    return value;
+};
+
+function findEntry(entries: CollectionEntry[], entryPath: string): CollectionEntry | null {
+    for (const entry of entries) {
+        if (entry.path === entryPath) {
+            return entry;
+        }
+
+        const found = entryPath.startsWith(`${entry.path}/`) ? findEntry(entry.children, entryPath) : null;
+
+        if (found) {
+            return found;
+        }
+    }
+
+    return null;
+}
+
 /** Pastas sem `seq` primeiro, depois os itens numerados (pastas e requisições juntos) e por fim requisições sem `seq`. */
 const orderRank = (node: CollectionNode): number => (node.seq !== null ? 1 : node.type === 'folder' ? 0 : 2);
 
@@ -214,6 +258,90 @@ export class CollectionService {
     }
 
     /**
+     * Copia a requisição (novo arquivo derivado do nome) ou a pasta com todo o conteúdo
+     * para a mesma pasta do original, com o novo nome. Retorna o caminho criado.
+     */
+    async duplicate(id: EntityId, entryPath: string, name: string): Promise<string> {
+        this.assertNotManifest(entryPath);
+
+        const root = this.resolve(id).path;
+        const parent = parentOf(entryPath);
+
+        if (this.format.isRequestFile(path.posix.basename(entryPath))) {
+            const request = this.format.parseRequest(await this.store.readFile(root, entryPath));
+
+            return this.createRequest(id, parent, { ...request, name: requestName(name) });
+        }
+
+        const source = findEntry(await this.store.list(root), entryPath);
+        const target = joinRelative(parent, folderName(name));
+
+        if (source?.kind !== 'directory') {
+            throw new Error(`Folder "${entryPath}" not found`);
+        }
+
+        if (await this.store.exists(root, target)) {
+            throw new Error(`An item named "${path.posix.basename(target)}" already exists in this folder`);
+        }
+
+        const copy = async (entries: CollectionEntry[]): Promise<void> => {
+            for (const entry of entries) {
+                const destination = target + entry.path.slice(entryPath.length);
+
+                if (entry.kind === 'directory') {
+                    await this.store.createDirectory(root, destination);
+                    await copy(entry.children);
+                } else {
+                    await this.store.writeFile(root, destination, await this.store.readBytes(root, entry.path), { createOnly: true });
+                }
+            }
+        };
+
+        await this.store.createDirectory(root, target);
+        await copy(source.children);
+        this.emitChanged(id);
+
+        return target;
+    }
+
+    /**
+     * Renomeia a requisição (o `name` no arquivo e o próprio arquivo, que segue o slug do nome)
+     * ou a pasta (o diretório). Retorna o novo caminho.
+     */
+    async rename(id: EntityId, entryPath: string, name: string): Promise<string> {
+        this.assertNotManifest(entryPath);
+
+        const root = this.resolve(id).path;
+        const parent = parentOf(entryPath);
+
+        if (this.format.isRequestFile(path.posix.basename(entryPath))) {
+            const request = this.format.parseRequest(await this.store.readFile(root, entryPath));
+            const renamed = requestName(name);
+            const target = await this.availablePath(root, parent, (suffix) => this.format.requestFileName(slugify(renamed, 'request') + suffix), entryPath);
+
+            await this.store.writeFile(root, entryPath, this.format.serializeRequest({ ...request, name: renamed }));
+
+            if (target !== entryPath) {
+                await this.store.move(root, entryPath, target);
+            }
+
+            this.emitChanged(id);
+
+            return target;
+        }
+
+        const target = joinRelative(parent, folderName(name));
+
+        if (target !== entryPath) {
+            this.assertNotManifest(target);
+            await this.store.move(root, entryPath, target);
+            this.emitChanged(id);
+        }
+
+        return target;
+    }
+
+    /**
      * Grava a ordem dos itens de uma mesma pasta: o `seq` de cada requisição e o
      * `_folder.yaml` de cada pasta, na ordem recebida (1, 2, 3…). Só regrava o que mudou;
      * arquivos de requisição inválidos são ignorados.
@@ -260,6 +388,11 @@ export class CollectionService {
         this.assertNotManifest(entryPath);
         await this.store.remove(this.resolve(id).path, entryPath);
         this.emitChanged(id);
+    }
+
+    /** Caminho absoluto do item a mostrar no gerenciador de arquivos; a raiz ('') aponta para o manifesto. */
+    revealPath(id: EntityId, entryPath: string): Promise<string> {
+        return this.store.absolutePath(this.resolve(id).path, entryPath || this.format.manifestFile);
     }
 
     /** Para de observar a pasta (a coleção continua registrada no banco). */
@@ -354,11 +487,12 @@ export class CollectionService {
         }
     }
 
-    private async availablePath(root: string, folder: string, fileName: (suffix: string) => string): Promise<string> {
+    /** Primeiro caminho livre na pasta; `current` (o próprio arquivo, ao renomear) conta como livre. */
+    private async availablePath(root: string, folder: string, fileName: (suffix: string) => string, current?: string): Promise<string> {
         for (let attempt = 1; attempt <= MAX_NAME_ATTEMPTS; attempt++) {
             const candidate = joinRelative(folder, fileName(attempt === 1 ? '' : `-${attempt}`));
 
-            if (!(await this.store.exists(root, candidate))) {
+            if (candidate === current || !(await this.store.exists(root, candidate))) {
                 return candidate;
             }
         }

@@ -16,12 +16,13 @@ import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
 import { MethodBadge } from '../../shared/method-badge';
 import { TreeToggleLabel } from '../../shared/tree-toggle-label.directive';
-import { buildSidebarNodes, findNode, folderOf, dropPositionOf, nodeKey, pathInFolder, resolveDrop, type SidebarNode, type SidebarNodeData } from './collection-tree-nodes';
+import { buildSidebarNodes, findNode, folderOf, dropPositionOf, nodeKey, parentKey, pathInFolder, resolveDrop, type SidebarNode, type SidebarNodeData } from './collection-tree-nodes';
+import { EntryNameDialog, type EntryNameRequest } from './entry-name-dialog';
 
 /** Barra lateral: coleções abertas em árvore (pastas e requisições), com ações por contexto. */
 @Component({
     selector: 'app-collections-sidebar',
-    imports: [TreeModule, PrimeTemplate, ContextMenuModule, MenuModule, ButtonModule, TooltipModule, MethodBadge, TreeToggleLabel],
+    imports: [TreeModule, PrimeTemplate, ContextMenuModule, MenuModule, ButtonModule, TooltipModule, MethodBadge, TreeToggleLabel, EntryNameDialog],
     // O `p-tree` injeta o serviço como opcional: sem ele o arrastar e soltar não funciona.
     providers: [TreeDragDropService],
     template: `
@@ -105,6 +106,7 @@ import { buildSidebarNodes, findNode, folderOf, dropPositionOf, nodeKey, pathInF
         <p-context-menu #contextMenu [model]="contextItems()" appendTo="body" />
         <p-menu #addMenu [model]="addItems" [popup]="true" appendTo="#collections-sidebar" />
         <p-menu #moreMenu [model]="moreItems()" [popup]="true" appendTo="#collections-sidebar" />
+        <app-entry-name-dialog [(request)]="nameDialog" />
     `,
     host: {
         id: 'collections-sidebar',
@@ -138,6 +140,8 @@ export class CollectionsSidebar {
     private readonly menuTarget = signal<SidebarNodeData | null>(null);
     /** Enquanto um arraste é gravado no disco, novos arrastes ficam bloqueados. */
     protected readonly moving = signal(false);
+    /** Diálogo de nome aberto (renomear ou duplicar). */
+    protected readonly nameDialog = signal<EntryNameRequest | null>(null);
 
     protected readonly nodes = computed(() => buildSidebarNodes(this.collections.opened(), this.expanded()));
 
@@ -170,6 +174,12 @@ export class CollectionsSidebar {
             { label: 'New Request', icon: 'pi pi-file-plus', command: () => this.ui.newRequestDialog.set({ collectionId: target.collectionId, folder: folderOf(target) }) },
             { label: 'New Folder', icon: 'pi pi-folder-plus', command: () => this.ui.newFolderDialog.set({ collectionId: target.collectionId, folder: folderOf(target) }) }
         ];
+        const edit: MenuItem[] = [
+            { label: 'Duplicate', icon: 'pi pi-copy', command: () => this.askDuplicate(target) },
+            { label: 'Rename', icon: 'pi pi-pencil', command: () => this.askRename(target) }
+        ];
+        const remove: MenuItem = { label: 'Delete', icon: 'pi pi-trash', command: () => void this.confirmDelete(target) };
+        const reveal: MenuItem = { label: 'Reveal in File Explorer', icon: 'pi pi-folder-open', command: () => void this.reveal(target) };
 
         switch (target.kind) {
             case 'collection':
@@ -177,6 +187,7 @@ export class CollectionsSidebar {
                     ...create,
                     { separator: true },
                     { label: 'Overview', icon: 'pi pi-info-circle', command: () => this.openCollectionTab(target.collectionId) },
+                    reveal,
                     { label: 'Environments', icon: 'pi pi-globe', command: () => this.tabs.open({ kind: 'environments', title: 'Environments', collectionId: target.collectionId }) },
                     {
                         label: 'Export Collection',
@@ -190,14 +201,9 @@ export class CollectionsSidebar {
                     { label: 'Remove from Workspace', icon: 'pi pi-times', command: () => this.ui.removeCollectionDialog.set(target.collectionId) }
                 ];
             case 'folder':
-                return [...create, { separator: true }, { label: 'Delete', icon: 'pi pi-trash', command: () => void this.confirmDelete(target) }];
+                return [...create, { separator: true }, ...edit, reveal, { separator: true }, remove];
             case 'request':
-                return [
-                    { label: 'Clone', icon: 'pi pi-copy', command: () => this.openRequest(target) },
-                    { label: 'Rename', icon: 'pi pi-pencil', command: () => this.openRequest(target) },
-                    { separator: true },
-                    { label: 'Delete', icon: 'pi pi-trash', command: () => void this.confirmDelete(target) }
-                ];
+                return [{ label: 'Open', icon: 'pi pi-file', command: () => this.openRequest(target) }, ...edit, reveal, { separator: true }, remove];
         }
     });
 
@@ -300,7 +306,10 @@ export class CollectionsSidebar {
                 this.expanded.update((set) => new Set([...set, nodeKey(parent)]));
             }
 
-            await this.reorder(collectionId, target.children, dragged.path, to);
+            await this.reorder(
+                collectionId,
+                target.children.map(({ data }) => (data!.path === dragged.path ? to : data!.path))
+            );
         } catch (error) {
             this.messages.add({ severity: 'error', summary: 'Could not move', detail: ipcErrorMessage(error), life: 6000 });
         } finally {
@@ -310,9 +319,7 @@ export class CollectionsSidebar {
     }
 
     /** Grava a ordem final dos itens da pasta; rascunhos abertos recebem o novo `seq` para não desfazê-la ao salvar. */
-    private async reorder(collectionId: string, children: readonly SidebarNode[], movedFrom: string, movedTo: string): Promise<void> {
-        const paths = children.map(({ data }) => (data!.path === movedFrom ? movedTo : data!.path));
-
+    private async reorder(collectionId: string, paths: string[]): Promise<void> {
         await this.files.reorder(collectionId, paths);
 
         for (const [index, path] of paths.entries()) {
@@ -335,6 +342,85 @@ export class CollectionsSidebar {
         }
     }
 
+    private askDuplicate(target: SidebarNodeData): void {
+        const folder = target.kind === 'folder';
+
+        this.nameDialog.set({
+            header: folder ? 'Duplicate Folder' : 'Duplicate Request',
+            acceptLabel: 'Duplicate',
+            acceptIcon: 'pi pi-copy',
+            name: `${this.labelOf(target)} copy`,
+            folder,
+            submit: (name) => this.duplicate(target, name)
+        });
+    }
+
+    private askRename(target: SidebarNodeData): void {
+        const folder = target.kind === 'folder';
+
+        this.nameDialog.set({
+            header: folder ? 'Rename Folder' : 'Rename Request',
+            acceptLabel: 'Rename',
+            acceptIcon: 'pi pi-check',
+            name: this.labelOf(target),
+            folder,
+            submit: (name) => this.rename(target, name)
+        });
+    }
+
+    /** A cópia fica logo abaixo do original; uma requisição duplicada já abre numa aba. */
+    private async duplicate(target: SidebarNodeData, name: string): Promise<void> {
+        const { collectionId } = target;
+        const created = await this.files.duplicate(collectionId, target.path, name);
+
+        try {
+            const siblings = this.siblingPaths(target).filter((path) => path !== created);
+            const index = siblings.indexOf(target.path) + 1;
+
+            await this.reorder(collectionId, [...siblings.slice(0, index), created, ...siblings.slice(index)]);
+        } catch (error) {
+            // A cópia já existe; só a posição dela não foi gravada.
+            this.messages.add({ severity: 'warn', summary: 'Duplicated, but could not reorder', detail: ipcErrorMessage(error), life: 6000 });
+        } finally {
+            await this.collections.refresh(collectionId);
+        }
+
+        if (target.kind === 'request') {
+            this.tabs.open({ kind: 'request', title: name, collectionId, resourceRef: created });
+        }
+    }
+
+    /** Abas, rascunhos e pastas expandidas seguem o novo caminho; o nome da requisição também vai para o rascunho e a aba. */
+    private async rename(target: SidebarNodeData, name: string): Promise<void> {
+        const { collectionId } = target;
+        const to = await this.files.rename(collectionId, target.path, name);
+
+        if (to !== target.path) {
+            this.relocate(collectionId, target.path, to);
+        }
+
+        if (target.kind === 'request') {
+            this.drafts.patch(draftKey(collectionId, to), (draft) => ({ ...draft, name }));
+
+            for (const tab of this.tabs.tabs()) {
+                if (tab.kind === 'request' && tab.collectionId === collectionId && tab.resourceRef === to) {
+                    this.tabs.update(tab.id, { title: name });
+                }
+            }
+        }
+
+        await this.collections.refresh(collectionId);
+    }
+
+    /** Caminhos dos itens da mesma pasta do alvo, na ordem atual da árvore. */
+    private siblingPaths(target: SidebarNodeData): string[] {
+        return ((findNode(this.nodes(), parentKey(target))?.children ?? []) as SidebarNode[]).map(({ data }) => data!.path);
+    }
+
+    private labelOf(target: SidebarNodeData): string {
+        return findNode(this.nodes(), nodeKey(target))?.label ?? target.path;
+    }
+
     private toggle(key: string): void {
         this.expanded.update((set) => {
             const next = new Set(set);
@@ -350,9 +436,7 @@ export class CollectionsSidebar {
     }
 
     private openRequest(data: SidebarNodeData): void {
-        const label = findNode(this.nodes(), nodeKey(data))?.label ?? data.path;
-
-        this.tabs.open({ kind: 'request', title: label, collectionId: data.collectionId, resourceRef: data.path });
+        this.tabs.open({ kind: 'request', title: this.labelOf(data), collectionId: data.collectionId, resourceRef: data.path });
     }
 
     private async exportCollection(collectionId: string, format: CollectionExportFormat): Promise<void> {
@@ -373,12 +457,20 @@ export class CollectionsSidebar {
         }
     }
 
+    private async reveal(target: SidebarNodeData): Promise<void> {
+        try {
+            await this.files.reveal(target.collectionId, target.path);
+        } catch (error) {
+            this.messages.add({ severity: 'error', summary: 'Could not reveal in file explorer', detail: ipcErrorMessage(error), life: 6000 });
+        }
+    }
+
     private openCollectionTab(collectionId: string): void {
         this.tabs.open({ kind: 'collection', title: 'Overview', collectionId });
     }
 
     private async confirmDelete(target: SidebarNodeData): Promise<void> {
-        const name = findNode(this.nodes(), nodeKey(target))?.label ?? target.path;
+        const name = this.labelOf(target);
         const accepted = await this.confirm.ask({
             header: target.kind === 'folder' ? 'Delete folder' : 'Delete request',
             message: target.kind === 'folder' ? `Move the folder "${name}" and everything inside it to the trash?` : `Move the request "${name}" to the trash?`,

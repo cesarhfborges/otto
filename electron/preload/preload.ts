@@ -111,8 +111,11 @@ const api: OttoApi = {
         createRequest: (collectionId, folder, request) => invoke('collection-files:create-request', collectionId, folder, request),
         createFolder: (collectionId, parent, name) => invoke('collection-files:create-folder', collectionId, parent, name),
         move: (collectionId, from, to) => invoke('collection-files:move', collectionId, from, to),
+        duplicate: (collectionId, path, name) => invoke('collection-files:duplicate', collectionId, path, name),
+        rename: (collectionId, path, name) => invoke('collection-files:rename', collectionId, path, name),
         reorder: (collectionId, entries) => invoke('collection-files:reorder', collectionId, entries),
-        remove: (collectionId, path) => invoke('collection-files:remove', collectionId, path)
+        remove: (collectionId, path) => invoke('collection-files:remove', collectionId, path),
+        reveal: (collectionId, path) => invoke('collection-files:reveal', collectionId, path)
     },
     openapi: {
         status: (collectionId, refresh) => invoke('openapi:status', collectionId, refresh),

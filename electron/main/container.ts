@@ -169,7 +169,7 @@ export function createContainer(): Container {
             new EnvironmentsIpcModule(environments, () => workspaceService.active().id),
             new CollectionsIpcModule(collections, collectionService, workspaceService, openapi, window),
             new OpenApiIpcModule(openapi),
-            new CollectionFilesIpcModule(collectionService)
+            new CollectionFilesIpcModule(collectionService, (file) => shell.showItemInFolder(file))
         ],
         dispose: () => {
             collectionService.closeAll();

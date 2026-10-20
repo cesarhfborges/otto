@@ -63,15 +63,23 @@ export function findNode(nodes: readonly SidebarNode[], key: string): SidebarNod
     return null;
 }
 
+/** Pasta que contém o caminho ('' = raiz da coleção). */
+export function parentPath(path: string): string {
+    const index = path.lastIndexOf('/');
+
+    return index < 0 ? '' : path.slice(0, index);
+}
+
 /** Pasta onde criar itens a partir de um nó (a própria pasta ou a pasta da requisição). */
 export function folderOf(data: SidebarNodeData): string {
-    if (data.kind !== 'request') {
-        return data.path;
-    }
+    return data.kind === 'request' ? parentPath(data.path) : data.path;
+}
 
-    const index = data.path.lastIndexOf('/');
+/** Nó da pasta (ou coleção) que contém o item. */
+export function parentKey(data: SidebarNodeData): string {
+    const parent = parentPath(data.path);
 
-    return index < 0 ? '' : data.path.slice(0, index);
+    return nodeKey({ kind: parent ? 'folder' : 'collection', collectionId: data.collectionId, path: parent });
 }
 
 export type DropPosition = 'before' | 'inside' | 'after';
