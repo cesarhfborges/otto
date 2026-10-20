@@ -58,12 +58,16 @@ import { buildSidebarNodes, findNode, folderOf, nodeKey, type SidebarNode, type 
                 (onNodeContextMenuSelect)="onContextMenu($event)"
             >
                 <ng-template pTemplate="otto" let-node>
-                    <span class="group flex min-w-0 flex-1 items-center gap-1.5 text-sm">
+                    <span class="group flex min-w-0 flex-1 items-center gap-2.5 text-sm">
                         @switch (node.data.kind) {
                             @case ('collection') {
                                 <i class="pi pi-box text-xs text-muted-color" aria-hidden="true"></i>
                             }
+                            @case ('folder') {
+                                <i class="pi pi-folder text-xs text-muted-color" aria-hidden="true"></i>
+                            }
                             @case ('request') {
+<!--                                <i class="pi pi-envelope text-xs text-muted-color" aria-hidden="true"></i>-->
                                 <app-method-badge [method]="node.data.method" [compact]="true" />
                             }
                         }
@@ -170,7 +174,12 @@ export class CollectionsSidebar {
             case 'folder':
                 return [...create, { separator: true }, { label: 'Delete', icon: 'pi pi-trash', command: () => void this.confirmDelete(target) }];
             case 'request':
-                return [{ label: 'Open', icon: 'pi pi-external-link', command: () => this.openRequest(target) }, { separator: true }, { label: 'Delete', icon: 'pi pi-trash', command: () => void this.confirmDelete(target) }];
+                return [
+                    { label: 'Clone', icon: 'pi pi-copy', command: () => this.openRequest(target) },
+                    { label: 'Rename', icon: 'pi pi-pencil', command: () => this.openRequest(target) },
+                    { separator: true },
+                    { label: 'Delete', icon: 'pi pi-trash', command: () => void this.confirmDelete(target) }
+                ];
         }
     });
 

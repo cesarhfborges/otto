@@ -12,6 +12,7 @@ import { TabsState } from '../core/state/tabs.state';
 import { WorkspacesState } from '../core/state/workspaces.state';
 import { UiState } from '../core/state/ui.state';
 import { OpenApiState } from '../core/state/openapi.state';
+import { TieredMenuModule } from 'primeng/tieredmenu';
 
 /**
  * Cabeçalho do contexto atual (acima das abas): workspace ou coleção. Na coleção
@@ -19,15 +20,15 @@ import { OpenApiState } from '../core/state/openapi.state';
  */
 @Component({
     selector: 'app-context-header',
-    imports: [MenuModule, SelectModule, TooltipModule, ReactiveFormsModule],
+    imports: [MenuModule, SelectModule, TooltipModule, ReactiveFormsModule, TieredMenuModule],
     template: `
         @if (collection(); as current) {
-            <button type="button" class="otto-icon-button !w-auto gap-2 px-2 !text-color" aria-haspopup="menu" (click)="collectionMenu.toggle($event)">
+            <button type="button" class="otto-icon-button w-auto! gap-2 px-2! text-color!" aria-haspopup="menu" (click)="collectionMenu.toggle($event)">
                 <i class="pi pi-box text-muted-color" aria-hidden="true"></i>
                 <h1 class="m-0 truncate text-base font-semibold">{{ current.metadata.name }}</h1>
                 <i class="pi pi-chevron-down text-xs text-muted-color" aria-hidden="true"></i>
             </button>
-            <p-menu #collectionMenu [model]="collectionItems()" [popup]="true" appendTo="body" />
+            <p-tiered-menu #collectionMenu [model]="collectionItems()" [popup]="true" appendTo="body" />
 
             <div class="ml-auto flex items-center gap-2">
                 <button type="button" class="otto-icon-button relative" [attr.aria-label]="syncTooltip()" [pTooltip]="syncTooltip()" tooltipPosition="bottom" (click)="openOpenApi(current.metadata.id)">
@@ -104,8 +105,6 @@ export class ContextHeader {
 
         return [
             { label: 'Overview', icon: 'pi pi-info-circle', command: () => this.tabs.open({ kind: 'collection', title: 'Overview', collectionId: id }) },
-            { label: 'New Request', icon: 'pi pi-file-plus', command: () => this.ui.newRequestDialog.set({ collectionId: id, folder: '' }) },
-            { label: 'New Folder', icon: 'pi pi-folder-plus', command: () => this.ui.newFolderDialog.set({ collectionId: id, folder: '' }) },
             { label: 'Environments', icon: 'pi pi-globe', command: () => this.openEnvironments(id) },
             { separator: true },
             {
