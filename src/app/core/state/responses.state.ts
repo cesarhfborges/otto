@@ -50,7 +50,7 @@ export class ResponsesState {
                 ? `${names} ${verb} not defined in the "${environment.name}" environment. Add ${unresolved.length > 1 ? 'them' : 'it'} in Environments or select another environment.`
                 : `${names} ${verb} not defined: no environment is selected. Select one in the top bar (or create it in Environments).`;
 
-            this.set(key, { status: 'done', result: { ok: false, error, timeMs: 0 } });
+            this.set(key, { status: 'done', result: { ok: false, error, code: 'UNRESOLVED_VARIABLES', timeMs: 0, timeline: [] } });
 
             return;
         }
@@ -58,7 +58,7 @@ export class ResponsesState {
         const request = buildHttpRequest(resolved, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } });
 
         if (!request.url) {
-            this.set(key, { status: 'done', result: { ok: false, error: 'Enter a URL to send this request.', timeMs: 0 } });
+            this.set(key, { status: 'done', result: { ok: false, error: 'Enter a URL to send this request.', code: 'MISSING_URL', timeMs: 0, timeline: [] } });
 
             return;
         }
@@ -70,7 +70,7 @@ export class ResponsesState {
         try {
             result = await this.http.send(request);
         } catch (error) {
-            result = { ok: false, error: ipcErrorMessage(error), timeMs: 0 };
+            result = { ok: false, error: ipcErrorMessage(error), timeMs: 0, timeline: [] };
         }
 
         // Ignora se, nesse meio-tempo, uma nova execução substituiu esta.

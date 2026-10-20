@@ -1,7 +1,8 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, linkedSignal } from '@angular/core';
 import type { HttpResponse } from '@shared/models';
 import { Highlight } from 'ngx-highlightjs';
 import { HighlightLineNumbers } from 'ngx-highlightjs/line-numbers';
+import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TabsModule } from 'primeng/tabs';
@@ -9,6 +10,8 @@ import type { ResponseEntry } from '../../core/state/responses.state';
 import { HighlightCodeFold } from '../../shared/code-fold';
 import { formatBytes, formatDuration } from '../../shared/format';
 import { highlightLanguageFor, type HighlightLanguage } from '../../shared/highlight';
+import { errorHelp } from './error-hints';
+import { ResponseConsole } from './response-console';
 
 /** Acima disso o corpo é exibido parcialmente (o visualizador completo chega na Etapa 7). */
 const MAX_DISPLAYED_CHARS = 1_000_000;
@@ -40,10 +43,10 @@ function prettyBody(response: HttpResponse): PrettyBody {
     return { code, language: highlightLanguageFor(code, looksXml ? 'xml' : 'plaintext') };
 }
 
-/** Painel de resposta: estado de envio, erro ou status/tempo/tamanho + corpo, headers e tempos. */
+/** Painel de resposta: estado de envio, erro (com sugestões) ou status/tempo/tamanho + corpo, headers, tempos e console. */
 @Component({
     selector: 'app-response-panel',
-    imports: [Highlight, HighlightCodeFold, HighlightLineNumbers, MessageModule, ProgressSpinnerModule, TabsModule],
+    imports: [ButtonModule, Highlight, HighlightCodeFold, HighlightLineNumbers, MessageModule, ProgressSpinnerModule, ResponseConsole, TabsModule],
     template: `
         @switch (entry().status) {
             @case ('sending') {
@@ -53,49 +56,57 @@ function prettyBody(response: HttpResponse): PrettyBody {
                 </div>
             }
             @case ('done') {
-                @if (failure(); as failure) {
-                    <div class="p-4">
-                        <p-message severity="error"
-                            ><span role="alert">{{ failure }}</span></p-message
-                        >
-                    </div>
-                } @else if (response(); as res) {
-                    <div class="flex h-full min-h-0 flex-col">
-                        <dl class="m-0 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-surface-200 px-3 py-2 text-sm dark:border-surface-700" aria-label="Response summary">
-                            <div class="flex gap-1">
-                                <dt class="sr-only">Status</dt>
-                                <dd class="m-0 font-semibold" [style.color]="statusColor()">{{ res.status }} {{ res.statusText }}</dd>
+                <div class="flex h-full min-h-0 flex-col">
+                    <dl class="m-0 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-surface-200 px-3 py-2 text-sm dark:border-surface-700" aria-label="Response summary">
+                        <div class="flex gap-1">
+                            <dt class="sr-only">Status</dt>
+                            <dd class="m-0 rounded px-2 py-0.5 text-xs font-semibold text-surface-0 dark:text-surface-950" [style.background-color]="statusColor()">
+                                @if (response(); as res) {
+                                    {{ res.status }} {{ res.statusText }}
+                                } @else {
+                                    Error
+                                }
+                            </dd>
+                        </div>
+                        <div class="flex gap-1">
+                            <dt class="text-muted-color">Time</dt>
+                            <dd class="m-0">{{ duration(timeMs()) }}</dd>
+                        </div>
+                        <div class="flex gap-1">
+                            <dt class="text-muted-color">Size</dt>
+                            <dd class="m-0">{{ bytes(response()?.size ?? 0) }}</dd>
+                        </div>
+                        @if (response()?.redirected) {
+                            <div class="flex min-w-0 gap-1">
+                                <dt class="text-muted-color">Redirected to</dt>
+                                <dd class="m-0 truncate font-mono text-xs" [title]="response()!.url">{{ response()!.url }}</dd>
                             </div>
-                            <div class="flex gap-1">
-                                <dt class="text-muted-color">Time</dt>
-                                <dd class="m-0">{{ duration(res.timeMs) }}</dd>
-                            </div>
-                            <div class="flex gap-1">
-                                <dt class="text-muted-color">Size</dt>
-                                <dd class="m-0">{{ bytes(res.size) }}</dd>
-                            </div>
-                            @if (res.redirected) {
-                                <div class="flex min-w-0 gap-1">
-                                    <dt class="text-muted-color">Redirected to</dt>
-                                    <dd class="m-0 truncate font-mono text-xs" [title]="res.url">{{ res.url }}</dd>
-                                </div>
-                            }
-                        </dl>
-
-                        @if (res.truncated) {
-                            <p-message severity="warn" styleClass="mx-3 mt-2" size="small">The response is larger than {{ bytes(res.size) }} and was cut off.</p-message>
                         }
+                    </dl>
 
-                        <p-tabs value="body" class="min-h-0 flex-1 px-3" scrollable>
-                            <p-tablist>
+                    @if (response()?.truncated) {
+                        <p-message severity="warn" styleClass="mx-3 mt-2" size="small">The response is larger than {{ bytes(response()!.size) }} and was cut off.</p-message>
+                    }
+
+                    <!-- A tablist não pode encolher (ela tem overflow: hidden e sumiria em janelas baixas); quem rola é só o painel. -->
+                    <p-tabs [(value)]="tab" class="min-h-0 flex-1 px-3" scrollable>
+                        <p-tablist class="shrink-0">
+                            @if (response(); as res) {
                                 <p-tab value="body">Body</p-tab>
                                 <p-tab value="headers"
                                     >Headers <span class="text-xs text-muted-color">({{ res.headers.length }})</span></p-tab
                                 >
                                 <p-tab value="timings">Timings</p-tab>
-                            </p-tablist>
-                            <p-tabpanels class="h-full">
-                                <p-tabpanel value="body">
+                            } @else {
+                                <p-tab value="body">Preview</p-tab>
+                            }
+                            <p-tab value="console"
+                                >Console <span class="text-xs text-muted-color">({{ timeline().length }})</span></p-tab
+                            >
+                        </p-tablist>
+                        <p-tabpanels class="flex min-h-0 flex-1 flex-col overflow-auto">
+                            @if (response(); as res) {
+                                <p-tabpanel value="body" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
                                     @if (res.bodyEncoding === 'base64') {
                                         @if (imageSrc(); as src) {
                                             <img [src]="src" alt="Image returned by the request" class="max-h-96 max-w-full rounded-md border border-surface-200 dark:border-surface-700" />
@@ -108,11 +119,7 @@ function prettyBody(response: HttpResponse): PrettyBody {
                                         @if (partial()) {
                                             <p class="m-0 mb-2 text-xs text-muted-color">Showing the first 1,000,000 characters.</p>
                                         }
-                                        <pre
-                                            class="m-0 h-full overflow-auto whitespace-pre-wrap break-all otto-code-view rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-900"
-                                            tabindex="0"
-                                            aria-label="Response body"
-                                        >@switch (body().language) {
+                                        <pre class="m-0 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all otto-code-view rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-900" tabindex="0" aria-label="Response body">@switch (body().language) {
                                             @case ('json') {<code [highlight]="body().code" language="json" ignoreIllegals lineNumbers codeFold="json"></code>}
                                             @case ('xml') {<code [highlight]="body().code" language="xml" ignoreIllegals lineNumbers codeFold="xml"></code>}
                                             @case ('plaintext') {<code [highlight]="body().code" language="plaintext" lineNumbers></code>}
@@ -155,10 +162,33 @@ function prettyBody(response: HttpResponse): PrettyBody {
                                         <dd class="m-0">{{ bytes(res.headersSize) }}</dd>
                                     </dl>
                                 </p-tabpanel>
-                            </p-tabpanels>
-                        </p-tabs>
-                    </div>
-                }
+                            } @else if (failure(); as failure) {
+                                <p-tabpanel value="body">
+                                    <div class="flex flex-col gap-6">
+                                        <div role="alert" class="rounded-md border border-surface-200 bg-surface-100 p-3 dark:border-surface-700 dark:bg-surface-900">
+                                            <p class="m-0 mb-1 text-sm font-semibold" [style.color]="statusColor()">{{ help().title }}</p>
+                                            <p class="m-0 whitespace-pre-wrap break-words font-mono text-sm">Error: {{ failure.error }}</p>
+                                        </div>
+                                        <section aria-labelledby="response-error-help" class="flex flex-col items-center gap-3 border-t border-surface-200 pt-6 text-center dark:border-surface-700">
+                                            <h2 id="response-error-help" class="m-0 text-sm font-medium">Here are some things that may help</h2>
+                                            <ul class="m-0 flex max-w-xl list-none flex-col gap-2 p-0 text-sm text-muted-color">
+                                                @for (hint of help().hints; track hint) {
+                                                    <li>{{ hint }}</li>
+                                                }
+                                            </ul>
+                                            @if (timeline().length) {
+                                                <p-button label="Open console" icon="pi pi-list" severity="secondary" [outlined]="true" size="small" (onClick)="tab.set('console')" />
+                                            }
+                                        </section>
+                                    </div>
+                                </p-tabpanel>
+                            }
+                            <p-tabpanel value="console">
+                                <app-response-console [timeline]="timeline()" />
+                            </p-tabpanel>
+                        </p-tabpanels>
+                    </p-tabs>
+                </div>
             }
         }
     `,
@@ -179,7 +209,12 @@ export class ResponsePanel {
         // Em <img> o SVG não executa scripts, então todas as imagens podem ser exibidas.
         return response?.bodyEncoding === 'base64' && !response.truncated && mime?.startsWith('image/') ? `data:${mime};base64,${response.body}` : null;
     });
-    protected readonly statusColor = computed(() => STATUS_COLORS[Math.min(Math.floor((this.response()?.status ?? 0) / 100) - 1, 4)] ?? STATUS_COLORS[0]);
+    /** Falha usa a cor de erro (5xx). */
+    protected readonly statusColor = computed(() => {
+        const status = this.response()?.status ?? 500;
+
+        return STATUS_COLORS[Math.min(Math.floor(status / 100) - 1, 4)] ?? STATUS_COLORS[0];
+    });
     private readonly result = computed(() => {
         const entry = this.entry();
 
@@ -188,12 +223,21 @@ export class ResponsePanel {
     protected readonly failure = computed(() => {
         const result = this.result();
 
-        return result && !result.ok ? result.error : null;
+        return result && !result.ok ? result : null;
     });
     protected readonly response = computed(() => {
         const result = this.result();
 
         return result?.ok ? result.response : null;
+    });
+    protected readonly timeline = computed(() => this.result()?.timeline ?? []);
+    protected readonly timeMs = computed(() => this.response()?.timeMs ?? this.failure()?.timeMs ?? 0);
+    protected readonly help = computed(() => errorHelp(this.failure()?.code));
+    /** Mantém a aba escolhida entre envios; volta para a primeira se ela não existir no novo resultado. */
+    protected readonly tab = linkedSignal<boolean | null, string | number | undefined>({
+        // `null` enquanto envia: não mexe na aba.
+        source: () => this.result()?.ok ?? null,
+        computation: (ok, previous) => (previous && (ok !== false || previous.value === 'console') ? previous.value : 'body')
     });
 
     protected readonly bytes = formatBytes;

@@ -74,4 +74,22 @@ export interface HttpResponse {
     timings: HttpTimings;
 }
 
-export type HttpResult = { ok: true; response: HttpResponse } | { ok: false; error: string; timeMs: number };
+/**
+ * Linha do console da execução, no estilo do `curl -v`:
+ * `info` (`*`), headers enviados (`>`), corpo enviado (`|`), headers recebidos (`<`) e erro.
+ */
+export interface HttpTimelineEntry {
+    kind: 'info' | 'request-header' | 'request-body' | 'response-header' | 'error';
+    text: string;
+}
+
+export type HttpResult =
+    | { ok: true; response: HttpResponse; timeline: HttpTimelineEntry[] }
+    | {
+          ok: false;
+          error: string;
+          /** Código do erro (`ECONNREFUSED`, `ENOTFOUND`, `UNSUPPORTED_PROTOCOL`...), usado para sugerir soluções. */
+          code?: string;
+          timeMs: number;
+          timeline: HttpTimelineEntry[];
+      };

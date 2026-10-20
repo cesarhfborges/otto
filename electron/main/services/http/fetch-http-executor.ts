@@ -7,6 +7,7 @@ import { fetch, FormData, request as undiciRequest, type Dispatcher } from 'undi
 import { DEFAULT_SETTINGS, hasBody, MAX_RESPONSE_BYTES, type HttpRequest, type HttpResponse, type HttpResult, type HttpSettings } from '../../../shared/models';
 import type { IHttpExecutor } from '../../core/contracts';
 import { DispatcherProvider } from './dispatcher-provider';
+import { RequestTrace } from './request-trace';
 
 export interface FetchHttpExecutorOptions {
     /** Preferências lidas a cada execução (mudanças valem para a próxima requisição). */
@@ -28,24 +29,44 @@ const CERTIFICATE_ERRORS = new Set([
     'ERR_TLS_CERT_ALTNAME_INVALID'
 ]);
 
-function describeError(error: unknown, signal: AbortSignal): string {
-    if (signal.aborted) {
-        return signal.reason instanceof Error ? signal.reason.message : 'Request aborted';
-    }
+/** Erro com código próprio (`TIMEOUT`, `CANCELLED`...), para a interface sugerir o que fazer. */
+function codedError(message: string, code: string): Error {
+    return Object.assign(new Error(message), { code });
+}
 
-    if (error instanceof Error) {
-        // Erros de rede do undici trazem o motivo real em `cause` (ECONNREFUSED, ENOTFOUND, certificado...).
-        const cause = error.cause as { code?: string; message?: string } | undefined;
-        const detail = cause?.code ?? cause?.message;
+function describeError(error: unknown, signal: AbortSignal): { message: string; code?: string } {
+    const failure = signal.aborted ? signal.reason : error;
 
-        if (detail && CERTIFICATE_ERRORS.has(detail)) {
-            return `${error.message}: ${detail}. Add the CA certificate or turn off certificate verification in Preferences → Certificates.`;
+    if (failure instanceof Error) {
+        // Erros de rede do undici trazem o motivo real em `cause` (`connect ECONNREFUSED 127.0.0.1:3000`, certificado...).
+        const cause = failure.cause as { code?: string; message?: string } | undefined;
+        const code = cause?.code ?? (failure as NodeJS.ErrnoException).code;
+        const message = cause?.message ?? failure.message;
+
+        if (code && CERTIFICATE_ERRORS.has(code)) {
+            return { message: `${message} (${code}). Add the CA certificate or turn off certificate verification in Preferences → Certificates.`, code };
         }
 
-        return detail ? `${error.message}: ${detail}` : error.message;
+        return { message, code };
     }
 
-    return String(error);
+    return { message: signal.aborted ? 'Request aborted' : String(failure) };
+}
+
+/** Credenciais embutidas na URL do proxy não aparecem no console. */
+function redactCredentials(raw: string): string {
+    try {
+        const url = new URL(raw);
+
+        if (url.username || url.password) {
+            url.username = '***';
+            url.password = '';
+        }
+
+        return url.toString();
+    } catch {
+        return raw;
+    }
 }
 
 const TEXT_TYPES = /^(text\/|application\/(json|xml|javascript|ecmascript|x-www-form-urlencoded|graphql|yaml|x-yaml|x-ndjson|csv|problem\+json)\b)|\+(json|xml)$/;
@@ -111,6 +132,7 @@ interface SendContext {
     settings: HttpSettings;
     signal: AbortSignal;
     dispatcher: Dispatcher;
+    trace: RequestTrace;
 }
 
 async function readBodyFile(file: string): Promise<Uint8Array> {
@@ -185,28 +207,42 @@ async function sendWithRequest({ url, method, headers, signal, dispatcher }: Sen
  * Mostramos o status e os headers da resposta e fechamos o túnel em seguida.
  * As preferências de proxy não se aplicam: o destino da URL é o próprio proxy.
  */
-function sendConnect({ url, headers, settings, signal }: SendContext): Promise<RawResponse> {
+function sendConnect({ url, headers, settings, signal, trace }: SendContext): Promise<RawResponse> {
     const send = url.protocol === 'https:' ? httpsRequest : httpRequest;
     const port = url.port || (url.protocol === 'https:' ? '443' : '80');
+    // Alvo do túnel: o caminho da URL, se for `host:porta`; senão, o próprio host.
+    const target = /^\/?[^/]+:\d+$/.test(url.pathname) ? url.pathname.replace(/^\//, '') : `${url.hostname}:${port}`;
 
     return new Promise((resolve, reject) => {
         const req = send({
             method: 'CONNECT',
             host: url.hostname,
             port,
-            // Alvo do túnel: o caminho da URL, se for `host:porta`; senão, o próprio host.
-            path: /^\/?[^/]+:\d+$/.test(url.pathname) ? url.pathname.replace(/^\//, '') : `${url.hostname}:${port}`,
+            path: target,
             headers: Object.fromEntries(headers),
             signal,
             rejectUnauthorized: settings.ssl.verifyCertificates
         });
 
+        req.on('socket', (socket) => socket.once('connect', () => trace.info(`Connected to ${url.hostname} (${socket.remoteAddress ?? 'unknown address'}) port ${port}`)));
         req.on('connect', (res, socket) => {
             socket.destroy();
-            resolve({ url: url.toString(), redirected: false, status: res.statusCode ?? 0, statusText: res.statusMessage ?? '', headers: flattenHeaders(res.headers), body: null });
+
+            const raw: RawResponse = { url: url.toString(), redirected: false, status: res.statusCode ?? 0, statusText: res.statusMessage ?? '', headers: flattenHeaders(res.headers), body: null };
+
+            trace.responseHead('HTTP/1.1', raw.status, raw.statusText, raw.headers);
+            trace.info('Tunnel established, closing it');
+            resolve(raw);
         });
-        req.on('response', (res) => resolve({ url: url.toString(), redirected: false, status: res.statusCode ?? 0, statusText: res.statusMessage ?? '', headers: flattenHeaders(res.headers), body: res }));
+        req.on('response', (res) => {
+            const raw: RawResponse = { url: url.toString(), redirected: false, status: res.statusCode ?? 0, statusText: res.statusMessage ?? '', headers: flattenHeaders(res.headers), body: res };
+
+            trace.responseHead('HTTP/1.1', raw.status, raw.statusText, raw.headers);
+            resolve(raw);
+        });
         req.on('error', reject);
+        trace.info(`Trying ${url.hostname}:${port}...`);
+        trace.requestHead([`CONNECT ${target} HTTP/1.1`, `host: ${target}`, ...[...headers].map(([name, value]) => `${name}: ${value}`)]);
         req.end();
     });
 }
@@ -237,67 +273,106 @@ export class FetchHttpExecutor implements IHttpExecutor {
         const timeoutMs = request.timeoutMs ?? settings.timeoutMs;
         const controller = new AbortController();
         // `0` desativa o timeout.
-        const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(new Error(`Request timed out after ${timeoutMs} ms`)), timeoutMs) : undefined;
+        const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(codedError(`Request timed out after ${timeoutMs} ms`, 'TIMEOUT')), timeoutMs) : undefined;
         const started = performance.now();
         const elapsed = () => Math.round(performance.now() - started);
+        const trace = new RequestTrace();
 
         this.inFlight.set(request.id, controller);
+        trace.info(`Preparing request to ${request.url}`);
+        trace.info(`Current time is ${new Date().toISOString()}`);
 
         try {
-            const url = new URL(request.url);
+            const response = await trace.run(() => this.send(request, settings, timeoutMs, controller.signal, trace, elapsed));
 
-            if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-                throw new Error(`Unsupported protocol: ${url.protocol}`);
+            trace.info(`Received ${response.size} B${response.truncated ? ' (truncated)' : ''}`);
+
+            if (trace.connection) {
+                trace.info(`Connection #${trace.connection.id} to host ${trace.connection.host} left intact`);
             }
 
-            const dispatcher: Dispatcher = this.dispatchers.get(settings);
-            const headers = new Headers(request.headers);
-
-            if (this.userAgent && !headers.has('user-agent')) {
-                headers.set('user-agent', this.userAgent);
-            }
-
-            if (request.wsse) {
-                applyWsse(headers, request.wsse);
-            }
-
-            const context: SendContext = { url, method: request.method, headers, body: hasBody(request.method) ? await buildBody(request, headers) : undefined, settings, signal: controller.signal, dispatcher };
-            const res = await (request.method === 'CONNECT' ? sendConnect(context) : request.method === 'TRACE' ? sendWithRequest(context) : sendWithFetch(context));
-            const ttfbMs = elapsed();
-            const { bytes, truncated } = await readBody(res.body, this.maxResponseBytes);
-            const totalMs = elapsed();
-            const contentType = res.headers.find(([key]) => key.toLowerCase() === 'content-type')?.[1] ?? null;
-            const textual = isTextual(contentType);
-            const responseHeaders = res.headers;
-            const response: HttpResponse = {
-                url: res.url,
-                redirected: res.redirected,
-                status: res.status,
-                statusText: res.statusText,
-                headers: responseHeaders,
-                contentType,
-                body: textual ? decodeText(bytes, contentType) : Buffer.from(bytes).toString('base64'),
-                bodyEncoding: textual ? 'utf8' : 'base64',
-                size: bytes.byteLength,
-                headersSize: headersSize(res.status, res.statusText, responseHeaders),
-                truncated,
-                timeMs: totalMs,
-                timings: { ttfbMs, downloadMs: totalMs - ttfbMs, totalMs }
-            };
-
-            return { ok: true, response };
+            return { ok: true, response, timeline: trace.entries };
         } catch (error) {
-            return { ok: false, error: describeError(error, controller.signal), timeMs: elapsed() };
+            const { message, code } = describeError(error, controller.signal);
+
+            trace.error(message);
+
+            return { ok: false, error: message, ...(code ? { code } : {}), timeMs: elapsed(), timeline: trace.entries };
         } finally {
             clearTimeout(timer);
             this.inFlight.delete(request.id);
         }
     }
 
+    private async send(request: HttpRequest, settings: HttpSettings, timeoutMs: number, signal: AbortSignal, trace: RequestTrace, elapsed: () => number): Promise<HttpResponse> {
+        let url: URL;
+
+        try {
+            url = new URL(request.url);
+        } catch {
+            throw codedError(`Invalid URL: ${request.url}`, 'ERR_INVALID_URL');
+        }
+
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+            throw codedError(`Unsupported protocol "${url.protocol}". Use http:// or https://`, 'UNSUPPORTED_PROTOCOL');
+        }
+
+        trace.info(timeoutMs > 0 ? `Enable timeout of ${timeoutMs}ms` : 'Timeout disabled');
+
+        if (url.protocol === 'https:') {
+            trace.info(settings.ssl.verifyCertificates ? 'Enable SSL validation' : 'Disable SSL validation');
+        }
+
+        trace.info(settings.followRedirects ? 'Enable following redirects' : 'Disable following redirects');
+
+        if (settings.proxy.enabled && settings.proxy.url) {
+            trace.info(`Using proxy ${redactCredentials(settings.proxy.url)}${settings.proxy.bypass ? ` (bypass: ${settings.proxy.bypass})` : ''}`);
+        }
+
+        const dispatcher: Dispatcher = this.dispatchers.get(settings);
+        const headers = new Headers(request.headers);
+
+        if (this.userAgent && !headers.has('user-agent')) {
+            headers.set('user-agent', this.userAgent);
+        }
+
+        if (request.wsse) {
+            applyWsse(headers, request.wsse);
+        }
+
+        const body = hasBody(request.method) ? await buildBody(request, headers) : undefined;
+
+        trace.describeBody(body, request.bodyFile);
+
+        const context: SendContext = { url, method: request.method, headers, body, settings, signal, dispatcher, trace };
+        const res = await (request.method === 'CONNECT' ? sendConnect(context) : request.method === 'TRACE' ? sendWithRequest(context) : sendWithFetch(context));
+        const ttfbMs = elapsed();
+        const { bytes, truncated } = await readBody(res.body, this.maxResponseBytes);
+        const totalMs = elapsed();
+        const contentType = res.headers.find(([key]) => key.toLowerCase() === 'content-type')?.[1] ?? null;
+        const textual = isTextual(contentType);
+
+        return {
+            url: res.url,
+            redirected: res.redirected,
+            status: res.status,
+            statusText: res.statusText,
+            headers: res.headers,
+            contentType,
+            body: textual ? decodeText(bytes, contentType) : Buffer.from(bytes).toString('base64'),
+            bodyEncoding: textual ? 'utf8' : 'base64',
+            size: bytes.byteLength,
+            headersSize: headersSize(res.status, res.statusText, res.headers),
+            truncated,
+            timeMs: totalMs,
+            timings: { ttfbMs, downloadMs: totalMs - ttfbMs, totalMs }
+        };
+    }
+
     cancel(requestId: string): boolean {
         const controller = this.inFlight.get(requestId);
 
-        controller?.abort(new Error('Request cancelled'));
+        controller?.abort(codedError('Request cancelled', 'CANCELLED'));
 
         return !!controller;
     }
@@ -305,7 +380,7 @@ export class FetchHttpExecutor implements IHttpExecutor {
     /** Fecha as conexões abertas (ao encerrar o app). */
     async dispose(): Promise<void> {
         for (const controller of this.inFlight.values()) {
-            controller.abort(new Error('Request cancelled'));
+            controller.abort(codedError('Request cancelled', 'CANCELLED'));
         }
 
         await this.dispatchers.close();

@@ -25,6 +25,7 @@ class StubExecutor implements IHttpExecutor {
 
 const okResult: HttpResult = {
     ok: true,
+    timeline: [],
     response: {
         url: 'https://api.test/users',
         redirected: false,
@@ -68,7 +69,7 @@ describe('HistoryRecordingExecutor', () => {
     });
 
     it('registra falhas sem status e remove credenciais da URL', async () => {
-        const { history, executor } = setup({ ok: false, error: 'fetch failed: ECONNREFUSED', timeMs: 3 });
+        const { history, executor } = setup({ ok: false, error: 'fetch failed: ECONNREFUSED', timeMs: 3, timeline: [] });
 
         await executor.execute({ id: 'r2', method: 'POST', url: 'https://user:secret@api.test/login' });
 
