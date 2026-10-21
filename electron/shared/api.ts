@@ -39,6 +39,10 @@ export interface AppApi {
     info(): Promise<AppInfo>;
     /** Reinicia o app (preferências aplicadas só na inicialização). */
     relaunch(): Promise<void>;
+    /** Libera a saída do app depois de `onQuitRequested`. */
+    confirmQuit(): Promise<void>;
+    /** O usuário pediu para encerrar o app; só sai após `confirmQuit()`. */
+    onQuitRequested(listener: () => void): () => void;
 }
 
 /** Controles da janela para a barra de título própria. */

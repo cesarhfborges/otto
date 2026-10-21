@@ -3,11 +3,13 @@ import { APP_NAME, defaultBaseDirectory } from '../config';
 import type { IIpcModule, IIpcRegistrar } from '../core/contracts';
 import { parseCollectionPath, parseEntryName } from '../core/validation';
 import type { DialogService } from '../ui/dialogs';
+import type { WindowManager } from '../ui/window';
 
 export class AppIpcModule implements IIpcModule {
     constructor(
         private readonly dialogs: DialogService,
-        private readonly hardwareAcceleration: boolean
+        private readonly hardwareAcceleration: boolean,
+        private readonly window: WindowManager
     ) {}
 
     register(ipc: IIpcRegistrar): void {
@@ -29,6 +31,8 @@ export class AppIpcModule implements IIpcModule {
             app.relaunch();
             app.quit();
         });
+
+        ipc.handle('app:confirm-quit', () => this.window.confirmQuit());
 
         ipc.handle('dialog:pick-certificate', () => this.dialogs.pickCertificateFile());
 

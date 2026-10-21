@@ -40,6 +40,8 @@ import type {
 export abstract class AppInfoGateway implements AppApi {
     abstract info(): Promise<AppInfo>;
     abstract relaunch(): Promise<void>;
+    abstract confirmQuit(): Promise<void>;
+    abstract onQuitRequested(listener: () => void): () => void;
 }
 
 export abstract class WindowGateway implements WindowApi {

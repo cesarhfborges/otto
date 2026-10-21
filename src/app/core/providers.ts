@@ -1,3 +1,4 @@
+import { QuitGuardState } from './state/quit-guard.state';
 import { inject, makeEnvironmentProviders, provideAppInitializer, type EnvironmentProviders } from '@angular/core';
 import {
     ElectronAppInfoGateway,
@@ -59,6 +60,8 @@ export function provideOttoCore(): EnvironmentProviders {
             inject(ThemeService);
             // Começa a escutar o teclado; os comandos são registrados pelo shell e pelas telas.
             inject(KeybindingService);
+            // Confirma alterações não salvas antes de encerrar o app.
+            inject(QuitGuardState);
         })
     ]);
 }

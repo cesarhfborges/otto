@@ -26,7 +26,9 @@ const api: OttoApi = {
     platform: process.platform,
     app: {
         info: () => invoke('app:info'),
-        relaunch: () => invoke('app:relaunch')
+        relaunch: () => invoke('app:relaunch'),
+        confirmQuit: () => invoke('app:confirm-quit'),
+        onQuitRequested: (listener) => subscribe('app:quit-requested', () => listener())
     },
     window: {
         state: () => invoke('window:get-state'),

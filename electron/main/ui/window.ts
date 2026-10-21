@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, nativeTheme, screen, shell, type Rectangle } from 'electron';
+import { app, BrowserWindow, Menu, nativeTheme, screen, shell, type Rectangle } from 'electron';
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 import type { IpcEventChannel, IpcEventContract } from '../../shared/ipc';
@@ -20,6 +20,8 @@ export class WindowManager implements IRendererNotifier {
 
     private window: BrowserWindow | null = null;
     private quitting = false;
+    /** O renderer já liberou a saída (sem alterações pendentes ou descartadas). */
+    private quitConfirmed = false;
     private trayAvailable = false;
 
     constructor(
@@ -33,6 +35,29 @@ export class WindowManager implements IRendererNotifier {
 
     get isVisible(): boolean {
         return !!this.window && this.window.isVisible() && !this.window.isMinimized();
+    }
+
+    /**
+     * Saída real do app. Retorna `true` se pode sair já; senão, pede ao renderer para
+     * confirmar alterações pendentes (ele chama `confirmQuit`). Sem renderer utilizável, sai.
+     */
+    requestQuit(): boolean {
+        const contents = this.window?.webContents;
+
+        if (this.quitConfirmed || !contents || contents.isDestroyed() || contents.isLoading() || contents.isCrashed()) {
+            return true;
+        }
+
+        // Saindo pela bandeja, a janela pode estar oculta: o aviso precisa aparecer.
+        this.show();
+        contents.send('app:quit-requested', null);
+
+        return false;
+    }
+
+    confirmQuit(): void {
+        this.quitConfirmed = true;
+        app.quit();
     }
 
     markQuitting(): void {
@@ -101,6 +126,9 @@ export class WindowManager implements IRendererNotifier {
             if (!this.quitting && keepInTray) {
                 event.preventDefault();
                 win.hide();
+            } else if (!this.quitting && !this.requestQuit()) {
+                // Fechar a janela encerra o app: antes, confirma as alterações pendentes.
+                event.preventDefault();
             }
         });
 

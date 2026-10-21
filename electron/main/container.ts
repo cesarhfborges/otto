@@ -181,7 +181,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
         commands,
         tray,
         ipcModules: [
-            new AppIpcModule(dialogs, hardwareAcceleration),
+            new AppIpcModule(dialogs, hardwareAcceleration, window),
             new WindowIpcModule(window),
             new SettingsIpcModule(settings, window),
             new ThemeIpcModule(theme),

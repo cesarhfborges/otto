@@ -40,7 +40,16 @@ if (!app.requestSingleInstanceLock()) {
 
     app.on('second-instance', () => container?.window.show());
 
-    app.on('before-quit', () => container?.window.markQuitting());
+    // Saída real (Quit, Ctrl+Q, tray…): espera o renderer confirmar alterações não salvas.
+    app.on('before-quit', (event) => {
+        if (container && !container.window.requestQuit()) {
+            event.preventDefault();
+
+            return;
+        }
+
+        container?.window.markQuitting();
+    });
 
     app.on('will-quit', () => container?.dispose());
 

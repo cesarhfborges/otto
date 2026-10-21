@@ -41,6 +41,8 @@ import type {
 export interface IpcInvokeContract {
     'app:info': { args: []; result: AppInfo };
     'app:relaunch': { args: []; result: void };
+    /** O renderer liberou a saída pedida em `app:quit-requested` (sem alterações pendentes ou descartadas). */
+    'app:confirm-quit': { args: []; result: void };
     'window:get-state': { args: []; result: WindowState };
     'window:minimize': { args: []; result: void };
     'window:toggle-maximize': { args: []; result: void };
@@ -124,6 +126,8 @@ export type IpcResult<C extends IpcInvokeChannel> = IpcInvokeContract[C]['result
 /** Eventos enviados do main para o renderer (`webContents.send`). */
 export interface IpcEventContract {
     'menu:action': MenuAction;
+    /** Saída real do app (Quit, Ctrl+Q, tray ou fechar sem bandeja): o renderer confirma alterações pendentes. */
+    'app:quit-requested': null;
     'window:state-changed': WindowState;
     'settings:changed': OttoSettings;
     'theme:changed': ThemeState;
