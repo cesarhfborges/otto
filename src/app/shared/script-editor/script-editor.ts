@@ -1,4 +1,4 @@
-import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, input, model, untracked } from '@angular/core';
+import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { acceptCompletion, autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab, toggleBlockComment, toggleComment } from '@codemirror/commands';
 import { javascript, javascriptLanguage, scopeCompletionSource } from '@codemirror/lang-javascript';
@@ -7,8 +7,11 @@ import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { Annotation, Compartment, EditorState } from '@codemirror/state';
 import { EditorView, highlightActiveLine, keymap, lineNumbers, placeholder as placeholderExtension, tooltips } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
+import type { MenuItem } from 'primeng/api';
+import { ContextMenu } from 'primeng/contextmenu';
 import { checkScript } from '@/app/core/scripting/script-policy';
 import { registerCommand, type CommandContext } from '@/app/core/keyboard/command-registry';
+import { KeybindingService } from '@/app/core/keyboard/keybinding.service';
 import type { ScriptPhase } from '@/app/core/scripting/script-runner';
 import { RequestDraftsState } from '@/app/core/state/request-drafts.state';
 import { ResponsesState } from '@/app/core/state/responses.state';
@@ -124,9 +127,14 @@ const scriptTheme = EditorView.theme({
  */
 @Component({
     selector: 'app-script-editor',
-    template: '',
+    imports: [ContextMenu],
+    template: `
+        <div #mount class="h-full"></div>
+        <p-contextmenu #menu [model]="menuItems()" appendTo="body" (onHide)="focus()" />
+    `,
     host: {
-        class: 'block min-h-64 overflow-hidden rounded-md border border-surface-300 bg-surface-0 focus-within:border-primary dark:border-surface-700 dark:bg-surface-950'
+        class: 'block min-h-64 overflow-hidden rounded-md border border-surface-300 bg-surface-0 focus-within:border-primary dark:border-surface-700 dark:bg-surface-950',
+        '(contextmenu)': 'openMenu($event)'
     }
 })
 export class ScriptEditor {
@@ -136,6 +144,22 @@ export class ScriptEditor {
     readonly ariaLabel = input.required<string>();
     readonly ariaDescribedBy = input<string | null>(null);
     private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    private readonly keyboard = inject(KeybindingService);
+    private readonly mountPoint = viewChild.required<ElementRef<HTMLElement>>('mount');
+    private readonly menu = viewChild.required<ContextMenu>('menu');
+    /** Estado lido ao abrir o menu: seleção e área de transferência. */
+    private readonly menuState = signal({ selection: false, clipboard: false });
+    protected readonly menuItems = computed<MenuItem[]>(() => {
+        const { selection, clipboard } = this.menuState();
+
+        return [
+            { label: 'Select All', icon: 'pi pi-list', command: () => this.run((view) => view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } })) },
+            { label: 'Copy', icon: 'pi pi-copy', disabled: !selection, command: () => this.run((view) => this.copy(view)) },
+            { label: 'Paste', icon: 'pi pi-clipboard', disabled: !clipboard, command: () => this.run((view) => this.paste(view)) },
+            { separator: true },
+            { label: 'Format', icon: 'pi pi-align-left', shortcut: this.keyboard.text('script.format'), command: () => this.format() }
+        ];
+    });
     private readonly scope = inject(TemplateScope, { optional: true });
     private readonly templates = inject(TemplateContextService);
     private readonly responses = inject(ResponsesState);
@@ -188,6 +212,47 @@ export class ScriptEditor {
         this.view?.focus();
     }
 
+    /** Formata com o Prettier (botão da aba, menu e `script.format`). */
+    format(): Promise<void> {
+        return this.view ? format(this.view) : Promise.resolve();
+    }
+
+    protected async openMenu(event: MouseEvent): Promise<void> {
+        const view = this.view;
+
+        if (!view) {
+            return;
+        }
+
+        event.preventDefault();
+        const clipboard = await navigator.clipboard.readText().then(
+            (text) => text.length > 0,
+            () => false
+        );
+
+        this.menuState.set({ selection: !view.state.selection.main.empty, clipboard });
+        this.menu().show(event);
+    }
+
+    private run(action: (view: EditorView) => unknown): void {
+        if (this.view) {
+            action(this.view);
+            this.view.focus();
+        }
+    }
+
+    private copy(view: EditorView): Promise<void> {
+        const { from, to } = view.state.selection.main;
+
+        return navigator.clipboard.writeText(view.state.sliceDoc(from, to));
+    }
+
+    private async paste(view: EditorView): Promise<void> {
+        const text = await navigator.clipboard.readText();
+
+        view.dispatch(view.state.replaceSelection(text), { scrollIntoView: true, userEvent: 'input.paste' });
+    }
+
     private dataExtension() {
         return scriptCompletionData.of({ phase: this.phase(), data: this.completion() });
     }
@@ -203,7 +268,7 @@ export class ScriptEditor {
 
     private mount(): void {
         this.view = new EditorView({
-            parent: this.host,
+            parent: this.mountPoint().nativeElement,
             state: EditorState.create({
                 doc: this.value() ?? '',
                 extensions: [

@@ -199,10 +199,14 @@ import { OttoInput } from '../../shared/template-editor';
                                         <!-- <p-editor [(ngModel)]="req.docs" [style]="{ height: '320px' }" (ngModelChange)="update({ docs: $event }); teste($event)" [formats]="quillFormats" [modules]="quillModules" />-->
                                     </p-tabpanel>
                                     <p-tabpanel value="preRequest" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
-                                        <p id="pre-request-help" class="m-0 mb-2 text-xs text-muted-color">
-                                            JavaScript run before sending: change the request with <code>otto.request.setHeader(…)</code> and others, and variables with <code>otto.environment.set(…)</code>; every <code>{{ '{{' }} otto.… {{ '}}' }}</code> command works here too. Errors stop the request. Press Esc then Tab to leave the editor.
-                                        </p>
+                                        <div class="mb-2 flex items-start gap-2">
+                                            <p id="pre-request-help" class="m-0 text-xs text-muted-color">
+                                                JavaScript run before sending: change the request with <code>otto.request.setHeader(…)</code> and others, and variables with <code>otto.environment.set(…)</code>; every <code>{{ '{{' }} otto.… {{ '}}' }}</code> command works here too. Errors stop the request. Press Esc then Tab to leave the editor.
+                                            </p>
+                                            <p-button class="ms-auto shrink-0" label="Format" icon="pi pi-align-left" size="small" severity="secondary" [text]="true" (onClick)="preScript.format()" />
+                                        </div>
                                         <app-script-editor
+                                            #preScript
                                             class="min-h-0 flex-1"
                                             phase="preRequest"
                                             ariaLabel="Pre-request script"
@@ -213,10 +217,14 @@ import { OttoInput } from '../../shared/template-editor';
                                         />
                                     </p-tabpanel>
                                     <p-tabpanel value="postResponse" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
-                                        <p id="post-response-help" class="m-0 mb-2 text-xs text-muted-color">
-                                            JavaScript run after the response: read it with <code>otto.response.json('$.path')</code>, <code>.header(…)</code>, <code>.status</code>… and save values with <code>otto.environment.set(…)</code>. Output goes to the Console tab. Press Esc then Tab to leave the editor.
-                                        </p>
+                                        <div class="mb-2 flex items-start gap-2">
+                                            <p id="post-response-help" class="m-0 text-xs text-muted-color">
+                                                JavaScript run after the response: read it with <code>otto.response.json('$.path')</code>, <code>.header(…)</code>, <code>.status</code>… and save values with <code>otto.environment.set(…)</code>. Output goes to the Console tab. Press Esc then Tab to leave the editor.
+                                            </p>
+                                            <p-button class="ms-auto shrink-0" label="Format" icon="pi pi-align-left" size="small" severity="secondary" [text]="true" (onClick)="postScript.format()" />
+                                        </div>
                                         <app-script-editor
+                                            #postScript
                                             class="min-h-0 flex-1"
                                             phase="postResponse"
                                             ariaLabel="Post-response script"
