@@ -20,6 +20,27 @@ import { TreeToggleLabel } from '../../shared/tree-toggle-label.directive';
 import { buildSidebarNodes, findNode, folderOf, dropPositionOf, nodeKey, parentKey, pathInFolder, resolveDrop, type SidebarNode, type SidebarNodeData } from './collection-tree-nodes';
 import { EntryNameDialog, type EntryNameRequest } from './entry-name-dialog';
 
+const EXPANDED_KEY = 'otto.sidebarExpanded';
+
+function localStorageHas(key: string): boolean {
+    try {
+        return localStorage.getItem(key) !== null;
+    } catch {
+        return false;
+    }
+}
+
+/** Nós expandidos da última sessão; `localStorage` pode estar indisponível ou corrompido. */
+function readExpanded(): ReadonlySet<string> {
+    try {
+        const value: unknown = JSON.parse(localStorage.getItem(EXPANDED_KEY) ?? '[]');
+
+        return new Set(Array.isArray(value) ? value.filter((key): key is string => typeof key === 'string') : []);
+    } catch {
+        return new Set();
+    }
+}
+
 /** Barra lateral: coleções abertas em árvore (pastas e requisições), com ações por contexto. */
 @Component({
     selector: 'app-collections-sidebar',
@@ -139,7 +160,7 @@ export class CollectionsSidebar {
     private readonly injector = inject(Injector);
 
     protected readonly filterVisible = signal(false);
-    private readonly expanded = signal<ReadonlySet<string>>(new Set());
+    private readonly expanded = signal(readExpanded());
     private readonly menuTarget = signal<SidebarNodeData | null>(null);
     /** Enquanto um arraste é gravado no disco, novos arrastes ficam bloqueados. */
     protected readonly moving = signal(false);
@@ -229,6 +250,17 @@ export class CollectionsSidebar {
             }
         });
 
+        // O estado de expansão da árvore sobrevive ao fechar o app.
+        effect(() => {
+            const keys = [...this.expanded()];
+
+            try {
+                localStorage.setItem(EXPANDED_KEY, JSON.stringify(keys));
+            } catch {
+                // Sem armazenamento: o estado vale só nesta sessão.
+            }
+        });
+
         // Pedido de foco vindo dos atalhos `sidebar.focus` / `sidebar.filter`.
         effect(() => {
             const request = this.ui.sidebarFocusRequest();
@@ -248,16 +280,34 @@ export class CollectionsSidebar {
             });
         });
 
-        // Revela a requisição ativa: expande a coleção e as pastas acima dela (ex.: abas restauradas).
-        effect(() => {
-            const tab = this.tabs.active();
+        // Revela a requisição ativa ao trocar de aba: expande a coleção e as pastas acima dela.
+        // Só reage à troca da requisição (não a edições da aba), e a aba restaurada ao iniciar
+        // não sobrescreve a expansão salva da última sessão.
+        const activeRequest = computed(
+            () => {
+                const tab = this.tabs.active();
 
-            if (tab?.kind !== 'request' || !tab.collectionId || !tab.resourceRef) {
+                return tab?.kind === 'request' && tab.collectionId && tab.resourceRef ? { collectionId: tab.collectionId, path: tab.resourceRef } : null;
+            },
+            { equal: (a, b) => a?.collectionId === b?.collectionId && a?.path === b?.path }
+        );
+        let restored = localStorageHas(EXPANDED_KEY);
+
+        effect(() => {
+            const request = activeRequest();
+
+            if (!request) {
                 return;
             }
 
-            const segments = tab.resourceRef.split('/').slice(0, -1);
-            const ancestors = [nodeKey({ kind: 'collection', collectionId: tab.collectionId, path: '' }), ...segments.map((_, i) => nodeKey({ kind: 'folder', collectionId: tab.collectionId!, path: segments.slice(0, i + 1).join('/') }))];
+            if (restored) {
+                restored = false;
+
+                return;
+            }
+
+            const segments = request.path.split('/').slice(0, -1);
+            const ancestors = [nodeKey({ kind: 'collection', collectionId: request.collectionId, path: '' }), ...segments.map((_, i) => nodeKey({ kind: 'folder', collectionId: request.collectionId, path: segments.slice(0, i + 1).join('/') }))];
 
             untracked(() => {
                 if (ancestors.some((key) => !this.expanded().has(key))) {
