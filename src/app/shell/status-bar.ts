@@ -24,7 +24,7 @@ const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[]
         <button type="button" class="otto-icon-button h-6! w-7!" [attr.aria-label]="themeLabel()" aria-haspopup="menu" pTooltip [tooltipOptions]="tooltipColor()" (click)="themeMenu.toggle($event)">
             <i class="text-xs" [class]="themeIcon()" aria-hidden="true"></i>
         </button>
-        <p-tieredmenu #themeMenu [model]="themeItems()" [popup]="true" appendTo="body">
+        <p-tiered-menu #themeMenu [model]="themeItems()" [popup]="true" appendTo="body">
             <ng-template #item let-item>
                 <a class="p-tieredmenu-item-link">
                     <span class="p-tieredmenu-item-icon" [class]="item.icon" aria-hidden="true"></span>
@@ -35,7 +35,7 @@ const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[]
                     }
                 </a>
             </ng-template>
-        </p-tieredmenu>
+        </p-tiered-menu>
         <span class="ml-auto px-2 text-xs text-muted-color">{{ version() }}</span>
     `,
     host: {
