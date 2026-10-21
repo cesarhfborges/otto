@@ -1,3 +1,5 @@
+// noinspection CssUnknownTarget
+
 import { NgOptimizedImage } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
 import type { WorkspaceSummary } from '@shared/models';

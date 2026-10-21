@@ -1,5 +1,5 @@
-import type { KeyValue } from '../models/common';
-import type { RequestAuth, RequestBody, RequestDefinition } from '../models/request';
+import type { KeyValue } from '../models';
+import type { RequestAuth, RequestBody, RequestDefinition } from '../models';
 
 /** `{{nome}}`, com espaços opcionais (`{{ nome }}`). */
 export const VARIABLE_PATTERN = /\{\{\s*([^{}]+?)\s*\}\}/g;

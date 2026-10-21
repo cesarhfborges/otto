@@ -1,5 +1,5 @@
 import { Component, effect, type ElementRef, model, signal, viewChild } from '@angular/core';
-import { type AbstractControl, FormControl, ReactiveFormsModule, type ValidationErrors, Validators } from '@angular/forms';
+import { type AbstractControl, FormControl, FormsModule, ReactiveFormsModule, type ValidationErrors, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
@@ -23,7 +23,7 @@ const FOLDER_NAME = /^[^./\\][^/\\]*$/;
 /** Pede o nome de um item da coleção (renomear ou duplicar pasta/requisição). */
 @Component({
     selector: 'app-entry-name-dialog',
-    imports: [DialogModule, ReactiveFormsModule, EnterSubmit, InputTextModule, ButtonModule, MessageModule],
+    imports: [DialogModule, ReactiveFormsModule, EnterSubmit, InputTextModule, ButtonModule, MessageModule, FormsModule],
     template: `
         <p-dialog closeAriaLabel="Close" [header]="request()?.header ?? ''" [modal]="true" [visible]="!!request()" (visibleChange)="!$event && close()" (onShow)="focusName()" [style]="{ width: '28rem' }" [draggable]="false" appendTo="body">
             <form appEnterSubmit (ngSubmit)="submit()" class="flex flex-col gap-4">

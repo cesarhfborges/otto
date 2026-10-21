@@ -1,5 +1,5 @@
 import { Component, inject, signal, viewChild } from '@angular/core';
-import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DEFAULT_WORKSPACE_ID, type WorkspaceSummary } from '@shared/models';
 import { MessageService, type MenuItem } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -16,7 +16,7 @@ import { EnterSubmit } from '../../shared/enter-submit.directive';
 /** Lista de workspaces com trocar, renomear, exportar, mostrar a pasta e remover da lista. */
 @Component({
     selector: 'app-manage-workspaces',
-    imports: [ReactiveFormsModule, ButtonModule, DialogModule, InputTextModule, MenuModule, MessageModule, EnterSubmit],
+    imports: [ReactiveFormsModule, ButtonModule, DialogModule, InputTextModule, MenuModule, MessageModule, EnterSubmit, FormsModule],
     template: `
         <div class="flex flex-col gap-4 p-4">
             <div class="flex flex-wrap items-center gap-2">
