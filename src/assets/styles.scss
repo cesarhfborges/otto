@@ -309,30 +309,60 @@ body {
     }
 }
 
+/*
+ * Inline (não inline-flex) para ficar na mesma linha de base do texto; a borda é um
+ * box-shadow interno, então o chip não aumenta a altura da linha nem desloca o texto.
+ */
 .otto-template-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    margin: 0 1px;
-    padding: 0 0.25rem;
+    /*
+     * inline-block alinhado pela linha de base do próprio texto: coincide com o texto ao
+     * lado qualquer que seja o line-height da linha (e com os cm-widgetBuffer do CodeMirror).
+     * line-height: normal = área do glifo da fonte; padding igual em cima e embaixo
+     * centra o texto na caixa. A margem vertical negativa (= padding) faz o chip não
+     * aumentar a linha; com a mesma fonte do texto, a caixa (~1.45em) cabe na linha
+     * de 1.5em e não é cortada pelo `.cm-scroller`.
+     */
+    display: inline-block;
+    box-sizing: border-box;
+    margin: -0.14em 0.125em;
+    padding: 0.14em 0.4em;
     color: var(--otto-template-ok-color);
     background: var(--otto-template-ok-background);
-    border: 1px solid var(--otto-template-ok-border);
-    border-radius: var(--p-inputtext-border-radius);
+    box-shadow: inset 0 0 0 1px var(--otto-template-ok-border);
+    border-radius: 0.3em;
     font-family: inherit;
-    line-height: 1.3;
+    font-size: inherit;
+    line-height: normal;
+    vertical-align: baseline;
     white-space: nowrap;
     cursor: pointer;
     -webkit-text-security: none;
+    transition: background-color 0.15s;
+
+    &:hover {
+        background: color-mix(in srgb, var(--otto-template-ok-border) 35%, transparent);
+    }
 
     .pi {
-        font-size: 0.7em;
+        margin-right: 0.3em;
+        font-size: 0.75em;
+        line-height: 1;
+        vertical-align: 0.05em;
     }
 
     &[data-state='error'] {
         color: var(--otto-template-error-color);
         background: var(--otto-template-error-background);
-        border: 1px dashed var(--otto-template-error-border);
+        box-shadow: inset 0 0 0 1px var(--otto-template-error-border);
+        font-style: italic;
+
+        &:hover {
+            background: color-mix(in srgb, var(--otto-template-error-border) 30%, transparent);
+        }
+
+        .pi {
+            font-style: normal;
+        }
     }
 }
 

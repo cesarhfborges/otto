@@ -116,13 +116,37 @@ function argumentOptions(spec: ArgSpec | undefined, target: MessageTarget | null
     return quoted ? [] : variableOptions(data.variables(), true);
 }
 
-/** Fonte de sugestões do CodeMirror: só age dentro de uma tag `{{ … }}`. */
+/** Envolve o texto em `{{ … }}` (fora de tag); `cursorBack` conta a partir do fim do texto interno. */
+const wrapped = (text: string, cursorBack = 0, reopen = false, spaced = true) => (spaced ? insert(`{{ ${text} }}`, cursorBack + 3, reopen) : insert(`{{${text}}}`, cursorBack, reopen));
+
+/** Ctrl+Space fora de uma tag: sugestões que já inserem a tag completa. */
+function outsideTagCompletions(context: CmContext, data: TemplateCompletionData): CompletionResult | null {
+    const word = context.matchBefore(/[\w$.]*/);
+
+    if (!context.explicit && !word?.text) {
+        return null;
+    }
+
+    const options: Completion[] = [
+        ...variableOptions(data.variables(), true).map((option) => ({ ...option, apply: wrapped(option.label, 0, false, false) })),
+        { label: 'otto', detail: 'namespace', info: 'Otto commands and request data', type: 'namespace', section: SECTIONS['commands'], apply: wrapped('otto.', 0, true) },
+        { label: 'Response from another request…', type: 'request', section: SECTIONS['shortcuts'], apply: wrapped("otto.request('')", 2, true) }
+    ];
+
+    return { from: word?.from ?? context.pos, options, validFor: /^[\w$.]*$/ };
+}
+
+/** Fonte de sugestões do CodeMirror: dentro de `{{ … }}` ou, com Ctrl+Space, fora dela. */
 export function templateCompletions(context: CmContext): CompletionResult | null {
     const data = context.state.facet(completionData);
     const tag = tagAt(context.state, context.pos);
 
-    if (!data || !tag || context.pos < tag.innerStart || context.pos > tag.end - 2) {
+    if (!data) {
         return null;
+    }
+
+    if (!tag || context.pos < tag.innerStart || context.pos > tag.end - 2) {
+        return context.explicit ? outsideTagCompletions(context, data) : null;
     }
 
     const analysis = completionContext(context.state.sliceDoc(tag.innerStart, context.pos));

@@ -52,7 +52,12 @@ class ChipWidget extends WidgetType {
         chip.setAttribute('aria-label', describeTag(this.info));
         icon.className = `pi ${this.info.error ? 'pi-exclamation-triangle' : ICONS[this.info.kind]}`;
         icon.setAttribute('aria-hidden', 'true');
-        chip.append(icon, document.createTextNode(this.info.label));
+        const label = document.createElement('span');
+
+        label.className = 'otto-template-chip-label';
+        // Tag vazia/ilegível: mostra o motivo em vez de um "…" minúsculo.
+        label.textContent = this.info.error && (!this.info.label || this.info.label === '…') ? 'empty tag' : this.info.label;
+        chip.append(icon, label);
         // Clique abre o texto bruto para edição (o cursor entra na tag).
         chip.addEventListener('mousedown', (event) => {
             event.preventDefault();
@@ -173,16 +178,8 @@ const templateKeymap = Prec.highest(
         {
             // Ctrl+Space em todas as plataformas (Cmd+Space é do Spotlight).
             key: 'Ctrl-Space',
+            // Abre as sugestões direto; fora de uma tag, o item escolhido já insere `{{ … }}`.
             run: (view) => {
-                const { head } = view.state.selection.main;
-                const tag = tagAt(view.state, head);
-
-                if (!tag || head < tag.innerStart || head > tag.end - 2) {
-                    const { from, to } = view.state.selection.main;
-
-                    view.dispatch({ changes: { from, to, insert: '{{  }}' }, selection: { anchor: from + 3 } });
-                }
-
                 startCompletion(view);
 
                 return true;

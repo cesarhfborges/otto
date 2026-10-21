@@ -6,7 +6,8 @@ export const templateTheme = EditorView.theme({
     '&.cm-focused': { outline: 'none' },
     '.cm-scroller': { fontFamily: 'inherit', lineHeight: '1.5', overflowX: 'auto', scrollbarWidth: 'none' },
     '.cm-content': { padding: '0', caretColor: 'var(--p-inputtext-color)', minHeight: '1.5em' },
-    '.cm-line': { padding: '0' },
+    '.cm-line': { padding: '0', fontSize: '.9rem' },
+    '.otto-template-chip-label': { fontSize: '.9rem' },
     '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--p-inputtext-color)' },
     '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
         backgroundColor: 'color-mix(in srgb, var(--p-primary-color) 28%, transparent) !important'
