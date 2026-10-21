@@ -16,9 +16,19 @@ const fold = (text: string): string => text.normalize('NFD').replace(/\p{Diacrit
     imports: [DialogModule, ButtonModule, InputTextModule, FormsModule],
     template: `
         @if (ui.shortcutsDialog()) {
-            <p-dialog closeAriaLabel="Close" header="Keyboard Shortcuts" [modal]="true" [visible]="true" (visibleChange)="!$event && close()" [style]="{ width: '40rem' }" [draggable]="false" appendTo="body">
+            <p-dialog
+                closeAriaLabel="Close"
+                header="Keyboard Shortcuts"
+                maskStyleClass="shortcuts-dialog-custom"
+                appendTo="#main-content"
+                [modal]="true"
+                [visible]="true"
+                (visibleChange)="!$event && close()"
+                [style]="{ width: '40rem' }"
+                [draggable]="false"
+            >
                 <label for="shortcuts-help-search" class="sr-only">Search shortcuts</label>
-                <input pInputText id="shortcuts-help-search" type="search" class="mb-4 w-full" placeholder="Search…" autocomplete="off" [ngModel]="query()" (ngModelChange)="query.set($event)" />
+                <input pInputText id="shortcuts-help-search" type="search" class="mb-4 w-full outline-none!" placeholder="Search…" autocomplete="off" [ngModel]="query()" (ngModelChange)="query.set($event)" />
                 <!-- Área rolável focável: quem usa só o teclado também consegue rolar a lista. -->
                 <div class="flex max-h-[55vh] flex-col gap-4 overflow-auto pr-1" tabindex="0" role="region" aria-label="Shortcut list">
                     @for (group of groups(); track group.category) {
@@ -45,6 +55,14 @@ const fold = (text: string): string => text.normalize('NFD').replace(/\p{Diacrit
                     <p-button label="Customize…" icon="pi pi-key" (onClick)="customize()" />
                 </ng-template>
             </p-dialog>
+        }
+    `,
+    styles: `
+        ::ng-deep {
+            .shortcuts-dialog-custom {
+                height: calc(100% - 56px) !important;
+                top: 32px !important;
+            }
         }
     `
 })

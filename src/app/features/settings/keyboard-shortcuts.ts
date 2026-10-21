@@ -1,7 +1,7 @@
 import { afterNextRender, Component, computed, DOCUMENT, inject, Injector, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { isSingleKey, normalizeChord } from '@shared/keyboard/chord';
-import { COMMAND_CATEGORIES, COMMANDS, commandMeta, MAX_CHORDS_PER_COMMAND, RESERVED_SHORTCUTS, reservedChords, scopesConflict, type Command, type CommandId, type KeyChord } from '@shared/models';
+import { COMMAND_CATEGORIES, COMMANDS, commandMeta, MAX_CHORDS_PER_COMMAND, reservedChords, reservedShortcuts, scopesConflict, type Command, type CommandId, type KeyChord } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
@@ -44,7 +44,7 @@ export class KeyboardShortcutsSettings {
     private readonly reserved = reservedChords(this.keyboard.mac);
 
     protected readonly maxChords = MAX_CHORDS_PER_COMMAND;
-    protected readonly reservedShortcuts = RESERVED_SHORTCUTS.map(({ label, keys }) => ({ label, keys: keys.map((key) => normalizeChord(key, this.keyboard.mac) ?? key) }));
+    protected readonly reservedShortcuts = reservedShortcuts(this.keyboard.mac);
 
     protected readonly query = signal('');
     /** "Search by keys": filtra pelos comandos que usam esta tecla. */
@@ -62,7 +62,8 @@ export class KeyboardShortcutsSettings {
         const conflicts = this.keyboard.conflicts();
         const bindings = this.keyboard.bindings();
 
-        return COMMANDS.map((meta) => ({ meta, chords: bindings.get(meta.id) ?? [], modified: overrides[meta.id] !== undefined, conflict: conflicts.has(meta.id) }));
+        // Comandos fixos não são configuráveis: aparecem só em "Reserved by the system".
+        return COMMANDS.filter((meta: Command) => !meta.fixed).map((meta) => ({ meta, chords: bindings.get(meta.id) ?? [], modified: overrides[meta.id] !== undefined, conflict: conflicts.has(meta.id) }));
     });
 
     protected readonly counts = computed(() => {

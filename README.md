@@ -128,7 +128,7 @@ Inspirado no Bruno: janela sem moldura nativa, com barra de título própria (me
 ### Tray e menu
 
 - **Tray:** mostrar/ocultar janela, nova requisição, abrir coleção, opção “manter rodando na bandeja ao fechar” e sair.
-- **Menu:** `File` (Nova requisição `Ctrl+N`, Nova coleção `Ctrl+Shift+N`, Abrir coleção `Ctrl+O`, Salvar `Ctrl+S`), `Edit`, `View` (zoom, tela cheia, modo escuro `Ctrl+Shift+D`), `Window` e `Help`.
+- **Menu:** `File` (Nova requisição `Ctrl+N`, Nova coleção `Ctrl+Shift+N`, Abrir coleção `Ctrl+O`, Salvar `Ctrl+S`), `Edit`, `View` (zoom, tela cheia, alternar tema — sem atalho padrão, configurável em Preferences → Keyboard Shortcuts), `Window` e `Help`.
 
 ## Formato das coleções
 

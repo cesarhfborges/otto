@@ -25,6 +25,14 @@ export function parseKeybindingOverrides(raw: unknown, mac: boolean, strict: boo
             continue;
         }
 
+        if (commandMeta(id).fixed) {
+            if (strict) {
+                throw new ValidationError(`keybindings.${id}`, 'this shortcut is reserved by the system and cannot be changed');
+            }
+
+            continue;
+        }
+
         try {
             const chords: KeyChord[] = [];
 

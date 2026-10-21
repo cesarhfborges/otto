@@ -140,7 +140,7 @@
 
 <details class="rounded-lg border border-surface-200 p-3 text-sm dark:border-surface-700">
     <summary class="cursor-pointer font-medium">Reserved by the system</summary>
-    <p class="m-0 mt-2 text-muted-color">These keys are handled by the window and text fields and cannot be assigned to commands.</p>
+    <p class="m-0 mt-2 text-muted-color">These shortcuts are fixed: they cannot be changed or assigned to other commands.</p>
     <dl class="m-0 mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
         @for (item of reservedShortcuts; track item.label) {
             <dt class="text-muted-color">{{ item.label }}</dt>

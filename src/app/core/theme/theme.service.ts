@@ -109,7 +109,7 @@ export class ThemeService {
     /** Próximo modo no ciclo escuro → claro → automático. */
     readonly nextMode = computed<ThemeMode>(() => THEME_CYCLE[(THEME_CYCLE.indexOf(this.mode()) + 1) % THEME_CYCLE.length]);
 
-    /** Avança no ciclo escuro → claro → automático (atalho Ctrl+Shift+D e botão da barra de status). */
+    /** Avança no ciclo escuro → claro → automático (botão da barra de status e atalho `theme.cycle`, sem tecla padrão). */
     toggle(): Promise<unknown> {
         return this.setMode(this.nextMode());
     }

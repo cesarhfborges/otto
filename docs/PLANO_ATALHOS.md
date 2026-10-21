@@ -6,6 +6,8 @@
 > - 48 comandos em `electron/shared/models/keybindings.ts`: `app.quit` virou tecla reservada (o menu nativo trata) e `app.commandPalette` não existe ainda.
 > - Decisões em aberto (§11) seguiram as propostas: `Mod+Enter` envia formulários também a partir de `<textarea>`; `Escape` cancela o envio; `Mod+1…9` contam as abas do contexto atual; seção entre *Appearance* e *Proxy*; sem exportar/importar e sem restringir o `reload`.
 > - As linhas da tabela de atalhos ficaram no próprio `keyboard-shortcuts.html` (sem `shortcut-row.ts`); a diretiva `appShortcut` não foi criada — os botões usam o texto do atalho atual no `ariaLabel` (`RequestView.withShortcut`).
+> - Reservados do sistema (fixos, fora da tabela de Preferences e listados em "Reserved by the system"): `Open Preferences` (`Mod+,`), `Show keyboard shortcuts` (`Mod+/`) e `Cancel running request` (`Escape`) — `fixed: true` no catálogo; nenhum outro comando pode usar essas teclas.
+> - `Cycle theme` passou a ser **sem atalho padrão** (o usuário define, se quiser).
 > - Os comandos globais são registrados pelo `Shell` (`registerAppCommands()`), que fornece o `MessageService` dos avisos, em vez de um `provideAppInitializer`.
 
 ## 1. Objetivo
@@ -56,11 +58,11 @@ Legenda: **Existe** = já funciona hoje (será migrado); **Novo** = comando novo
 
 | Comando | Padrão | Contexto (`when`) | Origem |
 | --- | --- | --- | --- |
-| `app.preferences` — Abrir Preferences | `Mod+,` | sempre | Existe (menu) |
-| `app.shortcuts` — Mostrar atalhos de teclado | `Mod+/` | sempre | Novo |
+| `app.preferences` — Abrir Preferences | `Mod+,` (**reservado**) | sempre | Existe (menu) |
+| `app.shortcuts` — Mostrar atalhos de teclado | `Mod+/` (**reservado**) | sempre | Novo |
 | `app.keyboardShortcutsSettings` — Abrir Preferences → Keyboard Shortcuts | *(sem padrão)* | sempre | Novo (§7.1) |
 | `app.commandPalette` — Paleta de comandos | `Mod+Shift+P` | sempre | Novo (fase 5) |
-| `theme.cycle` — Alternar tema (escuro/claro/auto) | `Mod+Shift+D` | sempre | Existe (menu) |
+| `theme.cycle` — Alternar tema (escuro/claro/auto) | *(sem padrão)* | sempre | Existe (menu) |
 | `view.toggleSidebar` — Mostrar/ocultar barra lateral | `Mod+B` | sempre | Novo (`UiState.toggleSidebar` já existe) |
 | `view.toggleRequestLayout` — Painéis lado a lado / empilhados | `Mod+Alt+L` | sempre | Novo (altera `appearance.requestLayout`) |
 | `app.quit` — Sair | `Mod+Q` | sempre | Existe (menu, **não configurável**) |
@@ -87,7 +89,7 @@ Legenda: **Existe** = já funciona hoje (será migrado); **Novo** = comando novo
 | Comando | Padrão | Contexto | Origem |
 | --- | --- | --- | --- |
 | `request.send` — Enviar requisição | `Mod+Enter` | `activeTab == request && !sending && !modalOpen && !formFocus` | Existe |
-| `request.cancel` — Cancelar envio | `Escape` | `activeTab == request && sending && !modalOpen && !overlayOpen` | Novo (`ResponsesState.cancel` existe) |
+| `request.cancel` — Cancelar envio | `Escape` (**reservado**) | `activeTab == request && sending && !modalOpen && !overlayOpen` | Novo (`ResponsesState.cancel` existe) |
 | `request.save` — Salvar requisição | `Mod+S` | `activeTab == request && dirty` | Existe |
 | `request.saveAll` — Salvar todas | `Mod+Alt+S` | `anyDirty` | Novo + estado (`RequestDraftsState.saveAll`) |
 | `request.focusUrl` — Focar a URL | `Mod+L` | `activeTab == request` | Novo |

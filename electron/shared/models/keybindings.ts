@@ -27,6 +27,8 @@ export interface CommandMeta {
     readonly singleKey?: boolean;
     /** Repete enquanto a tecla fica pressionada (navegação). */
     readonly repeatable?: boolean;
+    /** Atalho reservado do sistema: sempre o padrão, não pode ser alterado nem usado por outro comando. */
+    readonly fixed?: boolean;
 }
 
 const goTo = <N extends number>(n: N) => ({ id: `tabs.goTo${n}`, label: `Go to tab ${n}`, category: 'Tabs', scope: 'global', defaults: [`Mod+${n}`] }) as const;
@@ -35,10 +37,10 @@ const section = <S extends string>(name: S, label: string, n: number) => ({ id: 
 
 /** Catálogo de comandos com atalho. A ordem é a de exibição em Preferences. */
 export const COMMANDS = [
-    { id: 'app.preferences', label: 'Open Preferences', category: 'App', scope: 'global', defaults: ['Mod+,'] },
-    { id: 'app.shortcuts', label: 'Show keyboard shortcuts', category: 'App', scope: 'global', defaults: ['Mod+/'] },
+    { id: 'app.preferences', label: 'Open Preferences', category: 'App', scope: 'global', defaults: ['Mod+,'], fixed: true },
+    { id: 'app.shortcuts', label: 'Show keyboard shortcuts', category: 'App', scope: 'global', defaults: ['Mod+/'], fixed: true },
     { id: 'app.keyboardShortcutsSettings', label: 'Customize keyboard shortcuts', category: 'App', scope: 'global', defaults: [] },
-    { id: 'theme.cycle', label: 'Cycle theme (dark / light / auto)', category: 'App', scope: 'global', defaults: ['Mod+Shift+D'] },
+    { id: 'theme.cycle', label: 'Cycle theme (dark / light / auto)', category: 'App', scope: 'global', defaults: [] },
     { id: 'view.toggleSidebar', label: 'Show / hide sidebar', category: 'App', scope: 'global', defaults: ['Mod+B'] },
     { id: 'view.toggleRequestLayout', label: 'Toggle request layout (side by side / stacked)', category: 'App', scope: 'global', defaults: ['Mod+Alt+L'] },
 
@@ -61,7 +63,7 @@ export const COMMANDS = [
     { id: 'tabs.moveRight', label: 'Move tab right', category: 'Tabs', scope: 'global', defaults: ['Mod+Shift+PageDown'], repeatable: true },
 
     { id: 'request.send', label: 'Send request', category: 'Request', scope: 'tab', defaults: ['Mod+Enter'] },
-    { id: 'request.cancel', label: 'Cancel running request', category: 'Request', scope: 'tab', defaults: ['Escape'], singleKey: true },
+    { id: 'request.cancel', label: 'Cancel running request', category: 'Request', scope: 'tab', defaults: ['Escape'], singleKey: true, fixed: true },
     { id: 'request.save', label: 'Save request', category: 'Request', scope: 'tab', defaults: ['Mod+S'] },
     { id: 'request.saveAll', label: 'Save all requests', category: 'Request', scope: 'global', defaults: ['Mod+Alt+S'] },
     { id: 'request.focusUrl', label: 'Focus the URL', category: 'Request', scope: 'tab', defaults: ['Mod+L'] },
@@ -110,7 +112,7 @@ export type KeybindingOverrides = Partial<Record<CommandId, KeyChord[]>>;
 
 export const MAX_CHORDS_PER_COMMAND = 4;
 
-/** Teclas do sistema/janela (edição, zoom, foco, sair): fixas, não podem ser atribuídas. */
+/** Teclas da janela e dos campos de texto (edição, zoom, foco, sair): tratadas pelo sistema, fora do catálogo. */
 export const RESERVED_SHORTCUTS: ReadonlyArray<{ label: string; keys: readonly KeyChord[] }> = [
     { label: 'Copy / Cut / Paste', keys: ['Mod+C', 'Mod+X', 'Mod+V'] },
     { label: 'Undo / Redo', keys: ['Mod+Z', 'Mod+Shift+Z', 'Mod+Y'] },
@@ -122,9 +124,20 @@ export const RESERVED_SHORTCUTS: ReadonlyArray<{ label: string; keys: readonly K
     { label: 'Move focus', keys: ['Tab', 'Shift+Tab'] }
 ];
 
-/** Conjunto normalizado das teclas reservadas na plataforma. */
+/**
+ * Atalhos reservados na plataforma, já normalizados: os comandos fixos do app
+ * (Preferences, ajuda de atalhos, cancelar envio) seguidos das teclas do sistema.
+ */
+export function reservedShortcuts(mac: boolean): ReadonlyArray<{ label: string; keys: KeyChord[] }> {
+    const fixed = COMMANDS.filter((meta: CommandMeta) => meta.fixed).map((meta) => ({ label: meta.label, keys: defaultChords(meta, mac) }));
+    const system = RESERVED_SHORTCUTS.map(({ label, keys }) => ({ label, keys: keys.map((key) => normalizeChord(key, mac)).filter((key): key is KeyChord => !!key) }));
+
+    return [...fixed, ...system];
+}
+
+/** Conjunto normalizado das teclas reservadas na plataforma (nenhum comando configurável pode usá-las). */
 export function reservedChords(mac: boolean): ReadonlySet<KeyChord> {
-    return new Set(RESERVED_SHORTCUTS.flatMap(({ keys }) => keys.map((key) => normalizeChord(key, mac)).filter((key): key is KeyChord => !!key)));
+    return new Set(reservedShortcuts(mac).flatMap(({ keys }) => keys));
 }
 
 /** Atalhos padrão do comando na plataforma, já normalizados. */
@@ -132,9 +145,9 @@ export function defaultChords(meta: CommandMeta, mac: boolean): KeyChord[] {
     return ((mac && meta.mac) || meta.defaults).map((chord) => normalizeChord(chord, mac)).filter((chord): chord is KeyChord => !!chord);
 }
 
-/** Atalhos efetivos: o override do usuário ou, sem ele, o padrão. */
+/** Atalhos efetivos: o override do usuário ou, sem ele (ou num comando fixo), o padrão. */
 export function effectiveChords(meta: CommandMeta, overrides: KeybindingOverrides, mac: boolean): KeyChord[] {
-    return overrides[meta.id as CommandId] ?? defaultChords(meta, mac);
+    return (!meta.fixed && overrides[meta.id as CommandId]) || defaultChords(meta, mac);
 }
 
 export const sameChords = (a: readonly KeyChord[], b: readonly KeyChord[]): boolean => a.length === b.length && a.every((chord, i) => chord === b[i]);
