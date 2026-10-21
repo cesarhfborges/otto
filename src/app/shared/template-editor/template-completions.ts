@@ -88,8 +88,21 @@ function memberOptions(members: readonly CatalogNode[]): Completion[] {
         });
 }
 
+/**
+ * Aplica um valor de argumento e leva o cursor para depois da `'` e do `)` que já o fecham
+ * (`otto.request('id')|`), para seguir com `.` direto.
+ */
+const argument =
+    (text: string) =>
+    (view: EditorView, _completion: Completion, from: number, to: number): void => {
+        const after = view.state.sliceDoc(to, to + 2);
+        const skip = after.startsWith("')") ? 2 : after.startsWith("'") || after.startsWith(')') ? 1 : 0;
+
+        view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length + skip }, userEvent: 'input.complete' });
+    };
+
 function argumentOptions(spec: ArgSpec | undefined, target: MessageTarget | null, quoted: boolean, data: TemplateCompletionData): Completion[] {
-    const value = (label: string, detail?: string, apply = label): Completion => ({ label, ...(detail && { detail }), type: 'value', section: SECTIONS['values'], apply: quoted ? apply : quote(apply) });
+    const value = (label: string, detail?: string, apply = label): Completion => ({ label, ...(detail && { detail }), type: 'value', section: SECTIONS['values'], apply: argument(quoted ? apply : quote(apply)) });
 
     if (spec?.values) {
         return spec.values.map((item) => value(item));
