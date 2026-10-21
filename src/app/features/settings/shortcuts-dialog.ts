@@ -10,7 +10,7 @@ import { SettingsDialog } from './settings-dialog.service';
 
 const fold = (text: string): string => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 
-/** Ajuda rápida (`Mod+/`): lista os atalhos atuais, só leitura, com link para personalizar. */
+/** Ajuda rápida (`Mod+Shift+/`): lista os atalhos atuais, só leitura, com link para personalizar. */
 @Component({
     selector: 'app-shortcuts-dialog',
     imports: [DialogModule, ButtonModule, InputTextModule, FormsModule],

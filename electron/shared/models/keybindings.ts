@@ -38,7 +38,7 @@ const section = <S extends string>(name: S, label: string, n: number) => ({ id: 
 /** Catálogo de comandos com atalho. A ordem é a de exibição em Preferences. */
 export const COMMANDS = [
     { id: 'app.preferences', label: 'Open Preferences', category: 'App', scope: 'global', defaults: ['Mod+,'], fixed: true },
-    { id: 'app.shortcuts', label: 'Show keyboard shortcuts', category: 'App', scope: 'global', defaults: ['Mod+/'], fixed: true },
+    { id: 'app.shortcuts', label: 'Show keyboard shortcuts', category: 'App', scope: 'global', defaults: ['Mod+Shift+/'], fixed: true },
     { id: 'app.keyboardShortcutsSettings', label: 'Customize keyboard shortcuts', category: 'App', scope: 'global', defaults: [] },
     { id: 'theme.cycle', label: 'Cycle theme (dark / light / auto)', category: 'App', scope: 'global', defaults: [] },
     { id: 'view.toggleSidebar', label: 'Show / hide sidebar', category: 'App', scope: 'global', defaults: ['Mod+B'] },
@@ -75,6 +75,9 @@ export const COMMANDS = [
     section('preRequest', 'Pre-request script', 6),
     section('postResponse', 'Post-response script', 7),
     { id: 'request.formatBody', label: 'Format body (JSON / XML)', category: 'Request', scope: 'tab', defaults: ['Alt+Shift+F'] },
+    { id: 'script.format', label: 'Format script', category: 'Request', scope: 'focus', defaults: ['Alt+Shift+F'] },
+    { id: 'script.toggleComment', label: 'Toggle line comment in script', category: 'Request', scope: 'focus', defaults: ['Mod+/'] },
+    { id: 'script.toggleBlockComment', label: 'Toggle block comment in script', category: 'Request', scope: 'focus', defaults: ['Alt+Shift+A'] },
 
     { id: 'form.submit', label: 'Submit the focused form', category: 'Forms', scope: 'focus', defaults: ['Mod+Enter'] },
 

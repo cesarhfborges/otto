@@ -150,6 +150,11 @@ function eventKey(event: KeyboardEventLike): string | null {
         return code.slice(6);
     }
 
+    // `?` é Shift + `/` (US, ABNT2): o Shift já vira modificador, então a tecla é `/`.
+    if (key === '?') {
+        return '/';
+    }
+
     if (!key || key === 'Dead' || key === 'Unidentified' || key === 'Process' || MODIFIER_KEYS.has(key)) {
         return null;
     }

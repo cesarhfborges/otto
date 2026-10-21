@@ -1,11 +1,14 @@
 import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, input, model, untracked } from '@angular/core';
 import { acceptCompletion, autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
-import { defaultKeymap, history, historyKeymap, indentWithTab, toggleComment } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab, toggleBlockComment, toggleComment } from '@codemirror/commands';
 import { javascript, javascriptLanguage, scopeCompletionSource } from '@codemirror/lang-javascript';
-import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language';
+import { bracketMatching, syntaxTree, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language';
+import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { Annotation, Compartment, EditorState } from '@codemirror/state';
 import { EditorView, highlightActiveLine, keymap, lineNumbers, placeholder as placeholderExtension, tooltips } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
+import { checkScript } from '@/app/core/scripting/script-policy';
+import { registerCommand, type CommandContext } from '@/app/core/keyboard/command-registry';
 import type { ScriptPhase } from '@/app/core/scripting/script-runner';
 import { RequestDraftsState } from '@/app/core/state/request-drafts.state';
 import { ResponsesState } from '@/app/core/state/responses.state';
@@ -14,6 +17,7 @@ import { TemplateScope } from '@/app/core/templating/template-scope';
 import { templateCompletionData } from '../template-editor/completion-data';
 import { templateTheme } from '../template-editor/template-theme';
 import { scriptCompletionData, scriptCompletionSources } from './script-completions';
+import { formatScript } from './script-format';
 
 /** Mudança vinda de fora (`[(value)]`): não volta como `valueChange`. */
 const external = Annotation.define<boolean>();
@@ -37,6 +41,60 @@ const ICONS: Record<string, string> = {
 };
 
 const globals = Object.fromEntries(GLOBAL_NAMES.filter((name) => name in globalThis).map((name) => [name, (globalThis as Record<string, unknown>)[name]]));
+
+/**
+ * Editores montados, pelo elemento host. Os atalhos (`script.*`) são comandos globais com um
+ * único handler ativo: ele age no editor que tem o foco, qualquer que seja.
+ */
+const editors = new Map<Element, EditorView>();
+
+const focusedEditor = ({ target }: CommandContext) => {
+    const host = target?.closest('app-script-editor');
+
+    return host ? (editors.get(host) ?? null) : null;
+};
+
+const editorCommand = (run: (view: EditorView) => unknown) => ({
+    when: (context: CommandContext) => !!focusedEditor(context),
+    run: (context: CommandContext) => {
+        const view = focusedEditor(context);
+
+        return view && run(view);
+    }
+});
+
+/** Substitui o documento pelo script formatado; com erro de sintaxe (já marcado no lint) não muda nada. */
+async function format(view: EditorView): Promise<void> {
+    const code = view.state.doc.toString();
+    const formatted = await formatScript(code).catch(() => null);
+
+    if (formatted === null || formatted === code || view.state.doc.toString() !== code) {
+        return;
+    }
+
+    view.dispatch({ changes: { from: 0, to: code.length, insert: formatted }, selection: { anchor: Math.min(view.state.selection.main.head, formatted.length) }, scrollIntoView: true });
+}
+
+/** Comandos bloqueados (os mesmos que impedem a execução) e erros de sintaxe. */
+const scriptLinter = linter(
+    (view) => {
+        const code = view.state.doc.toString();
+        const diagnostics: Diagnostic[] = checkScript(code).map((violation) => ({ ...violation, severity: 'error', source: 'otto' }));
+
+        syntaxTree(view.state).iterate({
+            enter: (node) => {
+                if (node.type.isError) {
+                    const from = Math.min(node.from, code.length);
+
+                    diagnostics.push({ from, to: Math.min(Math.max(node.to, from + 1), code.length), severity: 'error', message: 'Syntax error' });
+                }
+            }
+        });
+
+        return diagnostics;
+    },
+    { delay: 300 }
+);
 
 /** Cores da paleta de realce (Settings → Appearance), as mesmas do highlight.js. */
 const highlightStyle = HighlightStyle.define([
@@ -99,7 +157,13 @@ export class ScriptEditor {
 
     constructor() {
         afterNextRender(() => this.mount());
-        inject(DestroyRef).onDestroy(() => this.view?.destroy());
+        inject(DestroyRef).onDestroy(() => {
+            editors.delete(this.host);
+            this.view?.destroy();
+        });
+        registerCommand('script.format', editorCommand(format));
+        registerCommand('script.toggleComment', editorCommand(toggleComment));
+        registerCommand('script.toggleBlockComment', editorCommand(toggleBlockComment));
 
         effect(() => {
             const value = this.value() ?? '';
@@ -143,6 +207,7 @@ export class ScriptEditor {
             state: EditorState.create({
                 doc: this.value() ?? '',
                 extensions: [
+                    lintGutter(),
                     lineNumbers(),
                     history(),
                     highlightActiveLine(),
@@ -171,8 +236,9 @@ export class ScriptEditor {
                         ]
                     }),
                     syntaxHighlighting(highlightStyle),
+                    scriptLinter,
                     // Tab indenta; Esc e depois Tab (ou Ctrl+M) sai do editor pelo teclado.
-                    keymap.of([...closeBracketsKeymap, ...completionKeymap, { key: 'Tab', run: acceptCompletion }, { key: 'Mod-/', run: toggleComment }, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+                    keymap.of([...closeBracketsKeymap, ...completionKeymap, { key: 'Tab', run: acceptCompletion }, ...defaultKeymap, ...historyKeymap, indentWithTab]),
                     EditorState.tabSize.of(4),
                     templateTheme,
                     scriptTheme,
@@ -186,5 +252,6 @@ export class ScriptEditor {
                 ]
             })
         });
+        editors.set(this.host, this.view);
     }
 }

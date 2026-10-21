@@ -3,6 +3,7 @@ import type { EntityId, HttpResponse, HttpTimelineEntry, KeyValue, RequestDefini
 import { createOtto, CURRENT_REQUEST_MEMBERS, messageReader, requestSnapshot, responseSnapshot } from '@shared/templating';
 import { CollectionsState } from '../state/collections.state';
 import { EnvironmentsState } from '../state/environments.state';
+import { checkScript, describeViolation, SHADOWED_GLOBALS } from './script-policy';
 import { TemplateContextService, type ResponseAccess } from '../templating/template-context.service';
 
 /** Fase do script: `otto.response` só existe no post-response; os `set…` da requisição só no pre-request. */
@@ -27,7 +28,7 @@ export interface ScriptOutcome {
     error: string | null;
 }
 
-type AsyncScript = (otto: unknown, console: unknown) => Promise<void>;
+type AsyncScript = (otto: unknown, console: unknown, ...shadowed: undefined[]) => Promise<void>;
 
 const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => AsyncScript;
 
@@ -167,8 +168,16 @@ export class ScriptRunner {
         const consoleApi = { log: log('info'), info: log('info'), debug: log('info'), warn: log('error'), error: log('error') };
         let error: string | null = null;
 
+        // Bloqueia antes de executar; os globais bloqueados também viram parâmetros `undefined`
+        // (o bloco `{}` deixa o script declarar `const open = …` sem colidir com eles).
+        const violation = checkScript(code)[0];
+
         try {
-            await new AsyncFunction('otto', 'console', `"use strict";\n${code}`)(otto, consoleApi);
+            if (violation) {
+                throw new Error(describeViolation(code, violation));
+            }
+
+            await new AsyncFunction('otto', 'console', ...SHADOWED_GLOBALS, `"use strict";\n{\n${code}\n}`)(otto, consoleApi);
         } catch (thrown) {
             error = `${label} script failed: ${errorMessage(thrown)}`;
             logs.push({ kind: 'error', text: `[${label}] ${errorMessage(thrown)}` });

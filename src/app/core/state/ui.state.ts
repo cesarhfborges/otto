@@ -32,7 +32,7 @@ export class UiState {
     readonly importCollectionDialog = signal(false);
     /** Coleção a remover do workspace (o diálogo confirma e oferece apagar a pasta). */
     readonly removeCollectionDialog = signal<EntityId | null>(null);
-    /** Diálogo de ajuda com os atalhos de teclado (`Mod+/`). */
+    /** Diálogo de ajuda com os atalhos de teclado (`Mod+Shift+/`). */
     readonly shortcutsDialog = signal(false);
     /** Pedido para focar a árvore de coleções (`filter` = abrir e focar o filtro); consumido pela barra lateral. */
     readonly sidebarFocusRequest = signal<{ filter: boolean } | null>(null);
