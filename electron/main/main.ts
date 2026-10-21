@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, Menu } from 'electron';
+import type { DatabaseSync } from 'node:sqlite';
 import { APP_ID, APP_NAME, isMac, isWindows, REPOSITORY_URL } from './config';
-import { createContainer, type Container } from './container';
+import { createContainer, openAppDatabase, readStartupSettings, type Container } from './container';
 import { ElectronIpcRegistrar } from './ipc/handle';
 import { buildAppMenu } from './ui/menu';
 
@@ -16,6 +17,23 @@ if (!app.requestSingleInstanceLock()) {
     // Já existe uma instância aberta: ela recebe o foco via `second-instance`.
     app.quit();
 } else {
+    let db: DatabaseSync | null = null;
+    let hardwareAcceleration = true;
+
+    try {
+        db = openAppDatabase();
+        hardwareAcceleration = readStartupSettings(db).hardwareAcceleration;
+    } catch (error) {
+        // Falha ao abrir/migrar o banco local: sem ele o app não funciona.
+        dialog.showErrorBox(`${APP_NAME} failed to start`, error instanceof Error ? error.message : String(error));
+        app.exit(1);
+    }
+
+    // Só tem efeito antes do `ready`: por isso a preferência exige reiniciar o app.
+    if (!hardwareAcceleration) {
+        app.disableHardwareAcceleration();
+    }
+
     app.on('second-instance', () => container?.window.show());
 
     app.on('before-quit', () => container?.window.markQuitting());
@@ -47,10 +65,14 @@ if (!app.requestSingleInstanceLock()) {
             website: REPOSITORY_URL
         });
 
+        if (!db) {
+            return;
+        }
+
         try {
-            container = createContainer();
+            container = createContainer(db, hardwareAcceleration);
         } catch (error) {
-            // Falha ao abrir/migrar o banco local: sem ele o app não funciona.
+            db.close();
             dialog.showErrorBox(`${APP_NAME} failed to start`, error instanceof Error ? error.message : String(error));
             app.exit(1);
 

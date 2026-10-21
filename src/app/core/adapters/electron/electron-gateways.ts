@@ -62,6 +62,10 @@ export class ElectronAppInfoGateway extends AppInfoGateway {
     info(): Promise<AppInfo> {
         return requireOttoApi(this.api).app.info();
     }
+
+    relaunch(): Promise<void> {
+        return requireOttoApi(this.api).app.relaunch();
+    }
 }
 
 @Injectable()

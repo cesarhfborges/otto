@@ -62,6 +62,7 @@ const leaf = (keyPath: string, parse: SettingLeaf['parse']): SettingLeaf => ({ p
 /** Esquema de todas as preferências persistidas (uma linha por folha na tabela `settings`). */
 export const SETTING_LEAVES: readonly SettingLeaf[] = [
     leaf('minimizeToTray', requireBoolean),
+    leaf('hardwareAcceleration', requireBoolean),
     leaf('theme', (v, f) => requireOneOf(v, THEME_MODES, f)),
     leaf('appearance.themePreset', (v, f) => requireOneOf(v, THEME_PRESETS, f)),
     leaf('appearance.primaryColor', (v, f) => requireOneOf(v, PRIMARY_COLORS, f)),

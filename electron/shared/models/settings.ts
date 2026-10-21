@@ -89,6 +89,7 @@ export interface AppearanceSettings {
 export interface OttoSettings {
     /** Ao fechar a janela, mantém o Otto rodando na bandeja do sistema. */
     minimizeToTray: boolean;
+    /** Renderização pela GPU. Lido só na inicialização: a mudança vale após reiniciar o app. */
     hardwareAcceleration: boolean;
     theme: ThemeMode;
     http: HttpSettings;
@@ -100,6 +101,7 @@ export interface OttoSettings {
 /** Alteração parcial, em qualquer nível de profundidade. */
 export interface SettingsPatch {
     minimizeToTray?: boolean;
+    hardwareAcceleration?: boolean;
     theme?: ThemeMode;
     http?: {
         timeoutMs?: number;

@@ -25,7 +25,8 @@ const api: OttoApi = {
     isElectron: true,
     platform: process.platform,
     app: {
-        info: () => invoke('app:info')
+        info: () => invoke('app:info'),
+        relaunch: () => invoke('app:relaunch')
     },
     window: {
         state: () => invoke('window:get-state'),

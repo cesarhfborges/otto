@@ -126,6 +126,13 @@ export class SettingsPage {
     ];
     private readonly settingsState = inject(SettingsState);
     protected readonly persistent = this.settingsState.persistent;
+    /** A aceleração de hardware só é aplicada ao iniciar: avisa enquanto a preferência difere da execução atual. */
+    protected readonly restartRequired = computed(() => {
+        const info = this.appInfo();
+
+        return !!info && info.hardwareAcceleration !== this.settingsState.settings().hardwareAcceleration;
+    });
+    private readonly appInfoGateway = inject(AppInfoGateway);
     private readonly dialogs = inject(DialogGateway);
     private readonly fb = inject(FormBuilder).nonNullable;
 
@@ -167,7 +174,7 @@ export class SettingsPage {
     });
 
     constructor() {
-        inject(AppInfoGateway)
+        this.appInfoGateway
             .info()
             .then(
                 (info) => this.appInfo.set(info),
@@ -219,6 +226,10 @@ export class SettingsPage {
 
     protected resetBaseDirectory(): void {
         this.form.controls.workspaces.controls.baseDirectory.setValue('');
+    }
+
+    protected relaunch(): void {
+        void this.appInfoGateway.relaunch();
     }
 
     protected clearCertificate(): void {

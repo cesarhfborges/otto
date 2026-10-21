@@ -40,6 +40,7 @@ import type {
 
 export interface IpcInvokeContract {
     'app:info': { args: []; result: AppInfo };
+    'app:relaunch': { args: []; result: void };
     'window:get-state': { args: []; result: WindowState };
     'window:minimize': { args: []; result: void };
     'window:toggle-maximize': { args: []; result: void };

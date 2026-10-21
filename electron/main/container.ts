@@ -1,6 +1,8 @@
 import { app, shell } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import type { DatabaseSync } from 'node:sqlite';
+import type { OttoSettings } from '../shared/models';
 import type { ICollectionMetadataRepository, IEnvironmentRepository, IHistoryRepository, IHttpExecutor, IIpcModule, IKeybindingService, ISettingsService, ITabRepository } from './core/contracts';
 import { FsCollectionStore } from './infra/collections/fs-collection-store';
 import { FsCollectionWatcher } from './infra/collections/fs-collection-watcher';
@@ -69,13 +71,11 @@ export interface Container {
 }
 
 /**
- * Composition root (DIP): único lugar que conhece as implementações concretas.
- * Os demais módulos dependem apenas dos contratos em `core/contracts`.
- * Deve ser chamado após `app.whenReady()` (usa `app.getPath`).
+ * Abre e migra o banco local. Pode ser chamado antes de `app.whenReady()`: o main
+ * precisa ler preferências que só valem na inicialização (aceleração de hardware).
  */
-export function createContainer(): Container {
-    const userData = app.getPath('userData');
-    const db = openDatabase(path.join(userData, 'otto.db'));
+export function openAppDatabase(): DatabaseSync {
+    const db = openDatabase(path.join(app.getPath('userData'), 'otto.db'));
 
     try {
         new MigrationRunner(db, MIGRATIONS, systemClock).migrate();
@@ -84,6 +84,22 @@ export function createContainer(): Container {
         throw error;
     }
 
+    return db;
+}
+
+/** Preferências lidas antes do `ready` (o container ainda não existe). */
+export function readStartupSettings(db: DatabaseSync): OttoSettings {
+    return new SqliteSettingsStore(db, systemClock).get();
+}
+
+/**
+ * Composition root (DIP): único lugar que conhece as implementações concretas.
+ * Os demais módulos dependem apenas dos contratos em `core/contracts`.
+ * Deve ser chamado após `app.whenReady()` (usa `app.getPath`).
+ * `hardwareAcceleration` é o estado aplicado nesta execução (exibido nas preferências).
+ */
+export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean): Container {
+    const userData = app.getPath('userData');
     const settingsStore = new SqliteSettingsStore(db, systemClock);
 
     importLegacySettings(path.join(userData, 'settings.json'), settingsStore);
@@ -164,7 +180,7 @@ export function createContainer(): Container {
         commands,
         tray,
         ipcModules: [
-            new AppIpcModule(dialogs),
+            new AppIpcModule(dialogs, hardwareAcceleration),
             new WindowIpcModule(window),
             new SettingsIpcModule(settings, window),
             new ThemeIpcModule(theme),

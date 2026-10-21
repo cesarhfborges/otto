@@ -5,7 +5,10 @@ import { parseCollectionPath, parseEntryName } from '../core/validation';
 import type { DialogService } from '../ui/dialogs';
 
 export class AppIpcModule implements IIpcModule {
-    constructor(private readonly dialogs: DialogService) {}
+    constructor(
+        private readonly dialogs: DialogService,
+        private readonly hardwareAcceleration: boolean
+    ) {}
 
     register(ipc: IIpcRegistrar): void {
         ipc.handle('app:info', () => ({
@@ -17,8 +20,15 @@ export class AppIpcModule implements IIpcModule {
                 chrome: process.versions.chrome,
                 node: process.versions.node
             },
-            defaultBaseDirectory: defaultBaseDirectory()
+            defaultBaseDirectory: defaultBaseDirectory(),
+            hardwareAcceleration: this.hardwareAcceleration
         }));
+
+        // `before-quit` marca a saída: a janela fecha de verdade em vez de ir para a bandeja.
+        ipc.handle('app:relaunch', () => {
+            app.relaunch();
+            app.quit();
+        });
 
         ipc.handle('dialog:pick-certificate', () => this.dialogs.pickCertificateFile());
 

@@ -7,6 +7,8 @@ export interface AppInfo {
     versions: { electron: string; chrome: string; node: string };
     /** Pasta base usada quando a preferência `workspaces.baseDirectory` está vazia. */
     defaultBaseDirectory: string;
+    /** Se a GPU foi habilitada nesta execução (a preferência só é aplicada ao iniciar). */
+    hardwareAcceleration: boolean;
 }
 
 /** Ações disparadas pelo menu da aplicação ou pelo tray e encaminhadas ao renderer. */

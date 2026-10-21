@@ -37,6 +37,8 @@ import type {
 
 export interface AppApi {
     info(): Promise<AppInfo>;
+    /** Reinicia o app (preferências aplicadas só na inicialização). */
+    relaunch(): Promise<void>;
 }
 
 /** Controles da janela para a barra de título própria. */
