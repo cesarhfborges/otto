@@ -317,15 +317,20 @@ body {
     /*
      * inline-block alinhado pela linha de base do próprio texto: coincide com o texto ao
      * lado qualquer que seja o line-height da linha (e com os cm-widgetBuffer do CodeMirror).
-     * line-height: normal = área do glifo da fonte; padding igual em cima e embaixo
-     * centra o texto na caixa. A margem vertical negativa (= padding) faz o chip não
-     * aumentar a linha; com a mesma fonte do texto, a caixa (~1.45em) cabe na linha
-     * de 1.5em e não é cortada pelo `.cm-scroller`.
+     * A margem vertical negativa (= padding) faz o chip não aumentar a linha; a caixa
+     * (altura das maiúsculas ~0.7em + 0.6em) cabe na linha de 1.5em e não é cortada
+     * pelo `.cm-scroller`.
      */
     display: inline-block;
     box-sizing: border-box;
-    margin: -0.14em 0.125em;
-    padding: 0.14em 0.4em;
+    margin: -0.3em 0.125em;
+    padding: 0.3em 0.4em;
+    /*
+     * A área de "line-height: normal" inclui o descendente da fonte (bem maior que o espaço
+     * acima das maiúsculas), o que deixava sobra embaixo. Recorta a caixa da altura das
+     * maiúsculas até a linha de base: o padding simétrico centra o texto de fato.
+     */
+    text-box: trim-both cap alphabetic;
     color: var(--otto-template-ok-color);
     background: var(--otto-template-ok-background);
     box-shadow: inset 0 0 0 1px var(--otto-template-ok-border);
