@@ -24,7 +24,7 @@ export interface CatalogNode {
     where?: readonly Where[];
     /** Membros do próprio nó (namespace, objeto ou função com sub-funções, como `base64.decode`). */
     members?: readonly CatalogNode[];
-    /** Membros do valor devolvido pela função (`collection.request(…)` → `.response`…). */
+    /** Membros do valor devolvido pela função (`request(…)` → `.response`…). */
     result?: readonly CatalogNode[];
     /** Recebe os argumentos sem avaliar (funções `() => Promise`), para `default`/`optional`. */
     lazy?: boolean;

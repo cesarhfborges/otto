@@ -1,19 +1,15 @@
 import { Component, computed, input, linkedSignal } from '@angular/core';
 import type { HttpResponse } from '@shared/models';
-import { Highlight } from 'ngx-highlightjs';
-import { HighlightLineNumbers } from 'ngx-highlightjs/line-numbers';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TabsModule } from 'primeng/tabs';
 import type { ResponseEntry } from '../../core/state/responses.state';
-import { HighlightCodeFold } from '../../shared/code-fold';
 import { formatBytes, formatDuration } from '../../shared/format';
-import { highlightLanguageFor, type HighlightLanguage } from '../../shared/highlight';
+import { type HighlightLanguage, highlightLanguageFor } from '../../shared/highlight';
 import { errorHelp } from './error-hints';
 import { ResponseConsole } from './response-console';
 import { CodeEditor } from '@/app/shared/code-editor';
-import { JsonPipe } from '@angular/common';
 
 /** Acima disso o corpo é exibido parcialmente (o visualizador completo chega na Etapa 7). */
 const MAX_DISPLAYED_CHARS = 1_000_000;
@@ -48,7 +44,7 @@ function prettyBody(response: HttpResponse): PrettyBody {
 /** Painel de resposta: estado de envio, erro (com sugestões) ou status/tempo/tamanho + corpo, headers, tempos e console. */
 @Component({
     selector: 'app-response-panel',
-    imports: [ButtonModule, MessageModule, ProgressSpinnerModule, ResponseConsole, TabsModule, CodeEditor, JsonPipe],
+    imports: [ButtonModule, MessageModule, ProgressSpinnerModule, ResponseConsole, TabsModule, CodeEditor],
     template: `
         @switch (entry().status) {
             @case ('sending') {
@@ -206,6 +202,25 @@ function prettyBody(response: HttpResponse): PrettyBody {
 })
 export class ResponsePanel {
     readonly entry = input.required<ResponseEntry>();
+    protected readonly timeMs = computed(() => this.response()?.timeMs ?? this.failure()?.timeMs ?? 0);
+    protected readonly help = computed(() => errorHelp(this.failure()?.code));
+    protected readonly bytes = formatBytes;
+    protected readonly duration = formatDuration;
+    private readonly result = computed(() => {
+        const entry = this.entry();
+
+        return entry.status === 'done' ? entry.result : null;
+    });
+    protected readonly failure = computed(() => {
+        const result = this.result();
+
+        return result && !result.ok ? result : null;
+    });
+    protected readonly response = computed(() => {
+        const result = this.result();
+
+        return result?.ok ? result.response : null;
+    });
     protected readonly body = computed<PrettyBody>(() => {
         const response = this.response();
 
@@ -225,31 +240,11 @@ export class ResponsePanel {
 
         return STATUS_COLORS[Math.min(Math.floor(status / 100) - 1, 4)] ?? STATUS_COLORS[0];
     });
-    private readonly result = computed(() => {
-        const entry = this.entry();
-
-        return entry.status === 'done' ? entry.result : null;
-    });
-    protected readonly failure = computed(() => {
-        const result = this.result();
-
-        return result && !result.ok ? result : null;
-    });
-    protected readonly response = computed(() => {
-        const result = this.result();
-
-        return result?.ok ? result.response : null;
-    });
     protected readonly timeline = computed(() => this.result()?.timeline ?? []);
-    protected readonly timeMs = computed(() => this.response()?.timeMs ?? this.failure()?.timeMs ?? 0);
-    protected readonly help = computed(() => errorHelp(this.failure()?.code));
     /** Mantém a aba escolhida entre envios; volta para a primeira se ela não existir no novo resultado. */
     protected readonly tab = linkedSignal<boolean | null, string | number | undefined>({
         // `null` enquanto envia: não mexe na aba.
         source: () => this.result()?.ok ?? null,
         computation: (ok, previous) => (previous && (ok !== false || previous.value === 'console') ? previous.value : 'body')
     });
-
-    protected readonly bytes = formatBytes;
-    protected readonly duration = formatDuration;
 }

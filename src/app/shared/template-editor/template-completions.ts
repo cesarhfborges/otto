@@ -133,7 +133,7 @@ export function templateCompletions(context: CmContext): CompletionResult | null
             options = [
                 ...variableOptions(data.variables(), true),
                 { label: 'otto', detail: 'namespace', info: 'Otto commands and request data', type: 'namespace', section: SECTIONS['commands'], apply: insert('otto.', 0, true) },
-                ...(analysis.prefix ? [] : [{ label: 'Response from another request…', type: 'request', section: SECTIONS['shortcuts'], apply: insert("otto.collection.request('')", 2, true) }])
+                ...(analysis.prefix ? [] : [{ label: 'Response from another request…', type: 'request', section: SECTIONS['shortcuts'], apply: insert("otto.request('')", 2, true) }])
             ];
             break;
         case 'variable':

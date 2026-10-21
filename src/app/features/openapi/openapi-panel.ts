@@ -15,6 +15,10 @@ import { MethodBadge } from '../../shared/method-badge';
 import { ConnectionSettingsDialog } from './connection-settings-dialog';
 import { EndpointDiff } from './endpoint-diff';
 import { TieredMenuModule } from 'primeng/tieredmenu';
+import { Highlight } from 'ngx-highlightjs';
+import { HighlightLineNumbers } from 'ngx-highlightjs/line-numbers';
+import { HighlightCodeFold } from '@/app/shared/code-fold';
+import { highlightLanguageFor } from '../../shared/highlight';
 
 type Section = 'overview' | 'changes' | 'updates';
 
@@ -55,7 +59,7 @@ const groupBy = (changes: EndpointChange[], titles: Record<EndpointChangeKind, [
  */
 @Component({
     selector: 'app-openapi-panel',
-    imports: [NgTemplateOutlet, TabsModule, ButtonModule, MenuModule, MessageModule, DialogModule, TooltipModule, MethodBadge, EndpointDiff, ConnectionSettingsDialog, TieredMenuModule],
+    imports: [NgTemplateOutlet, TabsModule, ButtonModule, MenuModule, MessageModule, DialogModule, TooltipModule, MethodBadge, EndpointDiff, ConnectionSettingsDialog, TieredMenuModule, Highlight, HighlightLineNumbers, HighlightCodeFold],
     template: `
         @if (status(); as current) {
             @if (current.config; as config) {
@@ -258,7 +262,11 @@ const groupBy = (changes: EndpointChange[], titles: Record<EndpointChangeKind, [
         }
 
         <p-dialog closeAriaLabel="Close" header="OpenAPI Spec" [modal]="true" [(visible)]="specOpen" [style]="{ width: 'min(60rem, 90vw)' }" [draggable]="false" appendTo="body">
-            <pre class="m-0 max-h-[65vh] overflow-auto rounded-md bg-surface-100 p-3 font-mono text-xs dark:bg-surface-900" tabindex="0" aria-label="Spec content">{{ specText() }}</pre>
+            <pre
+                class="m-0 h-[65vh] overflow-auto whitespace-pre rounded-md border border-surface bg-surface-50 p-3 font-mono text-xs leading-relaxed dark:bg-surface-900"
+                tabindex="0"
+                aria-label="Spec content"
+            >@if (specHighlighted()) {<code [highlight]="specText()" language="json" ignoreIllegals lineNumbers codeFold="json"></code>} @else {<code>{{ specText() }}</code>}</pre>
         </p-dialog>
     `,
     host: { class: 'block' }
@@ -277,6 +285,8 @@ export class OpenApiPanel {
     protected readonly settingsOpen = signal(false);
     protected readonly specOpen = signal(false);
     protected readonly specText = signal('');
+    /** Realce só para JSON de tamanho razoável; YAML e specs enormes ficam em texto puro. */
+    protected readonly specHighlighted = computed(() => highlightLanguageFor(this.specText(), 'json') !== null && isJson(this.specText()));
 
     protected readonly status = computed(() => this.openapi.status(this.collectionId()));
     protected readonly busy = computed(() => this.openapi.isBusy(this.collectionId()));
@@ -403,7 +413,7 @@ export class OpenApiPanel {
 
     protected async viewSpec(): Promise<void> {
         try {
-            this.specText.set(await this.openapi.spec(this.collectionId()));
+            this.specText.set(prettySpec(await this.openapi.spec(this.collectionId())));
             this.specOpen.set(true);
         } catch (error) {
             this.messages.add({ severity: 'error', summary: 'Could not read the spec', detail: ipcErrorMessage(error), life: 6000 });
@@ -461,4 +471,18 @@ export class OpenApiPanel {
             this.moreMenu()?.hide();
         }
     }
+}
+
+/** Indenta a spec quando é JSON (costuma vir minificada); outros formatos (YAML) ficam como vieram. */
+function prettySpec(text: string): string {
+    try {
+        return JSON.stringify(JSON.parse(text), null, 2);
+    } catch {
+        return text;
+    }
+}
+
+function isJson(text: string): boolean {
+    const start = text.trimStart()[0];
+    return start === '{' || start === '[';
 }

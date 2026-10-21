@@ -9,19 +9,26 @@ import { RANDOM_FUNCTIONS } from './functions/random';
 import { STRING_FUNCTIONS } from './functions/text';
 import { arg, fn, ns, opt, prop, type CatalogNode, type Where } from './node';
 
-/** Leitura de mensagens (§3.6): igual em `otto.request` e `otto.collection.request(…).request/.response`. */
+/** Corpo de uma mensagem: um parser por formato (`body.json(…)`, `body.xml(…)`…). */
+const BODY_MEMBERS = [
+    fn('json', 'any', 'Body as JSON; with a JSONPath, the first match', [opt('path', { source: 'paths' })], undefined, { example: "{{ otto.request('rq_…').response.body.json('$.access_token') }}" }),
+    fn('jsonAll', 'array', 'All JSONPath matches', [arg('path', { source: 'paths' })]),
+    fn('xml', 'any', 'First XPath match', [arg('xpath')], undefined, { example: "{{ otto.request('rq_…').response.body.xml('//auth/token/text()') }}" }),
+    fn('html', 'string', 'First CSS selector match (::text or ::attr(name))', [arg('selector')], undefined, { example: `{{ otto.request('rq_…').response.body.html('input[name="_csrf"]::attr(value)') }}` }),
+    fn('regex', 'string', 'Regex match (group: index or name; default the whole match)', [arg('pattern'), opt('group')], undefined, { example: "{{ otto.request('rq_…').response.body.regex('token=([a-zA-Z0-9]+)', 1) }}" }),
+    fn('text', 'string', 'Body as text', []),
+    fn('base64', 'string', 'Body in Base64', []),
+    prop('parsed', 'any', 'Body parsed by Content-Type (JSON, form…; otherwise text)'),
+    prop('type', 'string', 'json, xml, text, form-urlencoded…'),
+    prop('size', 'number', 'Body size in bytes')
+];
+
+/** Leitura de mensagens (§3.6): igual em `otto.request` e `otto.request(…).request/.response`. */
 function messageMembers(kind: 'request' | 'response'): CatalogNode[] {
-    const common = [
-        fn('get', 'any', 'Body value (JSONPath)', [arg('path', { source: 'paths' })]),
-        fn('getAll', 'array', 'All body values that match', [arg('path', { source: 'paths' })]),
-        fn('has', 'boolean', 'Whether the path exists', [arg('path', { source: 'paths' })]),
-        fn('count', 'number', 'How many values match', [arg('path', { source: 'paths' })]),
-        fn('text', 'string', 'Body as text', []),
-        fn('json', 'object', 'Body as JSON (chainable)', []),
-        prop('body', 'string', 'Body as text (same as text())'),
-        prop('bodyType', 'string', 'json, xml, text, form-urlencoded…'),
-        fn('base64', 'string', 'Body in Base64', []),
-        prop('size', 'number', 'Body size in bytes'),
+    const common: CatalogNode[] = [
+        { ...ns('body', 'Body, with one parser per format', BODY_MEMBERS), kind: 'object', returns: 'Body' },
+        fn('json', 'any', 'Body as JSON (shortcut of body.json)', [opt('path', { source: 'paths' })], undefined, { example: "{{ otto.request('rq_…').response.json('$.token') }}" }),
+        prop('data', 'any', 'Body parsed by Content-Type (shortcut of body.parsed)'),
         fn('header', 'string', 'Header value', [arg('name', { source: 'headers' })]),
         fn('headerAll', 'array', 'All values of a header', [arg('name', { source: 'headers' })]),
         fn('headers', 'Headers', 'All headers', []),
@@ -66,23 +73,26 @@ const IDENTIFICATION = [prop('id', 'string', 'Stable id'), prop('name', 'string'
 
 export const REQUEST_REF_OPTIONS = { send: ['never', 'empty', 'expired', 'always'] } as const;
 
+/**
+ * `otto.request`: sem chamar, a requisição atual (`otto.request.header('X')`); chamada
+ * com uma referência, outra requisição da coleção (`otto.request('rq_…').response.json('$.token')`).
+ */
+const REQUEST: CatalogNode = fn('request', 'RequestRef', 'The request being sent, or another request of this collection when called', [arg('ref', { source: 'requests' }), opt('options')], undefined, {
+    example: "{{ otto.request('rq_…', { send: 'expired', maxAge: 600 }).response.json('$.token') }}",
+    members: [...IDENTIFICATION, ...messageMembers('request')],
+    result: [
+        { ...ns('response', 'Last response of the request', messageMembers('response')), kind: 'object', returns: 'Response' },
+        { ...ns('request', 'Definition of the request (interpolated)', messageMembers('request')), kind: 'object', returns: 'Request' },
+        ...IDENTIFICATION,
+        prop('method', 'string', 'HTTP method'),
+        prop('hasResponse', 'boolean', 'Whether a response is stored')
+    ]
+});
+
 /** Catálogo do objeto `otto`. Um módulo novo de funções entra aqui e passa a valer em validação, autocomplete e execução. */
 export const OTTO_CATALOG: CatalogNode = ns('otto', 'Otto commands and request data', [
-    { ...ns('request', 'The request being sent (read-only in templates)', [...IDENTIFICATION, ...messageMembers('request')]), kind: 'object', returns: 'Request', example: "{{ otto.request.header('X-Trace') }}" },
-    ns('collection', 'This collection and its requests', [
-        prop('name', 'string', 'Collection name'),
-        prop('id', 'string', 'Collection id'),
-        fn('request', 'RequestRef', 'Another request of this collection', [arg('ref', { source: 'requests' }), opt('options')], undefined, {
-            example: "{{ otto.collection.request('rq_…', { send: 'expired', maxAge: 600 }).response.get('$.token') }}",
-            result: [
-                { ...ns('response', 'Last response of the request', messageMembers('response')), kind: 'object', returns: 'Response' },
-                { ...ns('request', 'Definition of the request (interpolated)', messageMembers('request')), kind: 'object', returns: 'Request' },
-                ...IDENTIFICATION,
-                prop('method', 'string', 'HTTP method'),
-                prop('hasResponse', 'boolean', 'Whether a response is stored')
-            ]
-        })
-    ]),
+    REQUEST,
+    ns('collection', 'This collection', [prop('name', 'string', 'Collection name'), prop('id', 'string', 'Collection id')]),
     { ...ns('info', 'Environment, collection, workspace and app', [prop('environment', 'string', 'Selected environment'), prop('collection', 'string', 'Collection name'), prop('workspace', 'string', 'Workspace name'), ns('app', 'Otto', [prop('version', 'string', 'Otto version')]), prop('platform', 'string', 'linux, win32 or darwin')]), kind: 'object', returns: 'Info' },
     ...ID_FUNCTIONS,
     ...DATE_FUNCTIONS,

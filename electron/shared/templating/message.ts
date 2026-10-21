@@ -2,6 +2,7 @@ import type { HttpResponse, KeyValue, RequestDefinition } from '../models';
 import { Cookies, HeaderList, parseCookieHeader, parseSetCookie } from './cookies';
 import { CircularReferenceError, TemplateError, UnresolvedError } from './errors';
 import { jsonPathAll } from './jsonpath';
+import { cssFirst, regexMatch, xpathFirst } from './markup';
 
 /** Uma requisição (já interpolada) ou resposta guardada, no formato lido por `otto.*`. */
 export interface MessageSnapshot {
@@ -98,9 +99,9 @@ const found = <T>(value: T | undefined, what: string): T => {
 
 /**
  * Leitura de mensagens (§3.6 do plano): mesmos nomes em `otto.request`,
- * `otto.collection.request(…).request/.response` e, nos scripts, `otto.response`.
+ * `otto.request(…).request/.response` e, nos scripts, `otto.response`.
  */
-export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGuard = {}, extra: Record<string, unknown> = {}): object {
+export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGuard = {}, extra: Record<string, unknown> = {}): Record<string, unknown> {
     const isResponse = message.kind === 'response';
     const headers = new HeaderList(message.headers);
     const readHeader = (name: string): void => {
@@ -128,10 +129,37 @@ export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGu
     };
     const select = (path: string): unknown[] => {
         if (String(path).startsWith('/')) {
-            throw new TemplateError('XPath is not supported yet: use a JSONPath ($.…)');
+            throw new TemplateError('This is an XPath: use body.xml(…) (json() takes a JSONPath, $.…)');
         }
 
         return jsonPathAll(json(), String(path));
+    };
+    const parsed = (): unknown => {
+        switch (message.bodyType) {
+            case 'json':
+                return json();
+            case 'form-urlencoded':
+                return message.forms?.length ? Object.fromEntries(message.forms) : Object.fromEntries(new URLSearchParams(text()));
+            default:
+                return text();
+        }
+    };
+    /** Com JSONPath: o primeiro valor encontrado; sem: o objeto inteiro. */
+    const jsonAt = (path?: string): unknown => (path === undefined || path === '' ? json() : found(select(path)[0], `"${path}"`));
+    const body = {
+        text,
+        json: jsonAt,
+        jsonAll: (path: string) => select(path),
+        xml: (xpath: string) => xpathFirst(text(), String(xpath)),
+        html: (selector: string) => cssFirst(text(), String(selector)),
+        regex: (pattern: string, group?: number | string) => regexMatch(text(), String(pattern), group),
+        base64: () => (message.bodyEncoding === 'base64' ? message.body : toBase64(text())),
+        get parsed() {
+            return parsed();
+        },
+        type: message.bodyType,
+        size: message.size ?? new TextEncoder().encode(message.body).length,
+        toTemplateString: text
     };
     const cookiePairs = (): Array<[string, string]> =>
         isResponse
@@ -149,20 +177,13 @@ export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGu
 
     const reader: Record<string, unknown> = {
         ...extra,
-        get: (path: string) => found(select(path)[0], `"${path}"`),
-        getAll: (path: string) => select(path),
-        has: (path: string) => select(path).length > 0,
-        count: (path: string) => select(path).length,
-        text,
-        json,
-        get body() {
-            return text();
+        body,
+        json: jsonAt,
+        get data() {
+            return parsed();
         },
-        bodyType: message.bodyType,
         form: (name: string) => found(message.forms?.find(([key]) => key === name)?.[1], `Form field "${name}"`),
         forms: () => Object.fromEntries(message.forms ?? []),
-        base64: () => (message.bodyEncoding === 'base64' ? message.body : toBase64(text())),
-        size: message.size ?? new TextEncoder().encode(message.body).length,
         header: (name: string) => (readHeader(name), found(headers.get(name), `Header "${name}"`)),
         headerAll: (name: string) => (readHeader(name), headers.all(name)),
         headers: () => headers,

@@ -16,7 +16,7 @@ export type CompletionContext =
     | { type: 'member'; members: readonly CatalogNode[]; prefix: string; from: number; target: MessageTarget | null }
     /** Dentro dos parênteses de uma função (`quoted`: já dentro de aspas). */
     | { type: 'argument'; fn: CatalogNode; arg: ArgSpec | undefined; index: number; prefix: string; from: number; quoted: boolean; target: MessageTarget | null }
-    /** Dentro de `{ … }` nas opções de `collection.request`: chaves ou valores de `send`. */
+    /** Dentro de `{ … }` nas opções de `otto.request(…)`: chaves ou valores de `send`. */
     | { type: 'option'; key: string | null; prefix: string; from: number; quoted: boolean }
     | { type: 'none' };
 
@@ -48,6 +48,8 @@ function resolve(chain: readonly Op[]): Resolved | null {
     let called = false;
     let target: MessageTarget | null = null;
     let ref: string | null = null;
+    /** `otto.request('…')` já chamado: os membros seguintes são de outra requisição. */
+    let referenced = false;
     const names: string[] = [];
 
     for (const op of chain.slice(1)) {
@@ -64,12 +66,14 @@ function resolve(chain: readonly Op[]): Resolved | null {
 
             if (names.join('.') === 'request') {
                 target = { ref: null, kind: 'request' };
-            } else if (names[0] === 'collection' && names.length === 3 && (op.name === 'response' || op.name === 'request')) {
+            } else if (referenced && names.length === 2 && (op.name === 'response' || op.name === 'request')) {
                 target = { ref, kind: op.name };
             }
         } else if (op.kind === 'call') {
-            if (names.join('.') === 'collection.request') {
+            if (names.join('.') === 'request' && !called) {
                 ref = op.firstArg;
+                referenced = true;
+                target = null;
             }
 
             called = true;

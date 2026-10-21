@@ -19,6 +19,7 @@ import { CODE_THEME_PALETTES } from '../../core/theme/code-themes';
 import { SURFACE_PALETTES } from '../../core/theme/otto-preset';
 import { KeyboardShortcutsSettings } from './keyboard-shortcuts';
 import { SettingsDialog } from './settings-dialog.service';
+import { NgOptimizedImage } from '@angular/common';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -57,7 +58,7 @@ const EXAMPLE = {
 
 @Component({
     selector: 'app-settings-page',
-    imports: [Highlight, HighlightLineNumbers, KeyboardShortcutsSettings, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
+    imports: [Highlight, HighlightLineNumbers, KeyboardShortcutsSettings, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule, NgOptimizedImage],
     templateUrl: './settings.page.html',
     styles: `
         ::ng-deep {
@@ -85,6 +86,13 @@ export class SettingsPage {
     protected readonly section = linkedSignal<PreferencesSection>(() => this.requestedSection()?.section ?? 'general');
     protected readonly current = computed(() => this.sections.find((s) => s.id === this.section())!);
     protected readonly appInfo = signal<AppInfo | null>(null);
+    protected readonly listLanguages = signal<any[]>([
+        {
+            label: 'English US',
+            value: 'en-US',
+            flag: 'https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg'
+        }
+    ]);
     protected readonly maxTimeoutMs = MAX_TIMEOUT_MS;
     protected readonly maxHistoryEntries = MAX_HISTORY_ENTRIES;
     protected readonly status = signal<SaveStatus>('idle');
@@ -175,12 +183,10 @@ export class SettingsPage {
     });
 
     constructor() {
-        this.appInfoGateway
-            .info()
-            .then(
-                (info) => this.appInfo.set(info),
-                () => undefined
-            );
+        this.appInfoGateway.info().then(
+            (info) => this.appInfo.set(info),
+            () => undefined
+        );
 
         // Reflete o estado do main (carga inicial e mudanças vindas do tray) sem disparar novo salvamento.
         effect(() => {

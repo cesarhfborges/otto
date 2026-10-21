@@ -18,7 +18,7 @@ const failure = (error: string, code?: string): HttpResult => ({ ok: false, erro
 /**
  * Execuções das requisições abertas, por arquivo da coleção. Fica fora do
  * componente para a resposta sobreviver à troca de abas. Também atende o motor de
- * templates (`otto.collection.request(…)`): última resposta e envio sob demanda.
+ * templates (`otto.request(…)`): última resposta e envio sob demanda.
  */
 @Injectable({ providedIn: 'root' })
 export class ResponsesState implements ResponseAccess {

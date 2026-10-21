@@ -88,6 +88,51 @@
                             </div>
                         </section>
 
+                        <section aria-labelledby="group-language" class="flex flex-col gap-2">
+                            <h3 id="group-languages"
+                                class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color"
+                            >
+                                Language
+                            </h3>
+                            <div
+                                class="flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                                <div>
+                                    <label for="base-directory" class="font-medium">Languages <span class="font-semibold text-orange-400 italic">coming soon</span></label>
+                                    <p id="base-directory-help" class="m-0 mt-0.5 text-sm text-muted-color">
+                                        Only US English is currently supported. Additional languages will be available in the future.
+<!--                                        Currently available only in English (US). More languages <span class="text-orange-400 font-medium italic">coming soon</span>.-->
+                                    </p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <p-select
+                                        [options]="listLanguages()"
+                                        [disabled]="true"
+                                        optionLabel="label"
+                                        optionValue="value"
+                                        placeholder="Select a language"
+                                        class="w-full"
+                                    >
+                                        <ng-template #selectedItem let-selected>
+                                            <div class="flex items-center">
+                                                <img [ngSrc]="selected.flag" [height]="16" [width]="16"
+                                                     [alt]="selected.label" [class]="'mr-2 flag flag-' + selected.value"
+                                                     style="width: 20px" />
+                                                <span>{{ selected.label }}</span>
+                                            </div>
+                                        </ng-template>
+                                        <ng-template #item let-option>
+                                            <div class="flex items-center">
+                                                <img [ngSrc]="option.flag" [height]="16" [width]="16"
+                                                     [alt]="option.label" [class]="'mr-2 flag flag-' + option.value"
+                                                     style="width: 20px" />
+                                                <span>{{ option.label }}</span>
+                                            </div>
+                                        </ng-template>
+                                    </p-select>
+                                </div>
+                            </div>
+                        </section>
+
                         <section aria-labelledby="group-application" class="flex flex-col gap-2">
                             <h3 id="group-application"
                                 class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">
@@ -120,7 +165,8 @@
                                         <div class="min-w-0">
                                             <label id="hardware-acceleration-label" for="hardware-acceleration"
                                                    class="font-medium">Hardware acceleration</label>
-                                            <p id="hardware-acceleration-help" class="m-0 mt-0.5 text-sm text-muted-color">
+                                            <p id="hardware-acceleration-help"
+                                               class="m-0 mt-0.5 text-sm text-muted-color">
                                                 Use the GPU to render the application. Turn it off if you see a blank
                                                 window, flickering or rendering glitches. Requires a restart.</p>
                                         </div>
@@ -207,11 +253,13 @@
                         </div>
 
                         <ng-container formGroupName="appearance">
-                            <fieldset class="m-0 flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                            <fieldset
+                                class="m-0 flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
                                 <legend class="sr-only">Base style</legend>
                                 <div aria-hidden="true">
                                     <span class="font-medium">Base style</span>
-                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Visual language of buttons, inputs and panels.</p>
+                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Visual language of buttons, inputs
+                                        and panels.</p>
                                 </div>
                                 <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                                     @for (preset of presetOptions; track preset.value) {
@@ -220,23 +268,28 @@
                                             class="relative flex cursor-pointer flex-col gap-1 rounded-lg border-2 p-4 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--p-primary-color)"
                                             [class]="selected ? 'border-primary bg-highlight' : 'border-surface-200 hover:border-surface-400 dark:border-surface-700 dark:hover:border-surface-500'"
                                         >
-                                            <input type="radio" class="sr-only" formControlName="themePreset" [value]="preset.value"
+                                            <input type="radio" class="sr-only" formControlName="themePreset"
+                                                   [value]="preset.value"
                                                    [attr.aria-describedby]="'preset-' + preset.value + '-help'" />
                                             <span class="font-semibold">{{ preset.label }}</span>
-                                            <span [id]="'preset-' + preset.value + '-help'" class="text-sm" [class.text-muted-color]="!selected">{{ preset.description }}</span>
+                                            <span [id]="'preset-' + preset.value + '-help'" class="text-sm"
+                                                  [class.text-muted-color]="!selected">{{ preset.description }}</span>
                                             @if (selected) {
-                                                <i class="pi pi-check-circle absolute top-3 right-3" aria-hidden="true"></i>
+                                                <i class="pi pi-check-circle absolute top-3 right-3"
+                                                   aria-hidden="true"></i>
                                             }
                                         </label>
                                     }
                                 </div>
                             </fieldset>
 
-                            <fieldset class="m-0 flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                            <fieldset
+                                class="m-0 flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
                                 <legend class="sr-only">Accent color</legend>
                                 <div aria-hidden="true">
                                     <span class="font-medium">Accent color</span>
-                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Used in buttons, links, selection and other interactive elements.</p>
+                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Used in buttons, links, selection and
+                                        other interactive elements.</p>
                                 </div>
                                 <div class="flex flex-wrap gap-3">
                                     @for (color of primaryColorOptions; track color.value) {
@@ -247,21 +300,25 @@
                                             [style.background-color]="color.swatch"
                                             [title]="color.label"
                                         >
-                                            <input type="radio" class="sr-only" formControlName="primaryColor" [value]="color.value" [attr.aria-label]="color.label" />
+                                            <input type="radio" class="sr-only" formControlName="primaryColor"
+                                                   [value]="color.value" [attr.aria-label]="color.label" />
                                             @if (selected) {
                                                 <i class="pi pi-check text-sm"
-                                                   [class]="color.value === 'noir' ? 'text-surface-0 dark:text-surface-950' : 'text-white'" aria-hidden="true"></i>
+                                                   [class]="color.value === 'noir' ? 'text-surface-0 dark:text-surface-950' : 'text-white'"
+                                                   aria-hidden="true"></i>
                                             }
                                         </label>
                                     }
                                 </div>
                             </fieldset>
 
-                            <fieldset class="m-0 flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                            <fieldset
+                                class="m-0 flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
                                 <legend class="sr-only">Surface tone</legend>
                                 <div aria-hidden="true">
                                     <span class="font-medium">Surface tone</span>
-                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Gray palette used for backgrounds, panels and borders.</p>
+                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Gray palette used for backgrounds,
+                                        panels and borders.</p>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
                                     @for (surface of surfaceColorOptions; track surface.label) {
@@ -270,10 +327,13 @@
                                             class="flex cursor-pointer items-center gap-2 rounded-md border-2 px-3 py-1.5 text-sm font-medium has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--p-primary-color)"
                                             [class]="selected ? 'border-primary bg-highlight' : 'border-surface-200 hover:border-surface-400 dark:border-surface-700 dark:hover:border-surface-500'"
                                         >
-                                            <input type="radio" class="sr-only" formControlName="surfaceColor" [value]="surface.value" />
+                                            <input type="radio" class="sr-only" formControlName="surfaceColor"
+                                                   [value]="surface.value" />
                                             <span class="flex" aria-hidden="true">
                                                 @for (swatch of surface.swatches; track $index) {
-                                                    <span class="h-3.5 w-3.5 rounded-full border border-black/10 first:-mr-1 dark:border-white/20" [style.background-color]="swatch"></span>
+                                                    <span
+                                                        class="h-3.5 w-3.5 rounded-full border border-black/10 first:-mr-1 dark:border-white/20"
+                                                        [style.background-color]="swatch"></span>
                                                 }
                                             </span>
                                             {{ surface.label }}

@@ -12,6 +12,9 @@ export type Expr =
     /** Forma antiga `{{nome}}` (alias de `{{$.nome}}`). */
     | { kind: 'legacy'; name: string };
 
+/** `otto.request('ref')…`: outra requisição da coleção (e não a atual, `otto.request.x`). */
+export const isRequestRef = (expr: Expr): boolean => expr.kind === 'otto' && expr.access[0]?.kind === 'member' && expr.access[0].name === 'request' && expr.access[1]?.kind === 'call';
+
 const literalText = (expr: Expr | undefined): string => (expr?.kind === 'literal' ? String(expr.value) : '…');
 
 /** Rótulo curto do chip: `base_url`, `Login › get $.token`, `uuid()`, `hmac sha256`. */
@@ -34,16 +37,16 @@ export function describe(expr: Expr, requestName: (ref: string) => string | null
     const lastName = names.at(-1) ?? 'otto';
     const lastArg = lastCall && lastCall.args[0] ? ` ${literalText(lastCall.args[0])}` : '';
 
-    if (names[0] === 'collection' && names[1] === 'request') {
+    if (isRequestRef(expr)) {
         const ref = literalText(calls[0]?.args[0]);
         const title = requestName(ref) ?? ref;
-        const rest = names.slice(2).filter((name) => name !== 'response');
+        const rest = names.slice(1).filter((name) => name !== 'response' && name !== 'body');
 
         return [title, rest.join(' ') + (calls.length > 1 ? lastArg : '')].filter(Boolean).join(' › ');
     }
 
     if (names[0] === 'request') {
-        return ['Request', names.slice(1).join(' ') + (lastCall ? lastArg : '')].filter(Boolean).join(' › ');
+        return ['Request', names.slice(1).filter((name) => name !== 'body').join(' ') + (lastCall ? lastArg : '')].filter(Boolean).join(' › ');
     }
 
     if (names.length === 1 && lastCall?.args.length && lastCall.args[0]?.kind === 'literal' && ['hash', 'hmac'].includes(lastName)) {

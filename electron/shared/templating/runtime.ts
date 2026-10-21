@@ -70,6 +70,9 @@ function buildStatic(nodes: readonly CatalogNode[]): Record<string, unknown> {
 
 const STATIC = buildStatic(OTTO_CATALOG.members ?? []);
 
+/** Membros de `otto.request` sem chamar (a requisição atual). */
+const CURRENT_REQUEST_MEMBERS = (OTTO_CATALOG.members ?? []).find((node) => node.name === 'request')?.members?.map((node) => node.name) ?? [];
+
 const folderOf = (path: string): string => path.split('/').slice(0, -1).join('/');
 
 function matchesExpectation(status: number, expect: number | string): boolean {
@@ -118,7 +121,7 @@ export function createOtto(host: OttoHost, currentRequest?: () => Promise<Messag
     const now = new Date();
     const identity = (value: RequestIdentity | null): Record<string, unknown> => ({ id: value?.id ?? '', name: value?.name ?? '', path: value?.path ?? '', folder: folderOf(value?.path ?? ''), method: value?.method ?? '' });
 
-    const request = async (): Promise<object> => {
+    const current = async (): Promise<Record<string, unknown>> => {
         if (!currentRequest) {
             throw new UnresolvedError('otto.request is not available here');
         }
@@ -147,12 +150,13 @@ export function createOtto(host: OttoHost, currentRequest?: () => Promise<Messag
         });
     };
 
+    // `otto.request('ref')` é outra requisição; `otto.request.x` lê a atual (sob demanda).
+    const request = runtime(Object.defineProperties((ref: unknown, options?: unknown) => requestRef(ref, options), Object.fromEntries(CURRENT_REQUEST_MEMBERS.map((name) => [name, { enumerable: true, get: () => current().then((reader) => reader[name]) }]))));
+
     return runtime({
         ...STATIC,
-        get request() {
-            return request();
-        },
-        collection: runtime({ id: host.collection?.id ?? '', name: host.collection?.name ?? '', request: runtime(requestRef) }),
+        request,
+        collection: runtime({ id: host.collection?.id ?? '', name: host.collection?.name ?? '' }),
         info: runtime({ environment: host.info.environment ?? '', collection: host.collection?.name ?? '', workspace: host.info.workspace ?? '', app: runtime({ version: host.info.appVersion }), platform: host.info.platform })
     });
 }

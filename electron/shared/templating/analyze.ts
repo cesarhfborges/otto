@@ -1,5 +1,5 @@
 import type { Access, Expr } from './ast';
-import { describe } from './ast';
+import { describe, isRequestRef } from './ast';
 import { availableIn, membersAfter, OTTO_CATALOG } from './catalog';
 import { isDynamic, type CatalogNode, type Where } from './node';
 import { tryParse } from './parse';
@@ -151,7 +151,5 @@ export function inspectTag(inner: string, env: ValidationEnv): TagInfo {
         return { expr, kind: variable?.secret ? 'secret' : 'variable', label, error, ...(variable && { variable }) };
     }
 
-    const isRef = expr.kind === 'otto' && expr.access[0]?.kind === 'member' && expr.access[0].name === 'collection' && expr.access[1]?.kind === 'member' && expr.access[1].name === 'request';
-
-    return { expr, kind: isRef ? 'request' : 'command', label, error };
+    return { expr, kind: isRequestRef(expr) ? 'request' : 'command', label, error };
 }

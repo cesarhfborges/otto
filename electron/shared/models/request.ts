@@ -35,7 +35,7 @@ export type RequestBody =
 
 /** Conteúdo de um arquivo de requisição da coleção (antes da interpolação de variáveis). */
 export interface RequestDefinition {
-    /** Identificador estável (`rq_…`), usado por `otto.collection.request(id)`; gerado na primeira gravação. */
+    /** Identificador estável (`rq_…`), usado por `otto.request(id)`; gerado na primeira gravação. */
     id?: string;
     name: string;
     method: HttpMethod;
