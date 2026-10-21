@@ -12,9 +12,9 @@ import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
 import { MethodBadge } from '../../shared/method-badge';
 import { OpenApiPanel } from '../openapi/openapi-panel';
-import { CollectionHeaders } from './collection-headers';
+import { CollectionKeyValues } from './collection-key-values';
 
-type Section = 'overview' | 'headers' | 'openapi';
+type Section = 'overview' | 'headers' | 'variables' | 'openapi';
 
 interface TreeStats {
     requests: number;
@@ -42,7 +42,7 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
 /** Página da coleção: visão geral, headers base e sincronização OpenAPI. */
 @Component({
     selector: 'app-collection-overview',
-    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionHeaders, OpenApiPanel],
+    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, OpenApiPanel],
     template: `
         @if (collection(); as current) {
             <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="px-4 pt-2">
@@ -52,6 +52,12 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
                         >Headers
                         @if (current.manifest.headers.length) {
                             <span class="text-xs text-muted-color">({{ current.manifest.headers.length }})</span>
+                        }
+                    </p-tab>
+                    <p-tab value="variables"
+                        >Variables
+                        @if (current.manifest.variables.length) {
+                            <span class="text-xs text-muted-color">({{ current.manifest.variables.length }})</span>
                         }
                     </p-tab>
                     <p-tab value="openapi"
@@ -145,7 +151,15 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
                         </div>
                     </p-tabpanel>
                     <p-tabpanel value="headers">
-                        <app-collection-headers [collectionId]="current.metadata.id" />
+                        <app-collection-key-values [collectionId]="current.metadata.id" field="headers" label="Collection headers" addLabel="Add Header">
+                            Sent with every request in this collection. A request that defines the same header (case-insensitive) overrides it — for example, set <code>Content-Type: application/json</code> here and use another type in an upload
+                            request. Values accept variables and commands, like <code>{{ variableExample }}</code>.
+                        </app-collection-key-values>
+                    </p-tabpanel>
+                    <p-tabpanel value="variables">
+                        <app-collection-key-values [collectionId]="current.metadata.id" field="variables" label="Collection variables" addLabel="Add Variable">
+                            Saved in <code>otto.yaml</code> (versioned with the collection) and used as <code>{{ variableExample }}</code>. The selected environment overrides a variable with the same name. Keep secrets in an environment, not here.
+                        </app-collection-key-values>
                     </p-tabpanel>
                     <p-tabpanel value="openapi">
                         <app-openapi-panel [collectionId]="current.metadata.id" />
@@ -169,6 +183,7 @@ export class CollectionOverview {
     private readonly messages = inject(MessageService);
 
     protected readonly section = signal<Section>('overview');
+    protected readonly variableExample = '{{$.name}}';
     protected readonly collection = computed(() => this.collections.find(this.collectionId()));
     protected readonly treeStats = computed(() => stats(this.collection()?.tree.children ?? []));
     protected readonly methods = computed(() => [...this.treeStats().methods].map(([method, count]) => ({ method, count })));

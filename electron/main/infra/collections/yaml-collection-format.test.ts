@@ -19,19 +19,20 @@ const fullRequest: RequestDefinition = {
 
 describe('YamlCollectionFormat', () => {
     it('faz ida e volta sem perder dados', () => {
-        assert.deepEqual(format.parseRequest(format.serializeRequest(fullRequest)), fullRequest);
+        assert.deepEqual(format.parseRequest(format.serializeRequest({ ...fullRequest, id: 'rq_full' })), { ...fullRequest, id: 'rq_full' });
 
-        const form: RequestDefinition = { ...emptyRequest('Login'), method: 'POST', body: { type: 'form-urlencoded', fields: [{ key: 'user', value: 'a', enabled: true }] } };
+        const form: RequestDefinition = { ...emptyRequest('Login'), id: 'rq_login', method: 'POST', body: { type: 'form-urlencoded', fields: [{ key: 'user', value: 'a', enabled: true }] } };
 
         assert.deepEqual(format.parseRequest(format.serializeRequest(form)), form);
     });
 
     it('gera YAML enxuto e legível (padrões omitidos, corpo em bloco)', () => {
-        assert.equal(format.serializeRequest(emptyRequest('Ping')), 'name: Ping\nmethod: GET\nurl: ""\n');
+        // Arquivo sem `id` ganha um na gravação.
+        assert.match(format.serializeRequest(emptyRequest('Ping')), /^id: rq_[0-9a-z]{10}\nname: Ping\nmethod: GET\nurl: ""\n$/);
 
         const yaml = format.serializeRequest(fullRequest);
 
-        assert.match(yaml, /^name: Create user\nmethod: POST\nurl: "\{\{baseUrl\}\}\/users"\nseq: 2\n/);
+        assert.match(yaml, /^id: rq_\w+\nname: Create user\nmethod: POST\nurl: "\{\{baseUrl\}\}\/users"\nseq: 2\n/);
         assert.match(yaml, /content: \|/);
         assert.match(yaml, /- key: Content-Type\n {4}value: application\/json\n/);
         assert.doesNotMatch(yaml, /enabled: true/);
@@ -66,10 +67,10 @@ describe('YamlCollectionFormat', () => {
     });
 
     it('lê e escreve o manifesto, recusando formato mais novo', () => {
-        const manifest = { version: 1, name: 'Petstore', description: 'Demo API', headers: [], openapi: null };
+        const manifest = { version: 1, name: 'Petstore', description: 'Demo API', headers: [], variables: [], openapi: null };
 
         assert.deepEqual(format.parseManifest(format.serializeManifest(manifest)), manifest);
-        assert.deepEqual(format.parseManifest('name: Minimal\n'), { version: 1, name: 'Minimal', description: '', headers: [], openapi: null });
+        assert.deepEqual(format.parseManifest('name: Minimal\n'), { version: 1, name: 'Minimal', description: '', headers: [], variables: [], openapi: null });
         assert.throws(() => format.parseManifest('version: 99\nname: Future\n'), /newer than this app supports/);
         assert.throws(() => format.parseManifest('description: no name\n'), /"name"/);
     });

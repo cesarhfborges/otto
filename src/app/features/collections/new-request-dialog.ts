@@ -54,7 +54,7 @@ export class NewRequestDialog {
     private readonly tabs = inject(TabsState);
 
     protected readonly methods = [...HTTP_METHODS];
-    protected readonly urlPlaceholder = '{{baseUrl}}/users';
+    protected readonly urlPlaceholder = '{{$.baseUrl}}/users';
     private readonly fb = inject(FormBuilder).nonNullable;
     protected readonly busy = signal(false);
     protected readonly error = signal<string | null>(null);

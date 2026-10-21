@@ -121,7 +121,9 @@ export const RESERVED_SHORTCUTS: ReadonlyArray<{ label: string; keys: readonly K
     { label: 'Reload window', keys: ['Mod+R', 'Mod+Shift+R'] },
     { label: 'Full screen', keys: ['F11', 'Mod+Ctrl+F'] },
     { label: 'Quit', keys: ['Mod+Q'] },
-    { label: 'Move focus', keys: ['Tab', 'Shift+Tab'] }
+    { label: 'Move focus', keys: ['Tab', 'Shift+Tab'] },
+    // Tratado pelo editor de templates focado (`app-otto-input`); fora dele não faz nada.
+    { label: 'Show variable suggestions', keys: ['Ctrl+Space'] }
 ];
 
 /**

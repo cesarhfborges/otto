@@ -34,11 +34,13 @@ export interface CollectionManifest {
     description: string;
     /** Headers enviados em todas as requisições da coleção; os da requisição têm prioridade. */
     headers: KeyValue[];
+    /** Variáveis da coleção (versionadas): perdem para as do ambiente selecionado. */
+    variables: KeyValue[];
     openapi: OpenApiConfig | null;
 }
 
 /** Alteração editável pela UI no `otto.yaml`. */
-export type CollectionManifestPatch = Partial<Pick<CollectionManifest, 'description' | 'headers'>>;
+export type CollectionManifestPatch = Partial<Pick<CollectionManifest, 'description' | 'headers' | 'variables'>>;
 
 /** Nó da árvore de uma coleção lida do disco. */
 export type CollectionNode = CollectionFolderNode | CollectionRequestNode;
@@ -55,6 +57,8 @@ export interface CollectionFolderNode {
 
 export interface CollectionRequestNode {
     type: 'request';
+    /** `id` estável do arquivo; `null` em arquivos antigos (ainda não regravados) ou inválidos. */
+    id: string | null;
     /** Nome da requisição (do arquivo) ou o nome do arquivo, se ilegível. */
     name: string;
     path: string;

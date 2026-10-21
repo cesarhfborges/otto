@@ -88,13 +88,14 @@ export class CollectionsIpcModule implements IIpcModule {
 
         ipc.handle('collections:manifest', (_event, id) => this.service.manifest(parseEntityId(id)));
 
-        // Descrição e headers da coleção (gravados no otto.yaml).
+        // Descrição, headers e variáveis da coleção (gravados no otto.yaml).
         ipc.handle('collections:update-manifest', (_event, id, rawPatch) => {
             const patch = requireRecord(rawPatch, 'patch');
             const description = patch['description'] === undefined ? undefined : requireString(patch['description'], 'patch.description', { allowEmpty: true, maxLength: 100_000 });
             const headers = patch['headers'] === undefined ? undefined : parseKeyValues(patch['headers'], 'patch.headers');
+            const variables = patch['variables'] === undefined ? undefined : parseKeyValues(patch['variables'], 'patch.variables');
 
-            return this.service.updateManifest(parseEntityId(id), (manifest) => ({ ...manifest, ...(description !== undefined && { description }), ...(headers && { headers }) }));
+            return this.service.updateManifest(parseEntityId(id), (manifest) => ({ ...manifest, ...(description !== undefined && { description }), ...(headers && { headers }), ...(variables && { variables }) }));
         });
 
         this.service.onChanged((collectionId) => this.notifier.notify('collections:changed', { collectionId }));

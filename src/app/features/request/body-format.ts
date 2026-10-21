@@ -1,8 +1,10 @@
+import { tagEnd } from '@shared/templating';
+
 /** Resultado de validar/formatar o corpo: o texto formatado ou a mensagem de erro. */
 export type FormatResult = { ok: true; text: string } | { ok: false; error: string };
 
 /**
- * `{{variáveis}}` fora de strings tornariam o JSON inválido (`{"id": {{id}}}`): são
+ * `{{variáveis}}` / `{{ otto.… }}` fora de strings tornariam o JSON inválido (`{"id": {{id}}}`): são
  * trocadas por strings sentinela antes do parse e restauradas depois.
  */
 function protectJsonVariables(source: string): { json: string; restore: (text: string) => string } {
@@ -29,16 +31,17 @@ function protectJsonVariables(source: string): { json: string; restore: (text: s
             inString = true;
             json += char;
         } else if (source.startsWith('{{', i)) {
-            const end = source.indexOf('}}', i + 2);
+            // Mesmo critério do motor: um comando pode ter `}}` dentro de uma string.
+            const end = tagEnd(source, i);
 
             if (end < 0) {
                 json += char;
                 continue;
             }
 
-            variables.push(source.slice(i, end + 2));
+            variables.push(source.slice(i, end));
             json += `"__otto_var_${variables.length - 1}__"`;
-            i = end + 1;
+            i = end - 1;
         } else {
             json += char;
         }

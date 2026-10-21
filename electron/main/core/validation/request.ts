@@ -89,7 +89,10 @@ export function parseRequestDefinition(raw: unknown): RequestDefinition {
     const request = requireRecord(raw, 'request');
     const method = typeof request['method'] === 'string' ? request['method'].toUpperCase() : request['method'];
 
+    const id = typeof request['id'] === 'string' && /^[\w-]{1,64}$/.test(request['id']) ? request['id'] : undefined;
+
     return {
+        ...(id && { id }),
         name: requireString(request['name'], 'request.name', { maxLength: 200 }).trim(),
         method: requireOneOf(method, HTTP_METHODS, 'request.method'),
         url: text(request['url'], 'request.url'),

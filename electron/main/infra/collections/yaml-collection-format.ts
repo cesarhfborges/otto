@@ -1,4 +1,4 @@
-import { COLLECTION_FORMAT_VERSION, type CollectionManifest, type KeyValue, type RequestDefinition } from '../../../shared/models';
+import { COLLECTION_FORMAT_VERSION, newRequestId, type CollectionManifest, type KeyValue, type RequestDefinition } from '../../../shared/models';
 import type { FolderMetadata, ICollectionFormat } from '../../core/contracts';
 import { parseKeyValues, parseOpenApiConfig, parseRequestDefinition, requireInteger, requireRecord, requireString } from '../../core/validation';
 import { parseYaml, toYaml } from '../yaml';
@@ -50,6 +50,7 @@ export class YamlCollectionFormat implements ICollectionFormat {
             name: requireString(manifest['name'], 'name', { maxLength: 200 }).trim(),
             description: manifest['description'] === undefined || manifest['description'] === null ? '' : requireString(manifest['description'], 'description', { allowEmpty: true, maxLength: 100_000 }),
             headers: parseKeyValues(manifest['headers'], 'headers'),
+            variables: parseKeyValues(manifest['variables'], 'variables'),
             openapi: manifest['openapi'] === undefined || manifest['openapi'] === null ? null : parseOpenApiConfig(manifest['openapi'])
         };
     }
@@ -60,6 +61,7 @@ export class YamlCollectionFormat implements ICollectionFormat {
             name: manifest.name,
             ...(manifest.description ? { description: manifest.description } : {}),
             ...(manifest.headers.length ? { headers: compactKeyValues(manifest.headers) } : {}),
+            ...(manifest.variables.length ? { variables: compactKeyValues(manifest.variables) } : {}),
             ...(manifest.openapi ? { openapi: manifest.openapi } : {})
         });
     }
@@ -70,7 +72,8 @@ export class YamlCollectionFormat implements ICollectionFormat {
 
     serializeRequest(request: RequestDefinition): string {
         const { name, method, url, seq, params, headers, auth, body, docs } = request;
-        const document: Record<string, unknown> = { name, method, url };
+        // Arquivos antigos (sem `id`) ganham um na primeira gravação.
+        const document: Record<string, unknown> = { id: request.id ?? newRequestId(), name, method, url };
 
         if (seq !== null) {
             document['seq'] = seq;

@@ -1,4 +1,4 @@
-import { Component, computed, effect, ElementRef, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
+import { Component, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { commandMeta, type CommandId, type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition } from '@shared/models';
@@ -57,9 +57,12 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
  * de resposta ao lado. As edições ficam num rascunho (sobrevive à troca de abas) e são
  * gravadas no arquivo da coleção com Save (atalho `request.save`). O envio usa o rascunho atual.
  */
+import { TemplateScope } from '../../core/templating/template-scope';
+import { OttoInput } from '../../shared/template-editor';
 @Component({
     selector: 'app-request-view',
-    imports: [ReactiveFormsModule, FormsModule, TabsModule, ButtonModule, InputTextModule, MessageModule, SelectModule, SplitterModule, MethodBadge, KeyValueEditor, BodyEditor, AuthEditor, ResponsePanel, EditorModule],
+    providers: [TemplateScope],
+    imports: [ReactiveFormsModule, FormsModule, TabsModule, ButtonModule, InputTextModule, MessageModule, SelectModule, SplitterModule, MethodBadge, OttoInput, KeyValueEditor, BodyEditor, AuthEditor, ResponsePanel, EditorModule],
     template: `
         @if (error(); as message) {
             <p-message severity="error" styleClass="m-4"
@@ -76,15 +79,14 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
                             <app-method-badge [method]="method" />
                         </ng-template>
                     </p-select>
-                    <input
+                    <app-otto-input
                         #urlInput
-                        class="h-full min-w-0 flex-1 border-0 bg-transparent px-3 font-mono text-sm text-color outline-none placeholder:text-muted-color focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--p-primary-color)]"
+                        class="otto-request-url min-w-0 flex-1 self-stretch !rounded-none !border-0 !bg-transparent !px-3 !py-0 !text-sm !shadow-none"
                         [value]="req.url"
-                        placeholder="https://api.example.com/users or {{ urlExample }}"
-                        aria-label="Request URL"
-                        autocomplete="off"
-                        spellcheck="false"
-                        (input)="update({ url: $any($event.target).value })"
+                        [placeholder]="'https://api.example.com/users or ' + urlExample"
+                        ariaLabel="Request URL"
+                        (valueChange)="update({ url: $event })"
+                        (enter)="send()"
                     />
                 </div>
                 <p-button label="Save" icon="pi pi-save" size="small" severity="secondary" [outlined]="true" [disabled]="!dirty()" [loading]="saving()" [ariaLabel]="withShortcut('Save request', 'request.save')" (onClick)="save()" />
@@ -236,13 +238,13 @@ export class RequestView {
     protected readonly saving = signal(false);
     protected readonly methods = [...HTTP_METHODS];
     protected readonly methodControl = new FormControl<HttpMethod>('GET', { nonNullable: true });
-    protected readonly urlExample = '{{baseUrl}}/users';
+    protected readonly urlExample = '{{$.baseUrl}}/users';
     private readonly keyboard = inject(KeybindingService);
     /** Reflete os atalhos configurados em Preferences; comandos sem atalho não aparecem. */
     protected readonly shortcuts = computed(() =>
         HINT_COMMANDS.map((id) => ({ label: commandMeta(id).label, keys: this.keyboard.text(id) })).filter((shortcut) => shortcut.keys)
     );
-    private readonly urlInput = viewChild<ElementRef<HTMLInputElement>>('urlInput');
+    private readonly urlInput = viewChild<OttoInput>('urlInput');
     /** GET, HEAD, TRACE e CONNECT não levam corpo: a aba Body some. */
     protected readonly bodyAllowed = computed(() => hasBody(this.request()?.method ?? 'GET'));
     protected readonly counts = computed(() => {
@@ -269,6 +271,7 @@ export class RequestView {
     });
 
     constructor() {
+        inject(TemplateScope).connect(this.collectionId, this.path);
         // Lê o arquivo ao abrir e quando a árvore da coleção muda (edição externa, git pull);
         // alterações locais não salvas são mantidas.
         effect(() => {
@@ -294,8 +297,7 @@ export class RequestView {
         registerCommand('request.focusUrl', {
             when: () => !!this.urlInput(),
             run: () => {
-                this.urlInput()?.nativeElement.focus();
-                this.urlInput()?.nativeElement.select();
+                this.urlInput()?.select();
             }
         });
 

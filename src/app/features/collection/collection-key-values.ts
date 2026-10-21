@@ -4,22 +4,20 @@ import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { CollectionsState } from '../../core/state/collections.state';
+import { TemplateScope } from '../../core/templating/template-scope';
 import { KeyValueEditor } from '../request/key-value-editor';
 
 /**
- * Headers base da coleção (gravados no `otto.yaml`): enviados em todas as requisições.
- * Quando a requisição define o mesmo header, o valor dela prevalece.
+ * Lista de pares do `otto.yaml` (headers ou variáveis da coleção), com Save/Discard.
+ * A explicação de cada lista vem pelo conteúdo projetado.
  */
 @Component({
-    selector: 'app-collection-headers',
+    selector: 'app-collection-key-values',
     imports: [ButtonModule, MessageModule, KeyValueEditor],
+    providers: [TemplateScope],
     template: `
-        <p class="m-0 mb-3 max-w-3xl text-sm text-muted-color">
-            Sent with every request in this collection. A request that defines the same header (case-insensitive) overrides it — for example, set <code>Content-Type: application/json</code> here and use another type in an upload request. Values
-            accept <code>{{ example }}</code
-            >.
-        </p>
-        <app-key-value-editor [items]="draft()" (itemsChange)="draft.set($event)" label="Collection headers" addLabel="Add Header" />
+        <p class="m-0 mb-3 max-w-3xl text-sm text-muted-color"><ng-content /></p>
+        <app-key-value-editor [items]="draft()" (itemsChange)="draft.set($event)" [label]="label()" [addLabel]="addLabel()" />
         @if (error(); as message) {
             <p-message severity="error" styleClass="mt-3"
                 ><span role="alert">{{ message }}</span></p-message
@@ -35,18 +33,24 @@ import { KeyValueEditor } from '../request/key-value-editor';
     `,
     host: { class: 'block' }
 })
-export class CollectionHeaders {
+export class CollectionKeyValues {
     readonly collectionId = input.required<EntityId>();
+    readonly field = input.required<'headers' | 'variables'>();
+    readonly label = input.required<string>();
+    readonly addLabel = input('Add');
 
     private readonly collections = inject(CollectionsState);
 
-    protected readonly example = '{{token}}';
-    protected readonly saved = computed<KeyValue[]>(() => this.collections.find(this.collectionId())?.manifest.headers ?? []);
+    protected readonly saved = computed<KeyValue[]>(() => this.collections.find(this.collectionId())?.manifest[this.field()] ?? []);
     /** Edição local; volta ao salvo quando o arquivo muda (Save, Git, editor externo). */
     protected readonly draft = linkedSignal(() => this.saved());
     protected readonly dirty = computed(() => JSON.stringify(this.draft()) !== JSON.stringify(this.saved()));
     protected readonly saving = signal(false);
     protected readonly error = signal<string | null>(null);
+
+    constructor() {
+        inject(TemplateScope).connect(this.collectionId);
+    }
 
     protected async save(): Promise<void> {
         this.saving.set(true);
@@ -54,7 +58,7 @@ export class CollectionHeaders {
 
         try {
             // Linhas totalmente vazias são descartadas.
-            await this.collections.updateManifest(this.collectionId(), { headers: this.draft().filter((header) => header.key.trim() || header.value) });
+            await this.collections.updateManifest(this.collectionId(), { [this.field()]: this.draft().filter((item) => item.key.trim() || item.value) });
         } catch (error) {
             this.error.set(ipcErrorMessage(error));
         } finally {

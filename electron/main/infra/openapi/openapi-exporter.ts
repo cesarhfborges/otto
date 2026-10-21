@@ -17,7 +17,7 @@ const RESERVED_HEADERS = new Set(['accept', 'content-type', 'authorization']);
 const enabled = <T extends KeyValue>(items: T[]): T[] => items.filter((item) => item.enabled && item.key.trim());
 
 /**
- * `{{baseUrl}}/users/{{id}}?x=1` → `/users/{id}`. Variáveis no início e origem absoluta
+ * `{{$.baseUrl}}/users/{{$.id}}?x=1` (ou a forma antiga `{{id}}`) → `/users/{id}`. Variáveis no início e origem absoluta
  * (`https://host`) são descartadas: o servidor vem dos ambientes.
  */
 export function toOpenApiPath(url: string): string {
@@ -27,7 +27,7 @@ export function toOpenApiPath(url: string): string {
 
     const path = rest
         .split('/')
-        .map((segment) => segment.replace(/\{\{\s*([^}\s]+)\s*\}\}/g, '{$1}').replace(/^:([A-Za-z0-9_.-]+)$/, '{$1}'))
+        .map((segment) => segment.replace(/\{\{\s*(?:\$(?:env|collection)?\.)?([^}\s]+)\s*\}\}/g, '{$1}').replace(/^:([A-Za-z0-9_.-]+)$/, '{$1}'))
         .join('/');
 
     return path.startsWith('/') ? path || '/' : `/${path}`;

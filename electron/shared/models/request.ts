@@ -35,6 +35,8 @@ export type RequestBody =
 
 /** Conteúdo de um arquivo de requisição da coleção (antes da interpolação de variáveis). */
 export interface RequestDefinition {
+    /** Identificador estável (`rq_…`), usado por `otto.collection.request(id)`; gerado na primeira gravação. */
+    id?: string;
     name: string;
     method: HttpMethod;
     url: string;
@@ -49,6 +51,9 @@ export interface RequestDefinition {
     /** Operação do spec OpenAPI que gerou a requisição (`MÉTODO /caminho`), usada na sincronização. */
     operation?: string;
 }
+
+/** `rq_` + 10 caracteres base36. */
+export const newRequestId = (): string => `rq_${Array.from(crypto.getRandomValues(new Uint8Array(10)), (byte) => (byte % 36).toString(36)).join('')}`;
 
 export const emptyRequest = (name: string): RequestDefinition => ({
     name,

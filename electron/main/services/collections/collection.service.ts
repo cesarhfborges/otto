@@ -198,7 +198,7 @@ export class CollectionService {
 
         await this.store.createRoot(root);
 
-        const manifest: CollectionManifest = { version: COLLECTION_FORMAT_VERSION, name, description: '', headers: [], openapi: null };
+        const manifest: CollectionManifest = { version: COLLECTION_FORMAT_VERSION, name, description: '', headers: [], variables: [], openapi: null };
 
         await this.store.writeFile(root, this.format.manifestFile, this.format.serializeManifest(manifest), { createOnly: true });
 
@@ -270,7 +270,8 @@ export class CollectionService {
         if (this.format.isRequestFile(path.posix.basename(entryPath))) {
             const request = this.format.parseRequest(await this.store.readFile(root, entryPath));
 
-            return this.createRequest(id, parent, { ...request, name: requestName(name) });
+            // A cópia ganha um `id` novo (o do original continua apontando para ele).
+            return this.createRequest(id, parent, { ...request, id: undefined, name: requestName(name) });
         }
 
         const source = findEntry(await this.store.list(root), entryPath);
@@ -464,10 +465,10 @@ export class CollectionService {
                     try {
                         const request = this.format.parseRequest(await this.store.readFile(root, entry.path));
 
-                        return { type: 'request', name: request.name, path: entry.path, method: request.method, seq: request.seq, error: null };
+                        return { type: 'request', id: request.id ?? null, name: request.name, path: entry.path, method: request.method, seq: request.seq, error: null };
                     } catch (error) {
                         // Arquivo inválido continua visível na árvore para o usuário corrigir.
-                        return { type: 'request', name: entry.name, path: entry.path, method: null, seq: null, error: error instanceof Error ? error.message : String(error) };
+                        return { type: 'request', id: null, name: entry.name, path: entry.path, method: null, seq: null, error: error instanceof Error ? error.message : String(error) };
                     }
                 })
             );

@@ -19,7 +19,7 @@ const HELP: Record<string, ErrorHelp> = {
         title: 'Connection refused',
         hints: [
             'Nothing is accepting connections on this host and port. Check that the server is running.',
-            'Confirm the host and port in the URL (and in variables such as {{baseUrl}}).',
+            'Confirm the host and port in the URL (and in variables such as {{$.baseUrl}}).',
             'If you use a proxy, check its address in Preferences → Proxy.'
         ]
     },
@@ -62,7 +62,7 @@ const HELP: Record<string, ErrorHelp> = {
     },
     UNSUPPORTED_PROTOCOL: {
         title: 'Unsupported protocol',
-        hints: ['Only http:// and https:// URLs are supported. Check the beginning of the URL for typos.', 'If the URL starts with a variable (such as {{baseUrl}}), check its value in the selected environment.']
+        hints: ['Only http:// and https:// URLs are supported. Check the beginning of the URL for typos.', 'If the URL starts with a variable (such as {{$.baseUrl}}), check its value in the selected environment.']
     },
     ERR_INVALID_URL: {
         title: 'Invalid URL',
@@ -70,7 +70,11 @@ const HELP: Record<string, ErrorHelp> = {
     },
     UNRESOLVED_VARIABLES: {
         title: 'Undefined variables',
-        hints: ['Define the variables in Environments, or select the environment that has them in the top bar.']
+        hints: ['Define the variables in Environments or in the collection Variables tab, or select the environment that has them in the top bar.']
+    },
+    TEMPLATE_ERROR: {
+        title: 'Invalid variable or command',
+        hints: ['Fix the highlighted (red) chips in the request: hover them to see the reason.', 'A referenced request without a response is sent automatically unless it uses { send: \'never\' }.']
     },
     MISSING_URL: {
         title: 'Missing URL',

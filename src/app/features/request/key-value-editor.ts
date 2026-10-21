@@ -1,8 +1,9 @@
-import { Component, inject, input, model } from '@angular/core';
+import { Component, inject, input, model, viewChildren } from '@angular/core';
 import type { KeyValue } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogGateway } from '../../core/ports';
+import { OttoInput } from '../../shared/template-editor';
 
 /** Linha editável; `kind` só existe em formulários multipart (texto ou arquivo). */
 export type EditableRow = KeyValue & { kind?: 'text' | 'file' };
@@ -13,7 +14,7 @@ export type EditableRow = KeyValue & { kind?: 'text' | 'file' };
  */
 @Component({
     selector: 'app-key-value-editor',
-    imports: [ButtonModule, InputTextModule],
+    imports: [ButtonModule, InputTextModule, OttoInput],
     template: `
         <table class="w-full border-collapse text-sm">
             <caption class="sr-only">
@@ -46,17 +47,7 @@ export type EditableRow = KeyValue & { kind?: 'text' | 'file' };
                             />
                         </td>
                         <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">
-                            <input
-                                pInputText
-                                pSize="small"
-                                class="w-full font-mono !text-sm"
-                                [value]="row.key"
-                                placeholder="name"
-                                autocomplete="off"
-                                spellcheck="false"
-                                [attr.aria-label]="'Name of row ' + (i + 1)"
-                                (input)="patch(i, { key: $any($event.target).value })"
-                            />
+                            <app-otto-input #nameInput size="small" class="w-full !text-sm" [value]="row.key" placeholder="name" [ariaLabel]="'Name of row ' + (i + 1)" (valueChange)="patch(i, { key: $event })" />
                         </td>
                         @if (allowFiles()) {
                             <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">
@@ -74,17 +65,7 @@ export type EditableRow = KeyValue & { kind?: 'text' | 'file' };
                                     <p-button icon="pi pi-folder-open" size="small" severity="secondary" [text]="true" [ariaLabel]="'Choose file for row ' + (i + 1)" (onClick)="chooseFile(i)" />
                                 </span>
                             } @else {
-                                <input
-                                    pInputText
-                                    pSize="small"
-                                    class="w-full font-mono !text-sm"
-                                    [value]="row.value"
-                                    placeholder="value"
-                                    autocomplete="off"
-                                    spellcheck="false"
-                                    [attr.aria-label]="'Value of row ' + (i + 1)"
-                                    (input)="patch(i, { value: $any($event.target).value })"
-                                />
+                                <app-otto-input size="small" class="w-full !text-sm" [value]="row.value" placeholder="value" [ariaLabel]="'Value of row ' + (i + 1)" (valueChange)="patch(i, { value: $event })" />
                             }
                         </td>
                         <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">
@@ -121,6 +102,7 @@ export class KeyValueEditor {
     readonly allowFiles = input(false);
 
     private readonly dialogs = inject(DialogGateway);
+    private readonly names = viewChildren('nameInput', { read: OttoInput });
 
     protected readonly kinds = [
         { label: 'Text', value: 'text' },
@@ -129,11 +111,11 @@ export class KeyValueEditor {
 
     protected add(): void {
         this.items.update((rows) => [...rows, { key: '', value: '', enabled: true, ...(this.allowFiles() && { kind: 'text' as const }) }]);
-        // Foco no nome da nova linha.
-        queueMicrotask(() => {
-            const inputs = document.activeElement?.closest('app-key-value-editor')?.querySelectorAll<HTMLInputElement>('tbody tr:last-child input[placeholder="name"]');
+        // Foco no nome da nova linha (depois de renderizada e com o editor montado).
+        setTimeout(() => {
+            const names = this.names();
 
-            inputs?.[inputs.length - 1]?.focus();
+            names[names.length - 1]?.focus();
         });
     }
 

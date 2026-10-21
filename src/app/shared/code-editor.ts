@@ -1,4 +1,4 @@
-import { Component, computed, ElementRef, input, model, viewChild } from '@angular/core';
+import { booleanAttribute, Component, computed, ElementRef, input, model, viewChild } from '@angular/core';
 import { Highlight } from 'ngx-highlightjs';
 import { type HighlightLanguage, highlightLanguageFor } from './highlight';
 
@@ -23,6 +23,7 @@ import { type HighlightLanguage, highlightLanguageFor } from './highlight';
                 [id]="inputId()"
                 [value]="value()"
                 [placeholder]="placeholder()"
+                [readOnly]="readonly()"
                 wrap="soft"
                 spellcheck="false"
                 autocomplete="off"
@@ -38,6 +39,7 @@ import { type HighlightLanguage, highlightLanguageFor } from './highlight';
 export class CodeEditor {
     readonly value = model('');
     readonly language = input<HighlightLanguage | null>(null);
+    readonly readonly = input(false, { transform: booleanAttribute });
     readonly inputId = input<string | null>(null);
     readonly placeholder = input('');
     readonly invalid = input(false);

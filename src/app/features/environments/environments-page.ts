@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, type FormControl, type FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import type { EntityId, Environment, EnvironmentVariable } from '@shared/models';
 import { MessageService } from 'primeng/api';
@@ -7,11 +8,14 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { TooltipModule } from 'primeng/tooltip';
+import { map } from 'rxjs';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { CollectionsState } from '../../core/state/collections.state';
 import { ConfirmState } from '../../core/state/confirm.state';
 import { EnvironmentsState } from '../../core/state/environments.state';
 
+import { TemplateScope } from '../../core/templating/template-scope';
+import { OttoInput } from '../../shared/template-editor';
 type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<string>; value: FormControl<string>; secret: FormControl<boolean> }>;
 
 /**
@@ -20,7 +24,8 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
  */
 @Component({
     selector: 'app-environments-page',
-    imports: [ReactiveFormsModule, ButtonModule, CheckboxModule, InputTextModule, MessageModule, TooltipModule],
+    imports: [ReactiveFormsModule, ButtonModule, CheckboxModule, InputTextModule, MessageModule, TooltipModule, OttoInput],
+    providers: [TemplateScope],
     template: `
         <nav class="flex w-60 shrink-0 flex-col gap-2 border-r border-surface-200 p-3 dark:border-surface-700" aria-labelledby="environments-heading">
             <div class="flex items-center gap-2">
@@ -88,15 +93,12 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
                                         <input pInputText formControlName="key" class="w-full font-mono !text-sm" pSize="small" placeholder="baseUrl" autocomplete="off" spellcheck="false" [attr.aria-label]="'Variable ' + (i + 1) + ' name'" />
                                     </td>
                                     <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">
-                                        <input
-                                            pInputText
+                                        <app-otto-input
                                             formControlName="value"
-                                            class="w-full font-mono !text-sm"
-                                            pSize="small"
-                                            autocomplete="off"
-                                            spellcheck="false"
+                                            class="w-full !text-sm"
+                                            size="small"
                                             [type]="row.controls.secret.value ? 'password' : 'text'"
-                                            [attr.aria-label]="'Variable ' + (i + 1) + ' value'"
+                                            [ariaLabel]="'Variable ' + (i + 1) + ' value'"
                                         />
                                     </td>
                                     <td class="border-b border-surface-100 py-1 dark:border-surface-800">
@@ -148,7 +150,7 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
 export class EnvironmentsPage {
     /** `null` = ambientes globais do workspace. */
     readonly collectionId = input<EntityId | null>(null);
-    protected readonly example = '{{baseUrl}}';
+    protected readonly example = '{{$.baseUrl}}';
     protected readonly selectedId = signal<EntityId | null>(null);
     protected readonly saving = signal(false);
     protected readonly error = signal<string | null>(null);
@@ -164,8 +166,18 @@ export class EnvironmentsPage {
         variables: this.fb.array<VariableForm>([])
     });
     private loadedId: EntityId | null = null;
+    /** Variáveis do formulário (para os chips reconhecerem as que ainda não foram salvas). */
+    private readonly editing = toSignal(this.form.valueChanges.pipe(map(() => this.variables.getRawValue())), { initialValue: [] });
 
     constructor() {
+        const scope = inject(TemplateScope);
+
+        scope.connect(this.collectionId);
+        scope.connectLocal(() => {
+            const environment = this.selected();
+
+            return environment ? { scope: 'env', label: environment.name, items: this.editing() } : null;
+        });
         effect(() => {
             const collectionId = this.collectionId();
 

@@ -1,95 +1,125 @@
-import type { KeyValue } from '../models';
-import type { RequestAuth, RequestBody, RequestDefinition } from '../models';
-
-/** `{{nome}}`, com espaços opcionais (`{{ nome }}`). */
-export const VARIABLE_PATTERN = /\{\{\s*([^{}]+?)\s*\}\}/g;
-
-/** Variáveis aninhadas (`{{url}}` = `{{host}}/v1`) são resolvidas até esta profundidade. */
-const MAX_DEPTH = 5;
+import type { KeyValue, RequestAuth, RequestBody, RequestDefinition } from '../models';
+import { variableRefs } from '../templating/analyze';
+import { createTemplateEngine, type TemplateEngine, type TemplateEngineOptions } from '../templating/engine';
+import { requestSnapshot, type MessageSnapshot, type ReadGuard } from '../templating/message';
+import { tryParse } from '../templating/parse';
+import { tokenize } from '../templating/tokenize';
 
 export interface InterpolationResult {
     definition: RequestDefinition;
-    /** Nomes usados na requisição que não existem nas variáveis (sem repetição). */
+    /** Variáveis usadas na requisição que não existem em nenhum escopo (sem repetição). */
     unresolved: string[];
+    /** Demais problemas (sintaxe, comandos, requisições referenciadas…). */
+    errors: string[];
 }
 
-/** Variáveis habilitadas de um ambiente, com as referências entre elas já resolvidas. */
-export function variablesFrom(items: readonly KeyValue[]): Map<string, string> {
-    const raw = new Map(items.filter((item) => item.enabled && item.key.trim()).map((item) => [item.key.trim(), item.value]));
-    const resolved = new Map<string, string>();
+type Render = (value: string, guard?: ReadGuard) => Promise<string>;
 
-    for (const [key, value] of raw) {
-        let current = value;
+/** Percorre os campos interpoláveis (URL → params → headers → auth → corpo), na ordem. Itens desabilitados ficam como estão. */
+async function mapFields(definition: RequestDefinition, render: Render): Promise<RequestDefinition> {
+    const pairs = async <T extends KeyValue>(items: T[], header = false): Promise<T[]> => {
+        const out: T[] = [];
 
-        for (let depth = 0; depth < MAX_DEPTH && VARIABLE_PATTERN.test(current); depth++) {
-            VARIABLE_PATTERN.lastIndex = 0;
-            current = current.replace(VARIABLE_PATTERN, (match, name: string) => (name === key ? match : (raw.get(name) ?? match)));
+        for (const item of items) {
+            out.push(item.enabled ? { ...item, key: await render(item.key), value: await render(item.value, header ? { header: item.key.trim() } : {}) } : item);
         }
 
-        VARIABLE_PATTERN.lastIndex = 0;
-        resolved.set(key, current);
-    }
+        return out;
+    };
 
-    return resolved;
-}
+    const url = await render(definition.url);
+    const params = await pairs(definition.params);
+    const headers = await pairs(definition.headers, true);
 
-/**
- * Substitui `{{variáveis}}` em URL, params, headers, autenticação e corpo
- * (inclusive caminhos de arquivo). Itens desabilitados ficam como estão.
- */
-export function interpolateRequest(definition: RequestDefinition, variables: ReadonlyMap<string, string>): InterpolationResult {
-    const unresolved = new Set<string>();
-    const text = (value: string): string =>
-        value.replace(VARIABLE_PATTERN, (match, name: string) => {
-            const replacement = variables.get(name);
-
-            if (replacement === undefined) {
-                unresolved.add(name);
-
-                return match;
-            }
-
-            return replacement;
-        });
-    const pairs = <T extends KeyValue>(items: T[]): T[] => items.map((item) => (item.enabled ? { ...item, key: text(item.key), value: text(item.value) } : item));
-
-    const auth = ((): RequestAuth => {
+    const auth = await (async (): Promise<RequestAuth> => {
         const current = definition.auth;
 
         switch (current.type) {
             case 'bearer':
-                return { ...current, token: text(current.token), ...(current.prefix && { prefix: text(current.prefix) }) };
+                return { ...current, token: await render(current.token, { header: 'Authorization' }), ...(current.prefix && { prefix: await render(current.prefix) }) };
             case 'basic':
             case 'wsse':
-                return { ...current, username: text(current.username), password: text(current.password) };
+                return { ...current, username: await render(current.username), password: await render(current.password) };
             case 'apikey':
-                return { ...current, key: text(current.key), value: text(current.value) };
+                return { ...current, key: await render(current.key), value: await render(current.value, current.in === 'header' ? { header: current.key } : {}) };
             default:
                 return current;
         }
     })();
 
-    const body = ((): RequestBody => {
+    const body = await (async (): Promise<RequestBody> => {
         const current = definition.body;
 
         switch (current.type) {
             case 'json':
             case 'text':
             case 'xml':
-                return { ...current, content: text(current.content) };
+                return { ...current, content: await render(current.content, { body: true }) };
             case 'form-urlencoded':
-                return { ...current, fields: pairs(current.fields) };
+                return { ...current, fields: await pairs(current.fields) };
             case 'multipart-form':
-                return { ...current, fields: pairs(current.fields) };
+                return { ...current, fields: await pairs(current.fields) };
             case 'binary':
-                return { ...current, file: text(current.file) };
+                return { ...current, file: await render(current.file) };
             default:
                 return current;
         }
     })();
 
-    return {
-        definition: { ...definition, url: text(definition.url), params: pairs(definition.params), headers: pairs(definition.headers), auth, body },
-        unresolved: [...unresolved]
-    };
+    return { ...definition, url, params, headers, auth, body };
+}
+
+/**
+ * Interpola URL, params, headers, autenticação e corpo (inclusive caminhos de arquivo)
+ * com o motor de templates. `otto.request` lê a requisição já interpolada (sem as
+ * leituras de `otto.request`, que não se encadeiam).
+ */
+export async function interpolateRequest(definition: RequestDefinition, options: Omit<TemplateEngineOptions, 'currentRequest'>): Promise<InterpolationResult> {
+    let snapshot: Promise<MessageSnapshot> | null = null;
+    const currentRequest = (): Promise<MessageSnapshot> =>
+        (snapshot ??= (async () => {
+            const plain = createTemplateEngine(options);
+
+            return requestSnapshot(await mapFields(definition, async (value) => (await plain.render(value)).text));
+        })());
+
+    const engine: TemplateEngine = createTemplateEngine({ ...options, currentRequest });
+    const unresolved = new Set<string>();
+    const errors = new Set<string>();
+    const resolved = await mapFields(definition, async (value, guard) => {
+        const result = await engine.render(value, guard);
+
+        result.unresolved.forEach((name) => unresolved.add(name));
+        result.errors.forEach((error) => errors.add(error));
+
+        return result.text;
+    });
+
+    return { definition: resolved, unresolved: [...unresolved], errors: [...errors] };
+}
+
+/** Textos interpoláveis da requisição (itens habilitados). */
+function fieldTexts({ url, params, headers, auth, body }: RequestDefinition): string[] {
+    const pairs = (items: KeyValue[]): string[] => items.filter((item) => item.enabled).flatMap((item) => [item.key, item.value]);
+    const { type: _auth, ...authFields } = auth;
+    const bodyTexts = body.type === 'form-urlencoded' || body.type === 'multipart-form' ? pairs(body.fields) : body.type === 'none' ? [] : [body.type === 'binary' ? body.file : body.content];
+
+    void _auth;
+
+    return [url, ...pairs(params), ...pairs(headers), ...Object.values(authFields).map(String), ...bodyTexts];
+}
+
+/** Nomes de variáveis usados na requisição (sem avaliar nada). */
+export function templateVariables(definition: RequestDefinition): string[] {
+    const names = new Set<string>();
+
+    for (const text of fieldTexts(definition)) {
+        for (const segment of tokenize(text)) {
+            const parsed = segment.type === 'tag' ? tryParse(segment.inner) : null;
+
+            parsed?.expr && variableRefs(parsed.expr).forEach((name) => names.add(name));
+        }
+    }
+
+    return [...names];
 }

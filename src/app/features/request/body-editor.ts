@@ -78,6 +78,7 @@ const isTextType = (type: BodyType): type is TextBodyType => type === 'json' || 
                             [placeholder]="placeholder()"
                             [invalid]="!!problem()"
                             [describedBy]="problem() ? 'body-content-error' : null"
+                            [readonly]="false"
                         />
                         @if (problem(); as message) {
                             <small id="body-content-error" class="text-red-700 dark:text-red-400" aria-live="polite">{{ message }}</small>

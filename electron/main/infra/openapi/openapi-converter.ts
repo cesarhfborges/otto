@@ -1,4 +1,4 @@
-import { interpolateRequest } from '../../../shared/http/interpolate';
+import { templateVariables } from '../../../shared/http/interpolate';
 import { type EnvironmentVariable, HTTP_METHODS, type HttpMethod, type KeyValue, type MultipartField, type OpenApiGrouping, type OpenApiSpecInfo, type RequestAuth, type RequestBody, type RequestDefinition } from '../../../shared/models';
 import { parseYaml } from '../yaml';
 
@@ -41,8 +41,8 @@ const folderName = (value: string): string =>
         .slice(0, 80);
 
 // noinspection RegExpRedundantEscape
-/** `{id}` (OpenAPI) → `{{id}}` (variável do Otto). */
-const toOttoPath = (path: string): string => path.replace(/\{([^}]+)\}/g, '{{$1}}');
+/** `{id}` (OpenAPI) → `{{$.id}}` (variável do Otto). */
+const toOttoPath = (path: string): string => path.replace(/\{([^}]+)\}/g, '{{$.$1}}');
 
 /** Resolve `$ref` locais (`#/components/schemas/X`), com proteção contra ciclos. */
 class RefResolver {
@@ -218,17 +218,17 @@ function authFrom(security: unknown, schemes: Json, refs: RefResolver): RequestA
     const httpScheme = str(scheme['scheme']).toLowerCase();
 
     if (type === 'basic' || (type === 'http' && httpScheme === 'basic')) {
-        return { type: 'basic', username: '{{username}}', password: '{{password}}' };
+        return { type: 'basic', username: '{{$.username}}', password: '{{$.password}}' };
     }
 
     if ((type === 'http' && httpScheme === 'bearer') || type === 'oauth2' || type === 'openidconnect') {
-        return { type: 'bearer', token: '{{token}}' };
+        return { type: 'bearer', token: '{{$.token}}' };
     }
 
     if (type === 'apikey') {
         const where = str(scheme['in']);
 
-        return { type: 'apikey', key: str(scheme['name']) || 'X-API-Key', value: '{{apiKey}}', in: where === 'query' ? 'query' : 'header' };
+        return { type: 'apikey', key: str(scheme['name']) || 'X-API-Key', value: '{{$.apiKey}}', in: where === 'query' ? 'query' : 'header' };
     }
 
     return { type: 'none' };
@@ -389,7 +389,7 @@ export function convertSpec(spec: Json, groupBy: OpenApiGrouping): ConvertedSpec
                 request: {
                     name: (str(operation['summary']) || operationId || key).slice(0, 200),
                     method,
-                    url: `{{baseUrl}}${toOttoPath(path)}`,
+                    url: `{{$.baseUrl}}${toOttoPath(path)}`,
                     seq,
                     params: pairsIn('query'),
                     headers,
@@ -402,8 +402,8 @@ export function convertSpec(spec: Json, groupBy: OpenApiGrouping): ConvertedSpec
         }
     }
 
-    // Tudo que as requisições referenciam e ninguém define: auth (`{{token}}`…), caminho (`{{id}}`)…
-    const names = new Set(operations.flatMap((operation) => interpolateRequest(operation.request, new Map()).unresolved));
+    // Tudo que as requisições referenciam e ninguém define: auth (`{{$.token}}`…), caminho (`{{$.id}}`)…
+    const names = new Set(operations.flatMap((operation) => templateVariables(operation.request)));
 
     names.delete('baseUrl');
 

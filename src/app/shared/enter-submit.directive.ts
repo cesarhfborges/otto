@@ -15,7 +15,10 @@ export class EnterSubmit {
     protected onEnter(event: Event): void {
         const target = event.target;
 
-        if (target instanceof HTMLInputElement && !target.readOnly) {
+        // `app-otto-input` (CodeMirror) é um contenteditable: o Enter dele também envia.
+        const templateInput = target instanceof HTMLElement && target.closest('.otto-template-field:not(.otto-multiline)') && target.getAttribute('aria-readonly') !== 'true';
+
+        if ((target instanceof HTMLInputElement && !target.readOnly) || templateInput) {
             event.preventDefault();
             this.form.requestSubmit();
         }

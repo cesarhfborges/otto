@@ -4,7 +4,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import type { AuthType, RequestAuth } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 
 type AuthOption = { label: string; value: AuthType };
@@ -18,13 +17,14 @@ const OPTIONS: AuthOption[] = [
 ];
 
 /** Autenticação da requisição. Os valores aceitam `{{variáveis}}`. */
+import { OttoInput } from '../../shared/template-editor';
 @Component({
     selector: 'app-auth-editor',
-    imports: [NgTemplateOutlet, ReactiveFormsModule, SelectModule, InputTextModule, ButtonModule],
+    imports: [NgTemplateOutlet, ReactiveFormsModule, SelectModule, ButtonModule, OttoInput],
     template: `
         <div class="flex max-w-xl flex-col gap-4">
             <div class="flex flex-col gap-2">
-                <label for="auth-type" class="text-sm font-medium">Type</label>
+                <label for="auth-type" id="auth-type-label" class="text-sm font-medium">Type</label>
                 <p-select inputId="auth-type" [formControl]="typeControl" [options]="options()" optionLabel="label" optionValue="value" size="small" class="w-full sm:w-64" appendTo="body" />
             </div>
 
@@ -45,27 +45,27 @@ const OPTIONS: AuthOption[] = [
                 }
                 @case ('bearer') {
                     <div class="flex flex-col gap-2">
-                        <label for="auth-prefix" class="text-sm font-medium">Prefix</label>
-                        <input pInputText id="auth-prefix" class="font-mono !text-sm" [value]="field('prefix')" autocomplete="off" spellcheck="false" placeholder="Bearer" aria-describedby="auth-prefix-help" (input)="patch({ prefix: $any($event.target).value })" />
+                        <label for="auth-prefix" id="auth-prefix-label" class="text-sm font-medium">Prefix</label>
+                        <app-otto-input inputId="auth-prefix" ariaLabelledBy="auth-prefix-label" class="font-mono !text-sm" [value]="field('prefix')" placeholder="Bearer" ariaDescribedBy="auth-prefix-help" (valueChange)="patch({ prefix: $event })" />
                         <small id="auth-prefix-help" class="text-muted-color">Optional. Leave blank to use <code>Bearer</code>.</small>
                     </div>
                     <div class="flex flex-col gap-2">
-                        <label for="auth-token" class="text-sm font-medium">Token</label>
-                        <input pInputText id="auth-token" class="font-mono !text-sm" [value]="field('token')" autocomplete="off" spellcheck="false" placeholder="{{ tokenPlaceholder }}" (input)="patch({ token: $any($event.target).value })" />
+                        <label for="auth-token" id="auth-token-label" class="text-sm font-medium">Token</label>
+                        <app-otto-input inputId="auth-token" ariaLabelledBy="auth-token-label" class="font-mono !text-sm" [value]="field('token')" [placeholder]="tokenPlaceholder" (valueChange)="patch({ token: $event })" />
                         <small class="text-muted-color">Sent as <code>Authorization: {{ bearerPrefix() }} &lt;token&gt;</code>.</small>
                     </div>
                 }
                 @case ('apikey') {
                     <div class="flex flex-col gap-2">
-                        <label for="auth-key" class="text-sm font-medium">Key</label>
-                        <input pInputText id="auth-key" class="font-mono !text-sm" [value]="field('key')" autocomplete="off" spellcheck="false" placeholder="X-API-Key" (input)="patch({ key: $any($event.target).value })" />
+                        <label for="auth-key" id="auth-key-label" class="text-sm font-medium">Key</label>
+                        <app-otto-input inputId="auth-key" ariaLabelledBy="auth-key-label" class="font-mono !text-sm" [value]="field('key')" placeholder="X-API-Key" (valueChange)="patch({ key: $event })" />
                     </div>
                     <div class="flex flex-col gap-2">
-                        <label for="auth-value" class="text-sm font-medium">Value</label>
-                        <input pInputText id="auth-value" class="font-mono !text-sm" [value]="field('value')" autocomplete="off" spellcheck="false" (input)="patch({ value: $any($event.target).value })" />
+                        <label for="auth-value" id="auth-value-label" class="text-sm font-medium">Value</label>
+                        <app-otto-input inputId="auth-value" ariaLabelledBy="auth-value-label" class="font-mono !text-sm" [value]="field('value')" (valueChange)="patch({ value: $event })" />
                     </div>
                     <div class="flex flex-col gap-2">
-                        <label for="auth-in" class="text-sm font-medium">Add to</label>
+                        <label for="auth-in" id="auth-in-label" class="text-sm font-medium">Add to</label>
                         <select id="auth-in" class="otto-native-select w-full sm:w-64" [value]="field('in') || 'header'" (change)="patch({ in: $any($event.target).value })">
                             <option value="header">Header</option>
                             <option value="query">Query params</option>
@@ -77,13 +77,13 @@ const OPTIONS: AuthOption[] = [
 
         <ng-template #credentials>
             <div class="flex flex-col gap-2">
-                <label for="auth-username" class="text-sm font-medium">Username</label>
-                <input pInputText id="auth-username" class="!text-sm" [value]="field('username')" autocomplete="off" spellcheck="false" (input)="patch({ username: $any($event.target).value })" />
+                <label for="auth-username" id="auth-username-label" class="text-sm font-medium">Username</label>
+                <app-otto-input inputId="auth-username" ariaLabelledBy="auth-username-label" class="!text-sm" [monospace]="false" [value]="field('username')" (valueChange)="patch({ username: $event })" />
             </div>
             <div class="flex flex-col gap-2">
-                <label for="auth-password" class="text-sm font-medium">Password</label>
+                <label for="auth-password" id="auth-password-label" class="text-sm font-medium">Password</label>
                 <div class="flex gap-2">
-                    <input pInputText id="auth-password" class="min-w-0 flex-1 !text-sm" [type]="showPassword() ? 'text' : 'password'" [value]="field('password')" autocomplete="off" (input)="patch({ password: $any($event.target).value })" />
+                    <app-otto-input inputId="auth-password" ariaLabelledBy="auth-password-label" class="min-w-0 flex-1 !text-sm" [type]="showPassword() ? 'text' : 'password'" [value]="field('password')" (valueChange)="patch({ password: $event })" />
                     <p-button [icon]="showPassword() ? 'pi pi-eye-slash' : 'pi pi-eye'" severity="secondary" [text]="true" size="small" [ariaLabel]="showPassword() ? 'Hide password' : 'Show password'" (onClick)="showPassword.set(!showPassword())" />
                 </div>
             </div>
@@ -94,7 +94,7 @@ const OPTIONS: AuthOption[] = [
 export class AuthEditor {
     readonly auth = model.required<RequestAuth>();
 
-    protected readonly tokenPlaceholder = '{{token}}';
+    protected readonly tokenPlaceholder = '{{$.token}}';
     protected readonly showPassword = signal(false);
     protected readonly typeControl = new FormControl<AuthType>('none', { nonNullable: true });
     /** "Inherit" só aparece para arquivos que já o usam (a auth da coleção ainda não existe). */

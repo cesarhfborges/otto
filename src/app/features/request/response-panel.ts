@@ -12,6 +12,8 @@ import { formatBytes, formatDuration } from '../../shared/format';
 import { highlightLanguageFor, type HighlightLanguage } from '../../shared/highlight';
 import { errorHelp } from './error-hints';
 import { ResponseConsole } from './response-console';
+import { CodeEditor } from '@/app/shared/code-editor';
+import { JsonPipe } from '@angular/common';
 
 /** Acima disso o corpo é exibido parcialmente (o visualizador completo chega na Etapa 7). */
 const MAX_DISPLAYED_CHARS = 1_000_000;
@@ -46,7 +48,7 @@ function prettyBody(response: HttpResponse): PrettyBody {
 /** Painel de resposta: estado de envio, erro (com sugestões) ou status/tempo/tamanho + corpo, headers, tempos e console. */
 @Component({
     selector: 'app-response-panel',
-    imports: [ButtonModule, Highlight, HighlightCodeFold, HighlightLineNumbers, MessageModule, ProgressSpinnerModule, ResponseConsole, TabsModule],
+    imports: [ButtonModule, MessageModule, ProgressSpinnerModule, ResponseConsole, TabsModule, CodeEditor, JsonPipe],
     template: `
         @switch (entry().status) {
             @case ('sending') {
@@ -120,16 +122,19 @@ function prettyBody(response: HttpResponse): PrettyBody {
                                         @if (partial()) {
                                             <p class="m-0 mb-2 text-xs text-muted-color">Showing the first 1,000,000 characters.</p>
                                         }
-                                        <pre
-                                            class="m-0 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all otto-code-view rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-900"
-                                            tabindex="0"
-                                            aria-label="Response body"
-                                        >@switch (body().language) {
-                                            @case ('json') {<code [highlight]="body().code" language="json" ignoreIllegals lineNumbers codeFold="json"></code>}
-                                            @case ('xml') {<code [highlight]="body().code" language="xml" ignoreIllegals lineNumbers codeFold="xml"></code>}
-                                            @case ('plaintext') {<code [highlight]="body().code" language="plaintext" lineNumbers></code>}
-                                            @default {<code>{{ body().code }}</code>}
-                                        }</pre>
+
+                                        <app-code-editor class="flex-1" inputId="body-content" [value]="body().code" [language]="body().language" readonly />
+
+                                        <!--                                        <pre-->
+                                        <!--                                            class="m-0 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all otto-code-view rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-900"-->
+                                        <!--                                            tabindex="0"-->
+                                        <!--                                            aria-label="Response body"-->
+                                        <!--                                        >@switch (body().language) {-->
+                                        <!--                                            @case ('json') {<code [highlight]="body().code" language="json" ignoreIllegals lineNumbers codeFold="json"></code>}-->
+                                        <!--                                            @case ('xml') {<code [highlight]="body().code" language="xml" ignoreIllegals lineNumbers codeFold="xml"></code>}-->
+                                        <!--                                            @case ('plaintext') {<code [highlight]="body().code" language="plaintext" lineNumbers></code>}-->
+                                        <!--                                            @default {<code>{{ body().code }}</code>}-->
+                                        <!--                                        }</pre>-->
                                     }
                                 </p-tabpanel>
                                 <p-tabpanel value="headers">
