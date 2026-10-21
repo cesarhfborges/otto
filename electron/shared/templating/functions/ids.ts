@@ -33,7 +33,7 @@ function ulid(): string {
 }
 
 export const ID_FUNCTIONS: CatalogNode[] = [
-    fn('uuid', 'string', 'Random UUID (v4, or v7 ordered by time)', [opt('version', { values: ['v4', 'v7'] })], (version?: string) => (version === 'v7' ? uuidV7() : crypto.randomUUID()), { example: "{{ otto.uuid() }}" }),
+    fn('uuid', 'string', 'Random UUID (v4, or v7 ordered by time)', [opt('version', { values: ['v4', 'v7'] })], (version?: string) => (version === 'v7' ? uuidV7() : crypto.randomUUID()), { example: '{{ otto.uuid() }}' }),
     fn('nanoid', 'string', 'Short URL-safe random id', [opt('size')], (size?: number) => Array.from(randomBytes(Number(size) || 21), (byte) => NANOID[byte & 63]).join('')),
     fn('ulid', 'string', 'Lexicographically sortable id', [], ulid)
 ];

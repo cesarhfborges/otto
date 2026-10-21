@@ -46,7 +46,15 @@ export function describe(expr: Expr, requestName: (ref: string) => string | null
     }
 
     if (names[0] === 'request') {
-        return ['Request', names.slice(1).filter((name) => name !== 'body').join(' ') + (lastCall ? lastArg : '')].filter(Boolean).join(' › ');
+        return [
+            'Request',
+            names
+                .slice(1)
+                .filter((name) => name !== 'body')
+                .join(' ') + (lastCall ? lastArg : '')
+        ]
+            .filter(Boolean)
+            .join(' › ');
     }
 
     if (names.length === 1 && lastCall?.args.length && lastCall.args[0]?.kind === 'literal' && ['hash', 'hmac'].includes(lastName)) {

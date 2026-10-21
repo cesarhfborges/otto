@@ -1,4 +1,5 @@
 import type { EntityId } from './common';
+import type { SendTimeAuth } from './request';
 
 export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD', 'TRACE', 'CONNECT'] as const;
 
@@ -37,8 +38,8 @@ export interface HttpRequest {
     /** Caminho absoluto de um arquivo enviado como corpo (File/Binary). */
     bodyFile?: string;
     multipart?: HttpMultipartPart[];
-    /** Credenciais WSSE: o main gera `X-WSSE` (nonce, data e digest) no momento do envio. */
-    wsse?: { username: string; password: string };
+    /** Autenticação aplicada pelo main no momento do envio (WSSE, Digest, OAuth, AWS…). */
+    auth?: SendTimeAuth;
     timeoutMs?: number;
     source?: HttpRequestSource;
 }

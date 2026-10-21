@@ -76,7 +76,7 @@ export function buildHttpRequest(definition: RequestDefinition, options: BuildRe
     let body: string | undefined;
     let bodyFile: string | undefined;
     let multipart: HttpMultipartPart[] | undefined;
-    let wsse: HttpRequest['wsse'];
+    let sendTimeAuth: HttpRequest['auth'];
 
     for (const { key, value } of enabled(definition.headers)) {
         headers.set(key.trim(), value);
@@ -100,11 +100,13 @@ export function buildHttpRequest(definition: RequestDefinition, options: BuildRe
                 }
             }
             break;
-        case 'wsse':
-            // O digest depende de nonce e horário: é gerado pelo main no envio.
-            wsse = { username: auth.username, password: auth.password };
+        case 'none':
+        case 'inherit':
+            // `inherit` depende da autenticação da coleção (Etapa 8); `none` não envia nada.
             break;
-        // `inherit` depende da autenticação da coleção (Etapa 8); `none` não envia nada.
+        default:
+            // Dependem de nonce, horário, corpo final, desafio do servidor ou token: o main aplica no envio.
+            sendTimeAuth = auth;
     }
 
     const definitionBody = hasBody(definition.method) ? definition.body : ({ type: 'none' } as const);
@@ -137,7 +139,7 @@ export function buildHttpRequest(definition: RequestDefinition, options: BuildRe
         ...(body !== undefined && { body }),
         ...(bodyFile && { bodyFile }),
         ...(multipart && { multipart }),
-        ...(wsse && { wsse }),
+        ...(sendTimeAuth && { auth: sendTimeAuth }),
         ...(options.source && { source: options.source })
     };
 }

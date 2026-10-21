@@ -70,6 +70,25 @@ function requestBody(body: RequestBody): Json | null {
     }
 }
 
+/** Fluxo OAuth 2.0 no formato do OpenAPI 3.0 (escopos sem descrição). */
+function oauth2Scheme(auth: Extract<RequestAuth, { type: 'oauth2' }>): Json {
+    const scopes = Object.fromEntries(
+        auth.scope
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((scope) => [scope, ''])
+    );
+    const flows: Record<typeof auth.grantType, [string, Json]> = {
+        authorization_code: ['authorizationCode', { authorizationUrl: auth.authUrl, tokenUrl: auth.accessTokenUrl, scopes }],
+        implicit: ['implicit', { authorizationUrl: auth.authUrl, scopes }],
+        client_credentials: ['clientCredentials', { tokenUrl: auth.accessTokenUrl, scopes }],
+        password: ['password', { tokenUrl: auth.accessTokenUrl, scopes }]
+    };
+    const [flow, definition] = flows[auth.grantType];
+
+    return { type: 'oauth2', flows: { [flow]: definition } };
+}
+
 /** Nome e definição do security scheme da autenticação da requisição. */
 function securityScheme(auth: RequestAuth): [string, Json] | null {
     switch (auth.type) {
@@ -81,6 +100,10 @@ function securityScheme(auth: RequestAuth): [string, Json] | null {
             return [`apiKey_${auth.in}_${auth.key}`, { type: 'apiKey', name: auth.key, in: auth.in }];
         case 'wsse':
             return ['wsse', { type: 'apiKey', name: 'X-WSSE', in: 'header', description: 'WS-Security UsernameToken' }];
+        case 'digest':
+            return ['digestAuth', { type: 'http', scheme: 'digest' }];
+        case 'oauth2':
+            return ['oauth2', oauth2Scheme(auth)];
         default:
             return null;
     }

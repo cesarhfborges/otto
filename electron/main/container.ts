@@ -36,6 +36,7 @@ import { TabsIpcModule } from './ipc/tabs.ipc';
 import { WindowIpcModule } from './ipc/window.ipc';
 import { WorkspacesIpcModule } from './ipc/workspaces.ipc';
 import { OpenApiIpcModule } from './ipc/openapi.ipc';
+import { createOAuth2Authorizer } from './ui/oauth2-window';
 import { OpenApiService } from './services/openapi/openapi.service';
 import { CollectionService } from './services/collections/collection.service';
 import { FetchHttpExecutor } from './services/http/fetch-http-executor';
@@ -136,7 +137,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
     );
     const importers = new ImporterRegistry();
     const window = new WindowManager(settings, settingsStore);
-    const httpBase = new FetchHttpExecutor({ settings: () => settings.get().http, userAgent: `Otto/${app.getVersion()}` });
+    const httpBase = new FetchHttpExecutor({ settings: () => settings.get().http, userAgent: `Otto/${app.getVersion()}`, oauth2Authorizer: createOAuth2Authorizer(() => window.current) });
     const http = new HistoryRecordingExecutor(httpBase, history, {
         maxEntries: () => settings.get().history.maxEntries,
         onRecorded: () => window.notify('history:changed', null),

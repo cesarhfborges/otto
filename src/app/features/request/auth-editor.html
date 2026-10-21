@@ -1,0 +1,180 @@
+<div class="flex max-w-xl flex-col gap-4">
+    <div class="flex flex-col gap-2">
+        <label for="auth-type" id="auth-type-label" class="text-sm font-medium">Type</label>
+        <p-select inputId="auth-type" [formControl]="typeControl" [options]="options()" optionLabel="label" optionValue="value" size="small" class="w-full sm:w-64" appendTo="body" scrollHeight="300px" />
+    </div>
+
+    @switch (auth().type) { @case ('none') {
+    <p class="m-0 text-sm text-muted-color">No authentication is sent.</p>
+    } @case ('inherit') {
+    <p class="m-0 text-sm text-muted-color">Uses the collection authentication (not configurable yet). Choose another type to set it here.</p>
+    } @case ('basic') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'username', label: 'Username', mono: false }" />
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'password', label: 'Password' }" />
+    <small class="text-muted-color">Sent as <code>Authorization: Basic base64(username:password)</code>.</small>
+    } @case ('wsse') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'username', label: 'Username', mono: false }" />
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'password', label: 'Password' }" />
+    <small class="text-muted-color">WS-Security UsernameToken: a new nonce, timestamp and SHA-1 password digest are generated in the <code>X-WSSE</code> header on every send.</small>
+    } @case ('digest') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'username', label: 'Username', mono: false }" />
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'password', label: 'Password' }" />
+    <small class="text-muted-color">When the server answers <code>401</code> with a <code>WWW-Authenticate: Digest</code> challenge, the request is sent again with the computed response (MD5, SHA-256, <code>-sess</code> variants).</small>
+    } @case ('ntlm') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'username', label: 'Username', mono: false, help: 'Also accepts DOMAIN\\user.' }" />
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'password', label: 'Password' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'domain', label: 'Domain', mono: false, help: 'Optional.' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'workstation', label: 'Workstation', mono: false, help: 'Optional.' }" />
+    <small class="text-muted-color">NTLMv2 handshake on a dedicated connection. The proxy from Preferences is not used for this request.</small>
+    } @case ('oauth1') {
+    <ng-container *ngTemplateOutlet="choice; context: { id: 'signatureMethod', label: 'Signature Method', options: signatureMethods }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'consumerKey', label: 'Consumer Key' }" />
+    @if (!rsaSignature()) {
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'consumerSecret', label: 'Consumer Secret' }" />
+    }
+    <ng-container *ngTemplateOutlet="text; context: { id: 'token', label: 'Access Token', help: 'Optional.' }" />
+    @if (!rsaSignature()) {
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'tokenSecret', label: 'Token Secret' }" />
+    } @else {
+    <ng-container *ngTemplateOutlet="multiline; context: { id: 'privateKey', label: 'Private Key', placeholder: '-----BEGIN PRIVATE KEY-----', help: 'PEM key used by the RSA signature methods.' }" />
+    }
+    <ng-container *ngTemplateOutlet="text; context: { id: 'realm', label: 'Realm', mono: false, help: 'Optional.' }" />
+    <ng-container *ngTemplateOutlet="choice; context: { id: 'addTo', label: 'Add to', options: addToOptions }" />
+    <small class="text-muted-color">The nonce, timestamp and signature are generated on every send.</small>
+    } @case ('oauth2') {
+    <ng-container *ngTemplateOutlet="choice; context: { id: 'grantType', label: 'Grant Type', options: grantTypes }" />
+    @if (field('grantType') === 'authorization_code' || field('grantType') === 'implicit') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'authUrl', label: 'Authorization URL', placeholder: 'https://example.com/oauth/authorize' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'callbackUrl', label: 'Callback URL', placeholder: 'http://localhost:8080/callback', help: 'Must match the redirect URI registered with the provider.' }" />
+    } @if (field('grantType') !== 'implicit') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'accessTokenUrl', label: 'Access Token URL', placeholder: 'https://example.com/oauth/token' }" />
+    }
+    <ng-container *ngTemplateOutlet="text; context: { id: 'clientId', label: 'Client ID' }" />
+    @if (field('grantType') !== 'implicit') {
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'clientSecret', label: 'Client Secret' }" />
+    } @if (field('grantType') === 'password') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'username', label: 'Username', mono: false }" />
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'password', label: 'Password' }" />
+    }
+    <ng-container *ngTemplateOutlet="text; context: { id: 'scope', label: 'Scope', help: 'Optional. Separate scopes with spaces.' }" />
+    @if (field('grantType') === 'authorization_code') {
+    <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" class="h-4 w-4 accent-[var(--p-primary-color)]" [checked]="flag('pkce')" (change)="patch({ pkce: $any($event.target).checked })" />
+        Use PKCE (SHA-256)
+    </label>
+    } @if (field('grantType') !== 'implicit') {
+    <ng-container *ngTemplateOutlet="choice; context: { id: 'clientAuth', label: 'Client Authentication', options: clientAuthOptions }" />
+    }
+    <ng-container *ngTemplateOutlet="text; context: { id: 'tokenPrefix', label: 'Token Prefix', placeholder: 'Bearer', help: 'Optional. Leave blank to use Bearer.' }" />
+    <ng-container *ngTemplateOutlet="choice; context: { id: 'addTo', label: 'Add token to', options: addToOptions }" />
+    <small class="text-muted-color">
+        The token is requested on send and kept in memory only (it is not saved to the collection) until it expires; then it is refreshed or requested again. @if (field('grantType') === 'authorization_code' || field('grantType') === 'implicit') { A
+        login window opens when a new token is needed. }
+    </small>
+    } @case ('awsv4') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'accessKeyId', label: 'Access Key ID' }" />
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'secretAccessKey', label: 'Secret Access Key' }" />
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'sessionToken', label: 'Session Token', help: 'Optional. For temporary credentials.' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'region', label: 'Region', placeholder: 'us-east-1' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'service', label: 'Service Name', placeholder: 'execute-api' }" />
+    <small class="text-muted-color">Signed with AWS Signature Version 4 on every send. Multipart bodies are sent with <code>UNSIGNED-PAYLOAD</code>.</small>
+    } @case ('hawk') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'id', label: 'Auth ID' }" />
+    <ng-container *ngTemplateOutlet="secret; context: { id: 'key', label: 'Auth Key' }" />
+    <ng-container *ngTemplateOutlet="choice; context: { id: 'algorithm', label: 'Algorithm', options: hawkAlgorithms }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'ext', label: 'Extra Data (ext)', help: 'Optional.' }" />
+    <small class="text-muted-color">A new timestamp, nonce and MAC are generated in the <code>Authorization: Hawk</code> header on every send.</small>
+    } @case ('asap') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'issuer', label: 'Issuer' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'audience', label: 'Audience', help: 'Separate multiple audiences with commas.' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'keyId', label: 'Key ID' }" />
+    <ng-container *ngTemplateOutlet="multiline; context: { id: 'privateKey', label: 'Private Key', placeholder: '-----BEGIN PRIVATE KEY-----', help: 'PEM or data URI (data:application/pkcs8;kid=…;base64,…).' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'subject', label: 'Subject', help: 'Optional.' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'expiresIn', label: 'Expires in (seconds)', placeholder: '3600' }" />
+    <small class="text-muted-color">A JWT signed with RS256 is generated on every send and sent as <code>Authorization: Bearer &lt;token&gt;</code>.</small>
+    } @case ('netrc') {
+    <p class="m-0 text-sm text-muted-color">
+        Uses the <code>login</code> and <code>password</code> of the <code>machine</code> matching the request host (or <code>default</code>) in <code>~/.netrc</code> (<code>_netrc</code> on Windows, or the file in <code>$NETRC</code>), sent as Basic
+        Auth.
+    </p>
+    } @case ('bearer') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'prefix', label: 'Prefix', placeholder: 'Bearer', help: 'Optional. Leave blank to use Bearer.' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'token', label: 'Token', placeholder: tokenPlaceholder }" />
+    <small class="text-muted-color">Sent as <code>Authorization: {{ bearerPrefix() }} &lt;token&gt;</code>.</small>
+    } @case ('apikey') {
+    <ng-container *ngTemplateOutlet="text; context: { id: 'key', label: 'Key', placeholder: 'X-API-Key' }" />
+    <ng-container *ngTemplateOutlet="text; context: { id: 'value', label: 'Value' }" />
+    <ng-container *ngTemplateOutlet="choice; context: { id: 'in', label: 'Add to', options: addToOptions }" />
+    } }
+</div>
+
+<ng-template #text let-id="id" let-label="label" let-placeholder="placeholder" let-help="help" let-mono="mono">
+    <div class="flex flex-col gap-2">
+        <label [for]="'auth-' + id" [id]="'auth-' + id + '-label'" class="text-sm font-medium">{{ label }}</label>
+        <app-otto-input
+            [inputId]="'auth-' + id"
+            [ariaLabelledBy]="'auth-' + id + '-label'"
+            [ariaDescribedBy]="help ? 'auth-' + id + '-help' : null"
+            class="!text-sm"
+            [class.font-mono]="mono !== false"
+            [monospace]="mono !== false"
+            [value]="field(id)"
+            [placeholder]="placeholder ?? ''"
+            (valueChange)="setField(id, $event)"
+        />
+        @if (help) {
+        <small [id]="'auth-' + id + '-help'" class="text-muted-color">{{ help }}</small>
+        }
+    </div>
+</ng-template>
+
+<ng-template #secret let-id="id" let-label="label" let-help="help">
+    <div class="flex flex-col gap-2">
+        <label [for]="'auth-' + id" [id]="'auth-' + id + '-label'" class="text-sm font-medium">{{ label }}</label>
+        <div class="flex gap-2">
+            <app-otto-input
+                [inputId]="'auth-' + id"
+                [ariaLabelledBy]="'auth-' + id + '-label'"
+                [ariaDescribedBy]="help ? 'auth-' + id + '-help' : null"
+                class="min-w-0 flex-1 !text-sm"
+                [type]="isRevealed(id) ? 'text' : 'password'"
+                [value]="field(id)"
+                (valueChange)="setField(id, $event)"
+            />
+            <p-button [icon]="isRevealed(id) ? 'pi pi-eye-slash' : 'pi pi-eye'" severity="secondary" [text]="true" size="small" [ariaLabel]="(isRevealed(id) ? 'Hide ' : 'Show ') + label" (onClick)="toggleReveal(id)" />
+        </div>
+        @if (help) {
+        <small [id]="'auth-' + id + '-help'" class="text-muted-color">{{ help }}</small>
+        }
+    </div>
+</ng-template>
+
+<ng-template #multiline let-id="id" let-label="label" let-placeholder="placeholder" let-help="help">
+    <div class="flex flex-col gap-2">
+        <label [for]="'auth-' + id" class="text-sm font-medium">{{ label }}</label>
+        <app-otto-textarea
+            [inputId]="'auth-' + id"
+            class="font-mono !text-sm"
+            [rows]="5"
+            [highlight]="false"
+            [value]="field(id)"
+            [placeholder]="placeholder ?? ''"
+            [ariaDescribedBy]="help ? 'auth-' + id + '-help' : null"
+            (valueChange)="setField(id, $event)"
+        />
+        @if (help) {
+        <small [id]="'auth-' + id + '-help'" class="text-muted-color">{{ help }}</small>
+        }
+    </div>
+</ng-template>
+
+<ng-template #choice let-id="id" let-label="label" let-options="options">
+    <div class="flex flex-col gap-2">
+        <label [for]="'auth-' + id" class="text-sm font-medium">{{ label }}</label>
+        <select [id]="'auth-' + id" class="otto-native-select w-full sm:w-64" [value]="field(id)" (change)="setField(id, $any($event.target).value)">
+            @for (option of options; track option.value) {
+            <option [value]="option.value" [selected]="option.value === field(id)">{{ option.label }}</option>
+            }
+        </select>
+    </div>
+</ng-template>

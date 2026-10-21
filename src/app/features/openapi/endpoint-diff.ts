@@ -15,7 +15,24 @@ interface Section {
     right: Row[] | null;
 }
 
-const AUTH_LABELS: Record<RequestAuth['type'], string> = { none: 'No Auth', inherit: 'Inherit', basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key', wsse: 'WSSE' };
+const AUTH_LABELS: Record<RequestAuth['type'], string> = {
+    none: 'No Auth',
+    inherit: 'Inherit',
+    basic: 'Basic Auth',
+    bearer: 'Bearer Token',
+    apikey: 'API Key',
+    wsse: 'WSSE',
+    digest: 'Digest',
+    ntlm: 'NTLM',
+    oauth1: 'OAuth 1.0',
+    oauth2: 'OAuth 2.0',
+    awsv4: 'AWS IAM',
+    hawk: 'Hawk',
+    asap: 'Atlassian ASAP',
+    netrc: 'Netrc'
+};
+/** Campos com segredo aparecem mascarados no diff. */
+const SECRET_AUTH_FIELDS = /password|secret|privatekey|^key$/i;
 const BODY_LABELS: Record<RequestBody['type'], string> = { none: 'No Body', json: 'JSON', text: 'Text', xml: 'XML', 'form-urlencoded': 'Form URL Encoded', 'multipart-form': 'Multipart Form', binary: 'File / Binary' };
 
 const pairs = (items: KeyValue[]): Array<[string, string]> => items.map((item) => [item.key, item.enabled ? item.value : `${item.value} (disabled)`]);
@@ -36,6 +53,12 @@ function fields(request: RequestDefinition): Record<string, Array<[string, strin
         case 'apikey':
             authFields.push(['Key', auth.key], ['Value', auth.value], ['Add to', auth.in]);
             break;
+        default:
+            for (const [name, value] of Object.entries(auth)) {
+                if (name !== 'type') {
+                    authFields.push([name, SECRET_AUTH_FIELDS.test(name) ? (value ? '••••' : '') : String(value)]);
+                }
+            }
     }
 
     const bodyFields: Array<[string, string]> = [['Type', BODY_LABELS[body.type]]];

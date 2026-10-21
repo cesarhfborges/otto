@@ -68,28 +68,31 @@ export function applySetCookies(jar: readonly CollectionCookie[], url: string, h
         return [...jar];
     }
 
-    return headers.reduce<CollectionCookie[]>((acc, header) => {
-        const info = parseSetCookie(header);
+    return headers.reduce<CollectionCookie[]>(
+        (acc, header) => {
+            const info = parseSetCookie(header);
 
-        if (!info) {
-            return acc;
-        }
+            if (!info) {
+                return acc;
+            }
 
-        const maxAge = info.maxAge !== undefined && !Number.isNaN(info.maxAge) ? new Date(now + info.maxAge * 1000).toISOString() : null;
-        const expires = maxAge ?? (info.expires && !Number.isNaN(Date.parse(info.expires)) ? info.expires : null);
-        const defaultPath = parsed.pathname.slice(0, parsed.pathname.lastIndexOf('/')) || '/';
+            const maxAge = info.maxAge !== undefined && !Number.isNaN(info.maxAge) ? new Date(now + info.maxAge * 1000).toISOString() : null;
+            const expires = maxAge ?? (info.expires && !Number.isNaN(Date.parse(info.expires)) ? info.expires : null);
+            const defaultPath = parsed.pathname.slice(0, parsed.pathname.lastIndexOf('/')) || '/';
 
-        return upsertCookie(acc, {
-            name: info.name,
-            value: info.value,
-            domain: info.domain ? normalizeDomain(info.domain) : parsed.hostname,
-            path: info.path?.startsWith('/') ? info.path : defaultPath,
-            expires,
-            secure: info.secure,
-            httpOnly: info.httpOnly,
-            hostOnly: !info.domain
-        });
-    }, [...jar]);
+            return upsertCookie(acc, {
+                name: info.name,
+                value: info.value,
+                domain: info.domain ? normalizeDomain(info.domain) : parsed.hostname,
+                path: info.path?.startsWith('/') ? info.path : defaultPath,
+                expires,
+                secure: info.secure,
+                httpOnly: info.httpOnly,
+                hostOnly: !info.domain
+            });
+        },
+        [...jar]
+    );
 }
 
 /** Cookie → linha `Set-Cookie` (aba Raw). */

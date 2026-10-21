@@ -1,6 +1,7 @@
 import * as path from 'node:path';
-import { HTTP_METHODS, type HttpMultipartPart, type HttpRequest, type HttpRequestSource } from '../../../shared/models';
+import { HTTP_METHODS, SEND_TIME_AUTH_TYPES, type HttpMultipartPart, type HttpRequest, type HttpRequestSource, type SendTimeAuth } from '../../../shared/models';
 import { isRecord, parseEntityId, requireArray, requireBoolean, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
+import { parseRequestAuth } from './request';
 
 /** Arquivos enviados no corpo precisam de caminho absoluto (escolhidos pelo usuário no seletor). */
 function parseFilePath(raw: unknown, field: string): string {
@@ -26,10 +27,14 @@ function parseMultipart(raw: unknown): HttpMultipartPart[] {
     });
 }
 
-function parseWsse(raw: unknown): HttpRequest['wsse'] {
-    const wsse = requireRecord(raw, 'request.wsse');
+function parseSendTimeAuth(raw: unknown): SendTimeAuth {
+    const auth = parseRequestAuth(raw);
 
-    return { username: requireString(wsse['username'], 'request.wsse.username', { allowEmpty: true, maxLength: 1_000 }), password: requireString(wsse['password'], 'request.wsse.password', { allowEmpty: true, maxLength: 10_000 }) };
+    if (!(SEND_TIME_AUTH_TYPES as readonly string[]).includes(auth.type)) {
+        throw new ValidationError('request.auth.type', `must be one of ${SEND_TIME_AUTH_TYPES.join(', ')}`);
+    }
+
+    return auth as SendTimeAuth;
 }
 
 function parseSource(raw: unknown): HttpRequestSource | undefined {
@@ -46,7 +51,7 @@ function parseSource(raw: unknown): HttpRequestSource | undefined {
 }
 
 export function parseHttpRequest(raw: unknown): HttpRequest {
-    const { id, method, url, body, bodyFile, multipart, wsse, timeoutMs, source, headers: rawHeaders } = requireRecord(raw, 'request');
+    const { id, method, url, body, bodyFile, multipart, auth, timeoutMs, source, headers: rawHeaders } = requireRecord(raw, 'request');
     const headers: Record<string, string> = {};
     const parsedSource = parseSource(source);
 
@@ -66,7 +71,7 @@ export function parseHttpRequest(raw: unknown): HttpRequest {
         body: typeof body === 'string' ? body : undefined,
         ...(bodyFile !== undefined && bodyFile !== null && { bodyFile: parseFilePath(bodyFile, 'request.bodyFile') }),
         ...(multipart !== undefined && multipart !== null && { multipart: parseMultipart(multipart) }),
-        ...(wsse !== undefined && wsse !== null && { wsse: parseWsse(wsse) }),
+        ...(auth !== undefined && auth !== null && { auth: parseSendTimeAuth(auth) }),
         timeoutMs: typeof timeoutMs === 'number' && timeoutMs > 0 ? timeoutMs : undefined,
         ...(parsedSource && { source: parsedSource })
     };

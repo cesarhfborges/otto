@@ -37,13 +37,20 @@ async function mapFields(definition: RequestDefinition, render: Render): Promise
         switch (current.type) {
             case 'bearer':
                 return { ...current, token: await render(current.token, { header: 'Authorization' }), ...(current.prefix && { prefix: await render(current.prefix) }) };
-            case 'basic':
-            case 'wsse':
-                return { ...current, username: await render(current.username), password: await render(current.password) };
             case 'apikey':
                 return { ...current, key: await render(current.key), value: await render(current.value, current.in === 'header' ? { header: current.key } : {}) };
-            default:
-                return current;
+            default: {
+                // Demais tipos: todo campo de texto aceita `{{variáveis}}` (enums não têm tags e saem iguais).
+                const rendered: Record<string, unknown> = { ...current };
+
+                for (const [key, value] of Object.entries(current)) {
+                    if (key !== 'type' && typeof value === 'string') {
+                        rendered[key] = await render(value);
+                    }
+                }
+
+                return rendered as RequestAuth;
+            }
         }
     })();
 

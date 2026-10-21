@@ -48,6 +48,14 @@ function readCaCertificate(file: string): string {
     return pem;
 }
 
+function tlsOptions({ ssl }: HttpSettings): TlsOptions {
+    // `ca` substitui a lista padrão do Node; por isso a CA do usuário é somada às demais.
+    return {
+        rejectUnauthorized: ssl.verifyCertificates,
+        ca: ssl.caCertificatePath ? [...defaultCertificates(), readCaCertificate(ssl.caCertificatePath)] : defaultCertificates()
+    };
+}
+
 /** Inclui a data de modificação do certificado: trocar o arquivo recria o dispatcher. */
 function cacheKey({ proxy, ssl }: HttpSettings): string {
     let caVersion = 0;
@@ -94,12 +102,17 @@ export class DispatcherProvider {
         await current?.dispatcher.destroy().catch(() => undefined);
     }
 
-    private create({ proxy, ssl }: HttpSettings): Dispatcher {
-        // `ca` substitui a lista padrão do Node; por isso a CA do usuário é somada às demais.
-        const tls: TlsOptions = {
-            rejectUnauthorized: ssl.verifyCertificates,
-            ca: ssl.caCertificatePath ? [...defaultCertificates(), readCaCertificate(ssl.caCertificatePath)] : defaultCertificates()
-        };
+    /**
+     * Agente com uma única conexão, fora do pool e sem proxy, para handshakes presos
+     * à conexão (NTLM). Quem pede fecha depois de ler a resposta.
+     */
+    dedicated(settings: HttpSettings): Dispatcher {
+        return new Agent({ connect: tlsOptions(settings), connections: 1, pipelining: 1 });
+    }
+
+    private create(settings: HttpSettings): Dispatcher {
+        const { proxy } = settings;
+        const tls = tlsOptions(settings);
 
         if (!proxy.enabled || !proxy.url) {
             return new Agent({ connect: tls });

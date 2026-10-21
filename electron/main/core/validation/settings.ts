@@ -1,5 +1,19 @@
 import * as path from 'node:path';
-import { CODE_THEMES, DEFAULT_SETTINGS, MAX_CODE_FONT_SIZE, MIN_CODE_FONT_SIZE, MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, PRIMARY_COLORS, REQUEST_LAYOUTS, SURFACE_COLORS, THEME_MODES, THEME_PRESETS, type OttoSettings, type SettingsPatch } from '../../../shared/models';
+import {
+    CODE_THEMES,
+    DEFAULT_SETTINGS,
+    MAX_CODE_FONT_SIZE,
+    MIN_CODE_FONT_SIZE,
+    MAX_HISTORY_ENTRIES,
+    MAX_TIMEOUT_MS,
+    PRIMARY_COLORS,
+    REQUEST_LAYOUTS,
+    SURFACE_COLORS,
+    THEME_MODES,
+    THEME_PRESETS,
+    type OttoSettings,
+    type SettingsPatch
+} from '../../../shared/models';
 import type { WindowBounds } from '../contracts';
 import { isRecord, optionalString, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 

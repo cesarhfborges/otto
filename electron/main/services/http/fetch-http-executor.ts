@@ -1,11 +1,14 @@
 import { request as httpRequest, STATUS_CODES, type IncomingHttpHeaders } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { fetch, FormData, request as undiciRequest, type Dispatcher } from 'undici';
 import { DEFAULT_SETTINGS, hasBody, MAX_RESPONSE_BYTES, type HttpRequest, type HttpResponse, type HttpResult, type HttpSettings } from '../../../shared/models';
 import type { IHttpExecutor } from '../../core/contracts';
+import { digestAuthorization, findChallenge } from './auth/digest';
+import { authenticateMessage, negotiateMessage } from './auth/ntlm';
+import { OAuth2TokenProvider, type CachedToken, type OAuth2Authorizer } from './auth/oauth2';
+import { signAsap, signAwsV4, signHawk, signNetrc, signOAuth1, signWsse } from './auth/signers';
 import { DispatcherProvider } from './dispatcher-provider';
 import { RequestTrace } from './request-trace';
 
@@ -16,6 +19,8 @@ export interface FetchHttpExecutorOptions {
     /** Enviado quando a requisição não define `User-Agent`. */
     userAgent?: string;
     maxResponseBytes?: number;
+    /** Janela de login do OAuth 2.0 (Authorization Code / Implicit). */
+    oauth2Authorizer?: OAuth2Authorizer;
 }
 
 const CERTIFICATE_ERRORS = new Set([
@@ -173,16 +178,13 @@ async function buildBody(request: HttpRequest, headers: Headers): Promise<SendCo
     return request.body;
 }
 
-/** WSSE UsernameToken: digest = base64(sha1(nonce + created + senha)), gerado a cada envio. */
-function applyWsse(headers: Headers, { username, password }: NonNullable<HttpRequest['wsse']>): void {
-    const nonce = randomBytes(16);
-    const created = new Date().toISOString();
-    const digest = createHash('sha1')
-        .update(Buffer.concat([nonce, Buffer.from(created + password, 'utf8')]))
-        .digest('base64');
-
-    headers.set('authorization', 'WSSE profile="UsernameToken"');
-    headers.set('x-wsse', `UsernameToken Username="${username}", PasswordDigest="${digest}", Nonce="${nonce.toString('base64')}", Created="${created}"`);
+/** Descarta o corpo de uma resposta intermediária (desafio 401), liberando a conexão. */
+async function drain(body: AsyncIterable<Uint8Array> | null): Promise<void> {
+    if (body) {
+        for await (const _ of body) {
+            // Só consome.
+        }
+    }
 }
 
 const flattenHeaders = (headers: IncomingHttpHeaders): Array<[string, string]> =>
@@ -260,21 +262,22 @@ export class FetchHttpExecutor implements IHttpExecutor {
     private readonly dispatchers: DispatcherProvider;
     private readonly userAgent: string | undefined;
     private readonly maxResponseBytes: number;
+    private readonly oauth2: OAuth2TokenProvider;
 
     constructor(options: FetchHttpExecutorOptions = {}) {
         this.settings = options.settings ?? (() => DEFAULT_SETTINGS.http);
         this.dispatchers = options.dispatchers ?? new DispatcherProvider();
         this.userAgent = options.userAgent;
         this.maxResponseBytes = options.maxResponseBytes ?? MAX_RESPONSE_BYTES;
+        this.oauth2 = new OAuth2TokenProvider(options.oauth2Authorizer);
     }
 
     async execute(request: HttpRequest): Promise<HttpResult> {
         const settings = this.settings();
         const timeoutMs = request.timeoutMs ?? settings.timeoutMs;
         const controller = new AbortController();
-        // `0` desativa o timeout.
-        const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(codedError(`Request timed out after ${timeoutMs} ms`, 'TIMEOUT')), timeoutMs) : undefined;
-        const started = performance.now();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let started = performance.now();
         const elapsed = () => Math.round(performance.now() - started);
         const trace = new RequestTrace();
 
@@ -283,7 +286,16 @@ export class FetchHttpExecutor implements IHttpExecutor {
         trace.info(`Current time is ${new Date().toISOString()}`);
 
         try {
-            const response = await trace.run(() => this.send(request, settings, timeoutMs, controller.signal, trace, elapsed));
+            const response = await trace.run(async () => {
+                // O token OAuth 2.0 pode depender do login do usuário: o timeout só começa depois.
+                const oauth2Token = request.auth?.type === 'oauth2' ? await this.oauth2.token(request.auth, this.dispatchers.get(settings), controller.signal, (text) => trace.info(text)) : undefined;
+
+                // `0` desativa o timeout.
+                timer = timeoutMs > 0 ? setTimeout(() => controller.abort(codedError(`Request timed out after ${timeoutMs} ms`, 'TIMEOUT')), timeoutMs) : undefined;
+                started = performance.now();
+
+                return this.send(request, settings, timeoutMs, controller.signal, trace, elapsed, oauth2Token);
+            });
 
             trace.info(`Received ${response.size} B${response.truncated ? ' (truncated)' : ''}`);
 
@@ -304,7 +316,7 @@ export class FetchHttpExecutor implements IHttpExecutor {
         }
     }
 
-    private async send(request: HttpRequest, settings: HttpSettings, timeoutMs: number, signal: AbortSignal, trace: RequestTrace, elapsed: () => number): Promise<HttpResponse> {
+    private async send(request: HttpRequest, settings: HttpSettings, timeoutMs: number, signal: AbortSignal, trace: RequestTrace, elapsed: () => number, oauth2Token?: CachedToken): Promise<HttpResponse> {
         let url: URL;
 
         try {
@@ -336,19 +348,105 @@ export class FetchHttpExecutor implements IHttpExecutor {
             headers.set('user-agent', this.userAgent);
         }
 
-        if (request.wsse) {
-            applyWsse(headers, request.wsse);
-        }
-
         const body = hasBody(request.method) ? await buildBody(request, headers) : undefined;
 
         trace.describeBody(body, request.bodyFile);
 
         const context: SendContext = { url, method: request.method, headers, body, settings, signal, dispatcher, trace };
-        const res = await (request.method === 'CONNECT' ? sendConnect(context) : request.method === 'TRACE' ? sendWithRequest(context) : sendWithFetch(context));
-        const ttfbMs = elapsed();
-        const { bytes, truncated } = await readBody(res.body, this.maxResponseBytes);
-        const totalMs = elapsed();
+        let dedicated: Dispatcher | undefined;
+
+        try {
+            if (request.auth?.type === 'ntlm') {
+                // O handshake NTLM autentica a conexão: as 3 mensagens precisam usar o mesmo socket.
+                dedicated = this.dispatchers.dedicated(settings);
+                context.dispatcher = dedicated;
+                trace.info('NTLM: using a dedicated connection (proxy settings do not apply)');
+            }
+
+            if (request.auth) {
+                await this.authenticate(request.auth, context, oauth2Token);
+            }
+
+            const res = await this.dispatchAuthenticated(request, context);
+            const ttfbMs = elapsed();
+            const { bytes, truncated } = await readBody(res.body, this.maxResponseBytes);
+            const totalMs = elapsed();
+
+            return this.toResponse(res, bytes, truncated, ttfbMs, totalMs);
+        } finally {
+            dedicated?.close().catch(() => undefined);
+        }
+    }
+
+    /** Autenticações aplicadas antes do primeiro envio. */
+    private async authenticate(auth: NonNullable<HttpRequest['auth']>, context: SendContext, oauth2Token?: CachedToken): Promise<void> {
+        switch (auth.type) {
+            case 'wsse':
+                return signWsse(context, auth);
+            case 'oauth1':
+                return signOAuth1(context, auth);
+            case 'awsv4':
+                return signAwsV4(context, auth);
+            case 'hawk':
+                return signHawk(context, auth);
+            case 'asap':
+                return signAsap(context, auth);
+            case 'oauth2':
+                if (oauth2Token) {
+                    OAuth2TokenProvider.apply(auth, oauth2Token, context);
+                }
+                return;
+            case 'netrc': {
+                const file = await signNetrc(context);
+
+                context.trace.info(file ? `Using credentials for ${context.url.hostname} from ${file}` : `No .netrc credentials found for ${context.url.hostname}`);
+                return;
+            }
+            case 'ntlm':
+                context.headers.set('authorization', negotiateMessage());
+                return;
+            case 'digest':
+                // Só depois do desafio do servidor (401).
+                return;
+        }
+    }
+
+    /** Envia e, se o servidor desafiar (401 Digest/NTLM), responde e reenvia. */
+    private async dispatchAuthenticated(request: HttpRequest, context: SendContext): Promise<RawResponse> {
+        const dispatch = (): Promise<RawResponse> => (request.method === 'CONNECT' ? sendConnect(context) : request.method === 'TRACE' ? sendWithRequest(context) : sendWithFetch(context));
+        const res = await dispatch();
+        const { auth } = request;
+
+        if (res.status !== 401 || (auth?.type !== 'digest' && auth?.type !== 'ntlm')) {
+            return res;
+        }
+
+        const challenge = findChallenge(res.headers, auth.type === 'digest' ? 'Digest' : 'NTLM');
+
+        // `NTLM` sem mensagem = credenciais recusadas; sem desafio, devolve o 401 como está.
+        if (!challenge || (auth.type === 'ntlm' && !/^NTLM\s+\S/i.test(challenge))) {
+            return res;
+        }
+
+        await drain(res.body);
+
+        if (auth.type === 'digest') {
+            const target = new URL(res.url || context.url.toString());
+
+            context.trace.info('Digest challenge received, sending credentials');
+            context.headers.set(
+                'authorization',
+                digestAuthorization(challenge, { username: auth.username, password: auth.password, method: request.method, uri: `${target.pathname}${target.search}`, ...(typeof context.body === 'string' && { body: context.body }) })
+            );
+        } else {
+            context.trace.info('NTLM challenge received, sending credentials');
+            context.headers.set('authorization', authenticateMessage(challenge, auth));
+        }
+
+        return dispatch();
+    }
+
+    private toResponse(res: RawResponse, bytes: Uint8Array, truncated: boolean, ttfbMs: number, totalMs: number): HttpResponse {
         const contentType = res.headers.find(([key]) => key.toLowerCase() === 'content-type')?.[1] ?? null;
         const textual = isTextual(contentType);
 

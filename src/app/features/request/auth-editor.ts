@@ -2,105 +2,68 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, effect, model, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import type { AuthType, RequestAuth } from '@shared/models';
+import { HAWK_ALGORITHMS, OAUTH1_SIGNATURE_METHODS, OAUTH2_GRANT_TYPES, type AuthType, type OAuth2GrantType, type RequestAuth } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
+import { OttoInput, OttoTextarea } from '../../shared/template-editor';
 
 type AuthOption = { label: string; value: AuthType };
+type Choice = { label: string; value: string };
 
+/** Mesma ordem dos outros clientes (Bruno/Postman); WSSE no fim. */
 const OPTIONS: AuthOption[] = [
-    { label: 'No Auth', value: 'none' },
-    { label: 'Basic Auth', value: 'basic' },
-    { label: 'Bearer Token', value: 'bearer' },
+    { label: 'None', value: 'none' },
     { label: 'API Key', value: 'apikey' },
-    { label: 'WSSE Auth', value: 'wsse' }
+    { label: 'Basic', value: 'basic' },
+    { label: 'Digest', value: 'digest' },
+    { label: 'NTLM', value: 'ntlm' },
+    { label: 'OAuth 1.0', value: 'oauth1' },
+    { label: 'OAuth 2.0', value: 'oauth2' },
+    { label: 'AWS IAM', value: 'awsv4' },
+    { label: 'Bearer Token', value: 'bearer' },
+    { label: 'Hawk', value: 'hawk' },
+    { label: 'Atlassian ASAP', value: 'asap' },
+    { label: 'Netrc', value: 'netrc' },
+    { label: 'WSSE', value: 'wsse' }
 ];
 
+const GRANT_LABELS: Record<OAuth2GrantType, string> = {
+    authorization_code: 'Authorization Code',
+    implicit: 'Implicit',
+    client_credentials: 'Client Credentials',
+    password: 'Password Credentials'
+};
+
 /** Autenticação da requisição. Os valores aceitam `{{variáveis}}`. */
-import { OttoInput } from '../../shared/template-editor';
 @Component({
     selector: 'app-auth-editor',
-    imports: [NgTemplateOutlet, ReactiveFormsModule, SelectModule, ButtonModule, OttoInput],
-    template: `
-        <div class="flex max-w-xl flex-col gap-4">
-            <div class="flex flex-col gap-2">
-                <label for="auth-type" id="auth-type-label" class="text-sm font-medium">Type</label>
-                <p-select inputId="auth-type" [formControl]="typeControl" [options]="options()" optionLabel="label" optionValue="value" size="small" class="w-full sm:w-64" appendTo="body" />
-            </div>
-
-            @switch (auth().type) {
-                @case ('none') {
-                    <p class="m-0 text-sm text-muted-color">No authentication is sent.</p>
-                }
-                @case ('inherit') {
-                    <p class="m-0 text-sm text-muted-color">Uses the collection authentication (not configurable yet). Choose another type to set it here.</p>
-                }
-                @case ('basic') {
-                    <ng-container *ngTemplateOutlet="credentials; context: { $implicit: 'basic' }" />
-                    <small class="text-muted-color">Sent as <code>Authorization: Basic base64(username:password)</code>.</small>
-                }
-                @case ('wsse') {
-                    <ng-container *ngTemplateOutlet="credentials; context: { $implicit: 'wsse' }" />
-                    <small class="text-muted-color">WS-Security UsernameToken: a new nonce, timestamp and SHA-1 password digest are generated in the <code>X-WSSE</code> header on every send.</small>
-                }
-                @case ('bearer') {
-                    <div class="flex flex-col gap-2">
-                        <label for="auth-prefix" id="auth-prefix-label" class="text-sm font-medium">Prefix</label>
-                        <app-otto-input inputId="auth-prefix" ariaLabelledBy="auth-prefix-label" class="font-mono !text-sm" [value]="field('prefix')" placeholder="Bearer" ariaDescribedBy="auth-prefix-help" (valueChange)="patch({ prefix: $event })" />
-                        <small id="auth-prefix-help" class="text-muted-color">Optional. Leave blank to use <code>Bearer</code>.</small>
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        <label for="auth-token" id="auth-token-label" class="text-sm font-medium">Token</label>
-                        <app-otto-input inputId="auth-token" ariaLabelledBy="auth-token-label" class="font-mono !text-sm" [value]="field('token')" [placeholder]="tokenPlaceholder" (valueChange)="patch({ token: $event })" />
-                        <small class="text-muted-color">Sent as <code>Authorization: {{ bearerPrefix() }} &lt;token&gt;</code>.</small>
-                    </div>
-                }
-                @case ('apikey') {
-                    <div class="flex flex-col gap-2">
-                        <label for="auth-key" id="auth-key-label" class="text-sm font-medium">Key</label>
-                        <app-otto-input inputId="auth-key" ariaLabelledBy="auth-key-label" class="font-mono !text-sm" [value]="field('key')" placeholder="X-API-Key" (valueChange)="patch({ key: $event })" />
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        <label for="auth-value" id="auth-value-label" class="text-sm font-medium">Value</label>
-                        <app-otto-input inputId="auth-value" ariaLabelledBy="auth-value-label" class="font-mono !text-sm" [value]="field('value')" (valueChange)="patch({ value: $event })" />
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        <label for="auth-in" id="auth-in-label" class="text-sm font-medium">Add to</label>
-                        <select id="auth-in" class="otto-native-select w-full sm:w-64" [value]="field('in') || 'header'" (change)="patch({ in: $any($event.target).value })">
-                            <option value="header">Header</option>
-                            <option value="query">Query params</option>
-                        </select>
-                    </div>
-                }
-            }
-        </div>
-
-        <ng-template #credentials>
-            <div class="flex flex-col gap-2">
-                <label for="auth-username" id="auth-username-label" class="text-sm font-medium">Username</label>
-                <app-otto-input inputId="auth-username" ariaLabelledBy="auth-username-label" class="!text-sm" [monospace]="false" [value]="field('username')" (valueChange)="patch({ username: $event })" />
-            </div>
-            <div class="flex flex-col gap-2">
-                <label for="auth-password" id="auth-password-label" class="text-sm font-medium">Password</label>
-                <div class="flex gap-2">
-                    <app-otto-input inputId="auth-password" ariaLabelledBy="auth-password-label" class="min-w-0 flex-1 !text-sm" [type]="showPassword() ? 'text' : 'password'" [value]="field('password')" (valueChange)="patch({ password: $event })" />
-                    <p-button [icon]="showPassword() ? 'pi pi-eye-slash' : 'pi pi-eye'" severity="secondary" [text]="true" size="small" [ariaLabel]="showPassword() ? 'Hide password' : 'Show password'" (onClick)="showPassword.set(!showPassword())" />
-                </div>
-            </div>
-        </ng-template>
-    `,
+    imports: [NgTemplateOutlet, ReactiveFormsModule, SelectModule, ButtonModule, OttoInput, OttoTextarea],
+    templateUrl: './auth-editor.html',
     host: { class: 'block' }
 })
 export class AuthEditor {
     readonly auth = model.required<RequestAuth>();
 
     protected readonly tokenPlaceholder = '{{$.token}}';
-    protected readonly showPassword = signal(false);
+    protected readonly signatureMethods: Choice[] = OAUTH1_SIGNATURE_METHODS.map((value) => ({ label: value, value }));
+    protected readonly grantTypes: Choice[] = OAUTH2_GRANT_TYPES.map((value) => ({ label: GRANT_LABELS[value], value }));
+    protected readonly hawkAlgorithms: Choice[] = HAWK_ALGORITHMS.map((value) => ({ label: value.toUpperCase(), value }));
+    protected readonly addToOptions: Choice[] = [
+        { label: 'Header', value: 'header' },
+        { label: 'Query params', value: 'query' }
+    ];
+    protected readonly clientAuthOptions: Choice[] = [
+        { label: 'Send as Basic Auth header', value: 'header' },
+        { label: 'Send in the request body', value: 'body' }
+    ];
+    /** Campos secretos exibidos em texto puro. */
+    private readonly revealed = signal<ReadonlySet<string>>(new Set());
     protected readonly typeControl = new FormControl<AuthType>('none', { nonNullable: true });
     /** "Inherit" só aparece para arquivos que já o usam (a auth da coleção ainda não existe). */
     protected readonly options = computed<AuthOption[]>(() => (this.auth().type === 'inherit' ? [...OPTIONS, { label: 'Inherit from Collection', value: 'inherit' }] : OPTIONS));
 
     protected readonly bearerPrefix = computed(() => this.field('prefix').trim() || 'Bearer');
+    protected readonly rsaSignature = computed(() => this.field('signatureMethod').startsWith('RSA-'));
 
     constructor() {
         effect(() => this.typeControl.setValue(this.auth().type, { emitEvent: false }));
@@ -111,11 +74,33 @@ export class AuthEditor {
         return String((this.auth() as Record<string, unknown>)[name] ?? '');
     }
 
-    protected patch(changes: Record<string, string>): void {
+    protected flag(name: string): boolean {
+        return (this.auth() as Record<string, unknown>)[name] === true;
+    }
+
+    protected isRevealed(name: string): boolean {
+        return this.revealed().has(name);
+    }
+
+    protected toggleReveal(name: string): void {
+        this.revealed.update((current) => {
+            const next = new Set(current);
+
+            next[next.has(name) ? 'delete' : 'add'](name);
+
+            return next;
+        });
+    }
+
+    protected setField(name: string, value: string): void {
+        this.patch({ [name]: value });
+    }
+
+    protected patch(changes: Record<string, string | boolean>): void {
         this.auth.update((auth) => ({ ...auth, ...changes }) as RequestAuth);
     }
 
-    /** Usuário/senha são aproveitados entre Basic e WSSE. */
+    /** Usuário/senha são aproveitados entre os tipos que os usam. */
     private changeType(type: AuthType): void {
         const current = this.auth();
 
@@ -129,17 +114,52 @@ export class AuthEditor {
         switch (type) {
             case 'none':
             case 'inherit':
+            case 'netrc':
                 this.auth.set({ type });
                 break;
             case 'basic':
             case 'wsse':
+            case 'digest':
                 this.auth.set({ type, username, password });
+                break;
+            case 'ntlm':
+                this.auth.set({ type, username, password, domain: '', workstation: '' });
                 break;
             case 'bearer':
                 this.auth.set({ type, token: '' });
                 break;
             case 'apikey':
                 this.auth.set({ type, key: '', value: '', in: 'header' });
+                break;
+            case 'oauth1':
+                this.auth.set({ type, signatureMethod: 'HMAC-SHA1', consumerKey: '', consumerSecret: '', token: '', tokenSecret: '', privateKey: '', realm: '', addTo: 'header' });
+                break;
+            case 'oauth2':
+                this.auth.set({
+                    type,
+                    grantType: 'authorization_code',
+                    authUrl: '',
+                    accessTokenUrl: '',
+                    callbackUrl: '',
+                    clientId: '',
+                    clientSecret: '',
+                    username,
+                    password,
+                    scope: '',
+                    pkce: true,
+                    clientAuth: 'header',
+                    tokenPrefix: '',
+                    addTo: 'header'
+                });
+                break;
+            case 'awsv4':
+                this.auth.set({ type, accessKeyId: '', secretAccessKey: '', sessionToken: '', region: '', service: '' });
+                break;
+            case 'hawk':
+                this.auth.set({ type, id: '', key: '', algorithm: 'sha256', ext: '' });
+                break;
+            case 'asap':
+                this.auth.set({ type, issuer: '', audience: '', subject: '', keyId: '', privateKey: '', expiresIn: '3600' });
                 break;
         }
     }

@@ -1,10 +1,26 @@
-import { AUTH_TYPES, BODY_TYPES, HTTP_METHODS, type CollectionCookie, type KeyValue, type MultipartField, type RequestAuth, type RequestBody, type RequestDefinition } from '../../../shared/models';
+import {
+    AUTH_TYPES,
+    BODY_TYPES,
+    HAWK_ALGORITHMS,
+    OAUTH1_SIGNATURE_METHODS,
+    OAUTH2_GRANT_TYPES,
+    HTTP_METHODS,
+    type CollectionCookie,
+    type KeyValue,
+    type MultipartField,
+    type RequestAuth,
+    type RequestBody,
+    type RequestDefinition
+} from '../../../shared/models';
 import { requireArray, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
 export const MAX_KEY_VALUES = 500;
 export const MAX_BODY_LENGTH = 10_000_000;
 
 const text = (value: unknown, field: string, maxLength = 100_000): string => (value === undefined || value === null ? '' : requireString(value, field, { allowEmpty: true, maxLength }));
+
+/** Campo de enum opcional: ausente usa o padrão. */
+const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback: T, field: string): T => (value === undefined || value === null ? fallback : requireOneOf(value, allowed, field));
 
 export function parseKeyValues(raw: unknown, field: string): KeyValue[] {
     if (raw === undefined || raw === null) {
@@ -53,7 +69,62 @@ export function parseRequestAuth(raw: unknown): RequestAuth {
         case 'apikey':
             return { type, key: text(auth['key'], 'auth.key', 1_000), value: text(auth['value'], 'auth.value'), in: auth['in'] === undefined ? 'header' : requireOneOf(auth['in'], ['header', 'query'] as const, 'auth.in') };
         case 'wsse':
+        case 'digest':
             return { type, username: text(auth['username'], 'auth.username'), password: text(auth['password'], 'auth.password') };
+        case 'ntlm':
+            return { type, username: text(auth['username'], 'auth.username'), password: text(auth['password'], 'auth.password'), domain: text(auth['domain'], 'auth.domain', 1_000), workstation: text(auth['workstation'], 'auth.workstation', 1_000) };
+        case 'oauth1':
+            return {
+                type,
+                signatureMethod: oneOf(auth['signatureMethod'], OAUTH1_SIGNATURE_METHODS, 'HMAC-SHA1', 'auth.signatureMethod'),
+                consumerKey: text(auth['consumerKey'], 'auth.consumerKey'),
+                consumerSecret: text(auth['consumerSecret'], 'auth.consumerSecret'),
+                token: text(auth['token'], 'auth.token'),
+                tokenSecret: text(auth['tokenSecret'], 'auth.tokenSecret'),
+                privateKey: text(auth['privateKey'], 'auth.privateKey'),
+                realm: text(auth['realm'], 'auth.realm', 1_000),
+                addTo: oneOf(auth['addTo'], ['header', 'query'] as const, 'header', 'auth.addTo')
+            };
+        case 'oauth2':
+            return {
+                type,
+                grantType: oneOf(auth['grantType'], OAUTH2_GRANT_TYPES, 'client_credentials', 'auth.grantType'),
+                authUrl: text(auth['authUrl'], 'auth.authUrl'),
+                accessTokenUrl: text(auth['accessTokenUrl'], 'auth.accessTokenUrl'),
+                callbackUrl: text(auth['callbackUrl'], 'auth.callbackUrl'),
+                clientId: text(auth['clientId'], 'auth.clientId'),
+                clientSecret: text(auth['clientSecret'], 'auth.clientSecret'),
+                username: text(auth['username'], 'auth.username'),
+                password: text(auth['password'], 'auth.password'),
+                scope: text(auth['scope'], 'auth.scope'),
+                pkce: auth['pkce'] === undefined ? false : requireBoolean(auth['pkce'], 'auth.pkce'),
+                clientAuth: oneOf(auth['clientAuth'], ['header', 'body'] as const, 'header', 'auth.clientAuth'),
+                tokenPrefix: text(auth['tokenPrefix'], 'auth.tokenPrefix', 1_000),
+                addTo: oneOf(auth['addTo'], ['header', 'query'] as const, 'header', 'auth.addTo')
+            };
+        case 'awsv4':
+            return {
+                type,
+                accessKeyId: text(auth['accessKeyId'], 'auth.accessKeyId'),
+                secretAccessKey: text(auth['secretAccessKey'], 'auth.secretAccessKey'),
+                sessionToken: text(auth['sessionToken'], 'auth.sessionToken'),
+                region: text(auth['region'], 'auth.region', 1_000),
+                service: text(auth['service'], 'auth.service', 1_000)
+            };
+        case 'hawk':
+            return { type, id: text(auth['id'], 'auth.id'), key: text(auth['key'], 'auth.key'), algorithm: oneOf(auth['algorithm'], HAWK_ALGORITHMS, 'sha256', 'auth.algorithm'), ext: text(auth['ext'], 'auth.ext') };
+        case 'asap':
+            return {
+                type,
+                issuer: text(auth['issuer'], 'auth.issuer'),
+                audience: text(auth['audience'], 'auth.audience'),
+                subject: text(auth['subject'], 'auth.subject'),
+                keyId: text(auth['keyId'], 'auth.keyId'),
+                privateKey: text(auth['privateKey'], 'auth.privateKey'),
+                expiresIn: text(auth['expiresIn'], 'auth.expiresIn', 1_000)
+            };
+        case 'netrc':
+            return { type };
     }
 }
 

@@ -77,7 +77,14 @@ export const CRYPTO_FUNCTIONS: CatalogNode[] = [
     fn('hash', 'string', 'md5 / sha1 / sha256 / sha384 / sha512', [algorithmArg, arg('value'), encodingArg], async (algorithm: unknown, value: unknown, encoding?: unknown) => encode(await digest(algorithm, value), encoding), {
         example: "{{ otto.hash('sha256', 'text') }}"
     }),
-    fn('hmac', 'string', 'HMAC signature', [arg('algorithm', { values: HASH_ALGORITHMS.slice(1) }), arg('key'), arg('value'), encodingArg], async (algorithm: unknown, key: unknown, value: unknown, encoding?: unknown) => encode(await hmacBytes(algorithm, key, value), encoding), {
-        example: "{{ otto.hmac('sha256', $.secret, otto.request.text()) }}"
-    })
+    fn(
+        'hmac',
+        'string',
+        'HMAC signature',
+        [arg('algorithm', { values: HASH_ALGORITHMS.slice(1) }), arg('key'), arg('value'), encodingArg],
+        async (algorithm: unknown, key: unknown, value: unknown, encoding?: unknown) => encode(await hmacBytes(algorithm, key, value), encoding),
+        {
+            example: "{{ otto.hmac('sha256', $.secret, otto.request.text()) }}"
+        }
+    )
 ];

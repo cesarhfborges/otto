@@ -36,7 +36,19 @@ const enabled = (items: KeyValue[]): Array<[string, string]> => items.filter((it
 const bodyTypeOf = (contentType: string | null): string => {
     const type = (contentType ?? '').toLowerCase();
 
-    return !type ? 'none' : type.includes('json') ? 'json' : type.includes('xml') || type.includes('html') ? 'xml' : type.includes('x-www-form-urlencoded') ? 'form-urlencoded' : type.includes('multipart') ? 'multipart-form' : type.startsWith('text/') ? 'text' : 'binary';
+    return !type
+        ? 'none'
+        : type.includes('json')
+          ? 'json'
+          : type.includes('xml') || type.includes('html')
+            ? 'xml'
+            : type.includes('x-www-form-urlencoded')
+              ? 'form-urlencoded'
+              : type.includes('multipart')
+                ? 'multipart-form'
+                : type.startsWith('text/')
+                  ? 'text'
+                  : 'binary';
 };
 
 /** Definição já interpolada → snapshot (sem ler arquivos: corpos binários ficam vazios). */
@@ -202,7 +214,14 @@ export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGu
 
     if (isResponse) {
         Object.assign(reader, {
-            cookieInfo: (name: string) => found(headers.all('set-cookie').map(parseSetCookie).find((info) => info?.name === name) ?? undefined, `Cookie "${name}"`),
+            cookieInfo: (name: string) =>
+                found(
+                    headers
+                        .all('set-cookie')
+                        .map(parseSetCookie)
+                        .find((info) => info?.name === name) ?? undefined,
+                    `Cookie "${name}"`
+                ),
             status: message.status,
             code: message.status,
             statusText: message.statusText,

@@ -18,7 +18,13 @@ export const STRING_FUNCTIONS: CatalogNode[] = [
         ),
         fn('length', 'number', 'Number of characters', [arg('value')], (value: unknown) => str(value).length),
         fn('replace', 'string', 'Replace all occurrences', [arg('value'), arg('from'), arg('to')], (value: unknown, from: unknown, to: unknown) => str(value).split(str(from)).join(str(to))),
-        fn('regex', 'string', 'Extract with a regular expression (group: default 0)', [arg('value'), arg('pattern'), opt('group')], (value: unknown, pattern: unknown, group: unknown = 0) => new RegExp(str(pattern)).exec(str(value))?.[Number(group)] ?? ''),
+        fn(
+            'regex',
+            'string',
+            'Extract with a regular expression (group: default 0)',
+            [arg('value'), arg('pattern'), opt('group')],
+            (value: unknown, pattern: unknown, group: unknown = 0) => new RegExp(str(pattern)).exec(str(value))?.[Number(group)] ?? ''
+        ),
         fn('substring', 'string', 'Part of the text', [arg('value'), arg('start'), opt('end')], (value: unknown, start: unknown, end?: unknown) => str(value).substring(Number(start), end === undefined ? undefined : Number(end))),
         fn('padStart', 'string', 'Pad at the start', [arg('value'), arg('size'), opt('char')], (value: unknown, size: unknown, char: unknown = ' ') => str(value).padStart(Number(size), str(char))),
         fn('padEnd', 'string', 'Pad at the end', [arg('value'), arg('size'), opt('char')], (value: unknown, size: unknown, char: unknown = ' ') => str(value).padEnd(Number(size), str(char))),

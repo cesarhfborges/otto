@@ -75,7 +75,11 @@ function buildStatic(nodes: readonly CatalogNode[]): Record<string, unknown> {
 const STATIC = buildStatic(OTTO_CATALOG.members ?? []);
 
 /** Membros de `otto.request` sem chamar (a requisição atual). */
-export const CURRENT_REQUEST_MEMBERS = (OTTO_CATALOG.members ?? []).find((node) => node.name === 'request')?.members?.filter((node) => availableIn(node, 'T')).map((node) => node.name) ?? [];
+export const CURRENT_REQUEST_MEMBERS =
+    (OTTO_CATALOG.members ?? [])
+        .find((node) => node.name === 'request')
+        ?.members?.filter((node) => availableIn(node, 'T'))
+        .map((node) => node.name) ?? [];
 
 const folderOf = (path: string): string => path.split('/').slice(0, -1).join('/');
 
@@ -155,7 +159,9 @@ export function createOtto(host: OttoHost, currentRequest?: () => Promise<Messag
     };
 
     // `otto.request('ref')` é outra requisição; `otto.request.x` lê a atual (sob demanda).
-    const request = runtime(Object.defineProperties((ref: unknown, options?: unknown) => requestRef(ref, options), Object.fromEntries(CURRENT_REQUEST_MEMBERS.map((name) => [name, { enumerable: true, get: () => current().then((reader) => reader[name]) }]))));
+    const request = runtime(
+        Object.defineProperties((ref: unknown, options?: unknown) => requestRef(ref, options), Object.fromEntries(CURRENT_REQUEST_MEMBERS.map((name) => [name, { enumerable: true, get: () => current().then((reader) => reader[name]) }])))
+    );
 
     return runtime({
         ...STATIC,
@@ -190,7 +196,12 @@ function cookiesApi(host: OttoHost): object {
         },
         has: (name: unknown) => list().some((item) => item.name === String(name)),
         all: () => list().map((cookie) => ({ ...cookie })),
-        header: (url?: unknown) => (url === undefined ? list().map((cookie) => `${cookie.name}=${cookie.value}`).join('; ') : cookieHeaderFor(list(), String(url))),
+        header: (url?: unknown) =>
+            url === undefined
+                ? list()
+                      .map((cookie) => `${cookie.name}=${cookie.value}`)
+                      .join('; ')
+                : cookieHeaderFor(list(), String(url)),
         set: (name: unknown, value: unknown, rawOptions?: unknown) => {
             const options = (typeof rawOptions === 'object' && rawOptions !== null ? rawOptions : {}) as Record<string, unknown>;
             const expires = options['expires'] === undefined || options['expires'] === null ? null : new Date(options['expires'] as string | number);

@@ -88,9 +88,16 @@ export const DATE_FUNCTIONS: CatalogNode[] = [
         example: "{{ otto.now('YYYY-MM-DD') }}"
     }),
     ns('date', 'Date math and formatting', [
-        fn('add', 'string', 'Now plus a duration (30s, 15m, 2h, 1d, 1w, -1M, 1y)', [arg('duration', { values: ['1h', '1d', '7d', '-1d', '1M'] }), formatArg], (duration: string, format?: string) => formatDate(addDuration(new Date(), str(duration)), format ? str(format) : 'iso'), {
-            example: "{{ otto.date.add('1d', 'YYYY-MM-DD') }}"
-        }),
+        fn(
+            'add',
+            'string',
+            'Now plus a duration (30s, 15m, 2h, 1d, 1w, -1M, 1y)',
+            [arg('duration', { values: ['1h', '1d', '7d', '-1d', '1M'] }), formatArg],
+            (duration: string, format?: string) => formatDate(addDuration(new Date(), str(duration)), format ? str(format) : 'iso'),
+            {
+                example: "{{ otto.date.add('1d', 'YYYY-MM-DD') }}"
+            }
+        ),
         fn('format', 'string', 'Reformat a date (ISO, unix seconds or ms)', [arg('value'), formatArg], (value: unknown, format?: string) => formatDate(toDate(value), format ? str(format) : 'iso')),
         fn('parse', 'string', 'Convert a date to another format', [arg('value'), formatArg], (value: unknown, format?: string) => formatDate(toDate(value), format ? str(format) : 'iso'))
     ])

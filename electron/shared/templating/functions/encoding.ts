@@ -24,13 +24,31 @@ const callable = (name: string, returns: string, description: string, encode: (v
     fn(name, returns, description, [arg('value')], encode, { members: [fn('decode', 'string', `Decode ${name}`, [arg('value')], decode)] });
 
 export const ENCODING_FUNCTIONS: CatalogNode[] = [
-    callable('base64', 'string', 'Base64 encode (UTF-8)', (value) => base64Encode(bytesOf(str(value))), (value) => textOf(base64Decode(str(value)))),
-    callable('base64url', 'string', 'URL-safe Base64, without padding', (value) => base64Url(bytesOf(str(value))), (value) => textOf(base64Decode(str(value)))),
-    callable('hex', 'string', 'Hexadecimal encode', (value) => toHex(bytesOf(str(value))), (value) => textOf(Uint8Array.from(str(value).match(/../g) ?? [], (byte) => parseInt(byte, 16)))),
+    callable(
+        'base64',
+        'string',
+        'Base64 encode (UTF-8)',
+        (value) => base64Encode(bytesOf(str(value))),
+        (value) => textOf(base64Decode(str(value)))
+    ),
+    callable(
+        'base64url',
+        'string',
+        'URL-safe Base64, without padding',
+        (value) => base64Url(bytesOf(str(value))),
+        (value) => textOf(base64Decode(str(value)))
+    ),
+    callable(
+        'hex',
+        'string',
+        'Hexadecimal encode',
+        (value) => toHex(bytesOf(str(value))),
+        (value) => textOf(Uint8Array.from(str(value).match(/../g) ?? [], (byte) => parseInt(byte, 16)))
+    ),
     ns('url', 'URL encoding', [
         fn('encode', 'string', 'encodeURIComponent', [arg('value')], (value: unknown) => encodeURIComponent(str(value))),
         fn('decode', 'string', 'decodeURIComponent', [arg('value')], (value: unknown) => decodeURIComponent(str(value))),
-        fn('query', 'string', "Object → query string ({ a: 1 } → a=1)", [arg('object')], (value: unknown) => new URLSearchParams(Object.entries((value ?? {}) as Record<string, unknown>).map(([key, item]) => [key, str(item)])).toString())
+        fn('query', 'string', 'Object → query string ({ a: 1 } → a=1)', [arg('object')], (value: unknown) => new URLSearchParams(Object.entries((value ?? {}) as Record<string, unknown>).map(([key, item]) => [key, str(item)])).toString())
     ]),
     ns('html', 'HTML/XML entities', [
         fn('escape', 'string', 'Escape & < > " \'', [arg('value')], (value: unknown) => str(value).replace(/[&<>"']/g, (char) => HTML_ENTITIES[char]!)),
