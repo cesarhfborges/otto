@@ -33,7 +33,7 @@ const locationValidator = (control: AbstractControl): ValidationErrors | null =>
             <form [formGroup]="form" (ngSubmit)="save()" class="flex flex-col gap-5">
                 <fieldset formGroupName="source" class="m-0 flex flex-col gap-2 border-0 p-0">
                     <legend id="spec-source-label" class="mb-2 font-medium">Spec source</legend>
-                    <p-selectbutton formControlName="type" [options]="sourceTypes" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="spec-source-label" size="small" />
+                    <p-select-button formControlName="type" [options]="sourceTypes" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="spec-source-label" size="small" />
                     @if (form.controls.source.controls.type.value === 'url') {
                         <label for="spec-url" class="sr-only">Spec URL</label>
                         <input
@@ -62,19 +62,21 @@ const locationValidator = (control: AbstractControl): ValidationErrors | null =>
                         <label id="auto-check-label" for="auto-check" class="font-medium">Auto-check for updates</label>
                         <p class="m-0 text-sm text-muted-color">Automatically check for spec changes at a regular interval while the collection is open.</p>
                     </div>
-                    <p-toggleswitch formControlName="autoCheck" inputId="auto-check" ariaLabelledBy="auto-check-label" />
+                    <div class="flex-none">
+                        <p-toggleswitch size="large" formControlName="autoCheck" inputId="auto-check" ariaLabelledBy="auto-check-label" />
+                    </div>
                 </div>
 
                 @if (form.controls.autoCheck.value) {
                     <div class="flex flex-col gap-2">
                         <span id="interval-label" class="font-medium">Check interval</span>
-                        <p-selectbutton formControlName="intervalMinutes" [options]="intervals" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="interval-label" size="small" />
+                        <p-select-button formControlName="intervalMinutes" [options]="intervals" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="interval-label" size="small" />
                     </div>
                 }
 
                 <div class="flex flex-col gap-2">
                     <span id="grouping-label" class="font-medium">Folder grouping</span>
-                    <p-selectbutton formControlName="groupBy" [options]="groupings" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="grouping-label" size="small" />
+                    <p-select-button formControlName="groupBy" [options]="groupings" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="grouping-label" size="small" />
                     <small class="text-muted-color">Where new requests from the spec are created: one folder per tag, or per first path segment.</small>
                 </div>
 

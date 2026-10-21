@@ -14,6 +14,7 @@ import { OpenApiState } from '../../core/state/openapi.state';
 import { MethodBadge } from '../../shared/method-badge';
 import { ConnectionSettingsDialog } from './connection-settings-dialog';
 import { EndpointDiff } from './endpoint-diff';
+import { TieredMenuModule } from 'primeng/tieredmenu';
 
 type Section = 'overview' | 'changes' | 'updates';
 
@@ -54,7 +55,7 @@ const groupBy = (changes: EndpointChange[], titles: Record<EndpointChangeKind, [
  */
 @Component({
     selector: 'app-openapi-panel',
-    imports: [NgTemplateOutlet, TabsModule, ButtonModule, MenuModule, MessageModule, DialogModule, TooltipModule, MethodBadge, EndpointDiff, ConnectionSettingsDialog],
+    imports: [NgTemplateOutlet, TabsModule, ButtonModule, MenuModule, MessageModule, DialogModule, TooltipModule, MethodBadge, EndpointDiff, ConnectionSettingsDialog, TieredMenuModule],
     template: `
         @if (status(); as current) {
             @if (current.config; as config) {
@@ -74,7 +75,7 @@ const groupBy = (changes: EndpointChange[], titles: Record<EndpointChangeKind, [
                     <button type="button" class="otto-icon-button" aria-label="More OpenAPI actions" aria-haspopup="menu" (click)="moreMenu.toggle($event)">
                         <i class="pi pi-ellipsis-v" aria-hidden="true"></i>
                     </button>
-                    <p-menu #moreMenu [model]="moreItems" [popup]="true" appendTo="body" />
+                    <p-tiered-menu #moreMenu [model]="moreItems" [popup]="true" appendTo="body" />
                 </div>
 
                 <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="mt-3">
