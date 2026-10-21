@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { afterNextRender, Component, computed, effect, ElementRef, inject, Injector, signal, untracked, viewChild } from '@angular/core';
 import { MessageService, PrimeTemplate, TreeDragDropService, type MenuItem } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { ContextMenu, ContextMenuModule } from 'primeng/contextmenu';
@@ -8,6 +8,7 @@ import { TreeModule } from 'primeng/tree';
 import type { TreeNodeCollapseEvent, TreeNodeContextMenuSelectEvent, TreeNodeDropEvent, TreeNodeExpandEvent, TreeNodeSelectEvent } from 'primeng/types/tree';
 import type { CollectionExportFormat } from '@shared/models';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
+import { registerCommand, type CommandContext } from '../../core/keyboard/command-registry';
 import { CollectionFilesGateway } from '../../core/ports';
 import { CollectionsState } from '../../core/state/collections.state';
 import { ConfirmState } from '../../core/state/confirm.state';
@@ -67,7 +68,7 @@ import { EntryNameDialog, type EntryNameRequest } from './entry-name-dialog';
                 (onNodeDrop)="onDrop($event)"
             >
                 <ng-template pTemplate="otto" let-node>
-                    <span class="group flex min-w-0 flex-1 items-center gap-2.5 text-sm py-1 px-2">
+                    <span class="group flex min-w-0 flex-1 items-center gap-2.5 text-sm py-1 px-2" [attr.data-node-key]="node.key">
                         @switch (node.data.kind) {
                             @case ('collection') {
                                 <i class="pi pi-box text-xs text-muted-color" aria-hidden="true"></i>
@@ -134,6 +135,8 @@ export class CollectionsSidebar {
     private readonly drafts = inject(RequestDraftsState);
     private readonly messages = inject(MessageService);
     private readonly contextMenu = viewChild.required<ContextMenu>('contextMenu');
+    private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    private readonly injector = inject(Injector);
 
     protected readonly filterVisible = signal(false);
     private readonly expanded = signal<ReadonlySet<string>>(new Set());
@@ -208,6 +211,43 @@ export class CollectionsSidebar {
     });
 
     constructor() {
+        // Atalhos da árvore (F2, Delete, Mod+D) agem sobre o item focado.
+        const editable = (context: CommandContext) => {
+            const target = this.focusedNode(context);
+
+            return target && target.kind !== 'collection' ? target : null;
+        };
+
+        registerCommand('sidebar.rename', { when: (context) => !!editable(context), run: (context) => this.askRename(editable(context)!) });
+        registerCommand('sidebar.duplicate', { when: (context) => !!editable(context), run: (context) => this.askDuplicate(editable(context)!) });
+        registerCommand('sidebar.delete', {
+            when: (context) => !!this.focusedNode(context),
+            run: (context) => {
+                const target = this.focusedNode(context)!;
+
+                return target.kind === 'collection' ? this.ui.removeCollectionDialog.set(target.collectionId) : this.confirmDelete(target);
+            }
+        });
+
+        // Pedido de foco vindo dos atalhos `sidebar.focus` / `sidebar.filter`.
+        effect(() => {
+            const request = this.ui.sidebarFocusRequest();
+
+            if (!request) {
+                return;
+            }
+
+            untracked(() => {
+                this.ui.sidebarFocusRequest.set(null);
+
+                if (request.filter) {
+                    this.filterVisible.set(true);
+                }
+
+                afterNextRender(() => this.focusTree(request.filter), { injector: this.injector });
+            });
+        });
+
         // Revela a requisição ativa: expande a coleção e as pastas acima dela (ex.: abas restauradas).
         effect(() => {
             const tab = this.tabs.active();
@@ -340,6 +380,22 @@ export class CollectionsSidebar {
                 this.tabs.update(tab.id, { resourceRef: to + tab.resourceRef.slice(from.length) });
             }
         }
+    }
+
+    /** Nó da árvore que tem o foco (o `treeitem` do PrimeNG contém o template do próprio nó antes dos filhos). */
+    private focusedNode({ target }: CommandContext): SidebarNodeData | null {
+        const item = target?.closest('[role="treeitem"]');
+        const key = item && this.host.contains(item) ? item.querySelector('[data-node-key]')?.getAttribute('data-node-key') : null;
+
+        return key ? (findNode(this.nodes(), key)?.data ?? null) : null;
+    }
+
+    private focusTree(filter: boolean): void {
+        const target = filter
+            ? this.host.querySelector<HTMLElement>('p-tree input')
+            : (this.host.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]') ?? this.host.querySelector<HTMLElement>('[role="treeitem"]') ?? this.host.querySelector<HTMLElement>('p-button button'));
+
+        target?.focus();
     }
 
     private askDuplicate(target: SidebarNodeData): void {

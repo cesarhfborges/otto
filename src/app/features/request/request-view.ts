@@ -1,7 +1,7 @@
-import { Component, computed, effect, inject, input, linkedSignal, signal, untracked } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition } from '@shared/models';
+import { commandMeta, type CommandId, type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
@@ -10,6 +10,8 @@ import { SplitterModule } from 'primeng/splitter';
 import { TabsModule } from 'primeng/tabs';
 import type { SplitterPassThrough, SplitterResizeEndEvent } from 'primeng/types/splitter';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
+import { registerCommand } from '../../core/keyboard/command-registry';
+import { KeybindingService } from '../../core/keyboard/keybinding.service';
 import { CollectionFilesGateway } from '../../core/ports';
 import { CollectionsState } from '../../core/state/collections.state';
 import { draftKey, RequestDraftsState } from '../../core/state/request-drafts.state';
@@ -37,12 +39,23 @@ function savedSplitterSize(key: string, fallback: number): number {
     }
 }
 
+const SECTION_COMMANDS: ReadonlyArray<[CommandId, Section]> = [
+    ['request.section.params', 'params'],
+    ['request.section.body', 'body'],
+    ['request.section.headers', 'headers'],
+    ['request.section.auth', 'auth'],
+    ['request.section.docs', 'docs']
+];
+
+/** Atalhos exibidos no painel de resposta vazio. */
+const HINT_COMMANDS: readonly CommandId[] = ['request.send', 'request.save', 'collection.newRequest', 'app.preferences', 'app.shortcuts'];
+
 const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): number => items.filter((item) => item.enabled && item.key.trim()).length;
 
 /**
  * Editor da requisição: método, URL, params, body, headers, auth e docs, com o painel
  * de resposta ao lado. As edições ficam num rascunho (sobrevive à troca de abas) e são
- * gravadas no arquivo da coleção com Save / Ctrl+S. O envio usa o rascunho atual.
+ * gravadas no arquivo da coleção com Save (atalho `request.save`). O envio usa o rascunho atual.
  */
 @Component({
     selector: 'app-request-view',
@@ -64,6 +77,7 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
                         </ng-template>
                     </p-select>
                     <input
+                        #urlInput
                         class="h-full min-w-0 flex-1 border-0 bg-transparent px-3 font-mono text-sm text-color outline-none placeholder:text-muted-color focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--p-primary-color)]"
                         [value]="req.url"
                         placeholder="https://api.example.com/users or {{ urlExample }}"
@@ -73,11 +87,11 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
                         (input)="update({ url: $any($event.target).value })"
                     />
                 </div>
-                <p-button label="Save" icon="pi pi-save" size="small" severity="secondary" [outlined]="true" [disabled]="!dirty()" [loading]="saving()" ariaLabel="Save request (Ctrl+S)" (onClick)="save()" />
+                <p-button label="Save" icon="pi pi-save" size="small" severity="secondary" [outlined]="true" [disabled]="!dirty()" [loading]="saving()" [ariaLabel]="withShortcut('Save request', 'request.save')" (onClick)="save()" />
                 @if (sending()) {
-                    <p-button label="Cancel" icon="pi pi-times" size="small" severity="secondary" (onClick)="cancel()" />
+                    <p-button label="Cancel" icon="pi pi-times" size="small" severity="secondary" [ariaLabel]="withShortcut('Cancel request', 'request.cancel')" (onClick)="cancel()" />
                 } @else {
-                    <p-button label="Send" icon="pi pi-send" size="small" ariaLabel="Send request (Ctrl+Enter)" (onClick)="send()" />
+                    <p-button label="Send" icon="pi pi-send" size="small" [ariaLabel]="withShortcut('Send request', 'request.send')" (onClick)="send()" />
                 }
             </div>
 
@@ -176,7 +190,7 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
                                 <div class="flex h-full w-full flex-col items-center justify-center gap-6 p-6 text-center">
                                     <i class="pi pi-send !text-6xl text-surface-300 dark:text-surface-600" aria-hidden="true"></i>
                                     <dl class="m-0 grid grid-cols-[auto_auto] gap-x-6 gap-y-2 text-sm">
-                                        @for (shortcut of shortcuts; track shortcut.label) {
+                                        @for (shortcut of shortcuts(); track shortcut.label) {
                                             <dt class="text-right text-muted-color">{{ shortcut.label }}</dt>
                                             <dd class="m-0 text-left">
                                                 <kbd class="font-sans">{{ shortcut.keys }}</kbd>
@@ -194,9 +208,7 @@ const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): 
         }
     `,
     host: {
-        class: 'flex h-full min-h-0 flex-col',
-        '(document:keydown.control.enter)': 'onSendShortcut($event)',
-        '(document:keydown.meta.enter)': 'onSendShortcut($event)'
+        class: 'flex h-full min-h-0 flex-col'
     }
 })
 export class RequestView {
@@ -225,12 +237,12 @@ export class RequestView {
     protected readonly methods = [...HTTP_METHODS];
     protected readonly methodControl = new FormControl<HttpMethod>('GET', { nonNullable: true });
     protected readonly urlExample = '{{baseUrl}}/users';
-    protected readonly shortcuts = [
-        { label: 'Send Request', keys: 'Ctrl + Enter' },
-        { label: 'Save Request', keys: 'Ctrl + S' },
-        { label: 'New Request', keys: 'Ctrl + N' },
-        { label: 'Preferences', keys: 'Ctrl + ,' }
-    ];
+    private readonly keyboard = inject(KeybindingService);
+    /** Reflete os atalhos configurados em Preferences; comandos sem atalho não aparecem. */
+    protected readonly shortcuts = computed(() =>
+        HINT_COMMANDS.map((id) => ({ label: commandMeta(id).label, keys: this.keyboard.text(id) })).filter((shortcut) => shortcut.keys)
+    );
+    private readonly urlInput = viewChild<ElementRef<HTMLInputElement>>('urlInput');
     /** GET, HEAD, TRACE e CONNECT não levam corpo: a aba Body some. */
     protected readonly bodyAllowed = computed(() => hasBody(this.request()?.method ?? 'GET'));
     protected readonly counts = computed(() => {
@@ -275,6 +287,28 @@ export class RequestView {
             }
         });
         this.methodControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((method) => this.update({ method }));
+
+        // Só existe uma RequestView (a da aba ativa): os comandos de requisição valem para ela.
+        registerCommand('request.send', { when: () => !!this.request() && !this.sending(), run: () => this.send() });
+        registerCommand('request.cancel', { when: ({ overlayOpen }) => this.sending() && !overlayOpen, run: () => this.cancel() });
+        registerCommand('request.focusUrl', {
+            when: () => !!this.urlInput(),
+            run: () => {
+                this.urlInput()?.nativeElement.focus();
+                this.urlInput()?.nativeElement.select();
+            }
+        });
+
+        for (const [id, section] of SECTION_COMMANDS) {
+            registerCommand(id, { when: () => !!this.request() && (section !== 'body' || this.bodyAllowed()), run: () => this.section.set(section) });
+        }
+    }
+
+    /** Rótulo acessível com o atalho atual, ex.: "Send request (Ctrl + Enter)". */
+    protected withShortcut(label: string, id: CommandId): string {
+        const keys = this.keyboard.text(id);
+
+        return keys ? `${label} (${keys})` : label;
     }
 
     protected readonly firstSize = (event: SplitterResizeEndEvent): number => Number(event.sizes[0]);
@@ -306,14 +340,6 @@ export class RequestView {
 
     protected cancel(): void {
         this.responses.cancel(responseKey(this.collectionId(), this.path()));
-    }
-
-    protected onSendShortcut(event: Event): void {
-        event.preventDefault();
-
-        if (!this.sending()) {
-            this.send();
-        }
     }
 
     protected teste(event: any): void {

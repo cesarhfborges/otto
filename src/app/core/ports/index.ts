@@ -3,7 +3,7 @@
  * abstratas, usadas como tokens de DI. As implementações concretas (adapters)
  * são registradas em `provideOttoCore()`.
  */
-import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi } from '@shared/api';
+import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, KeybindingsApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi } from '@shared/api';
 import type {
     AppInfo,
     CollectionExportFormat,
@@ -18,6 +18,8 @@ import type {
     HistoryQuery,
     HttpRequest,
     HttpResult,
+    CommandId,
+    KeybindingOverrides,
     MenuAction,
     NewCollectionMetadata,
     NewEnvironment,
@@ -57,6 +59,13 @@ export abstract class SettingsGateway implements SettingsApi {
 export abstract class ThemeGateway implements ThemeApi {
     abstract get(): Promise<ThemeState>;
     abstract onChanged(listener: (state: ThemeState) => void): () => void;
+}
+
+export abstract class KeybindingsGateway implements KeybindingsApi {
+    abstract get(): Promise<KeybindingOverrides>;
+    abstract set(overrides: KeybindingOverrides): Promise<KeybindingOverrides>;
+    abstract reset(id?: CommandId): Promise<KeybindingOverrides>;
+    abstract onChanged(listener: (overrides: KeybindingOverrides) => void): () => void;
 }
 
 export abstract class HttpGateway implements HttpApi {

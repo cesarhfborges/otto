@@ -15,6 +15,9 @@ export type TabContext = EntityId | null;
 
 const SAVE_DELAY_MS = 300;
 
+/** Quantas abas fechadas podem ser reabertas (`Mod+Shift+T`). */
+const MAX_CLOSED_TABS = 20;
+
 const sameTab = (tab: TabState, spec: TabSpec): boolean => tab.kind === spec.kind && tab.collectionId === spec.collectionId && tab.resourceRef === (spec.resourceRef ?? null);
 
 const newId = (): string => globalThis.crypto?.randomUUID?.() ?? `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -36,6 +39,8 @@ export class TabsState {
     private closeGuard: ((tab: TabState) => boolean | Promise<boolean>) | null = null;
     /** Workspace dono das abas atuais; `null` até a restauração (nada é salvo antes disso). */
     private workspaceId: EntityId | null = null;
+    /** Abas fechadas pelo usuário, da mais recente para a mais antiga. */
+    private readonly closedState = signal<TabSpec[]>([]);
 
     readonly tabs = this.tabsState.asReadonly();
     readonly context = this.contextState.asReadonly();
@@ -46,6 +51,7 @@ export class TabsState {
         return this.visibleTabs().some((tab) => tab.id === id) ? id : (this.visibleTabs()[0]?.id ?? null);
     });
     readonly active = computed(() => this.tabsState().find((tab) => tab.id === this.activeId()) ?? null);
+    readonly canReopen = computed(() => this.closedState().length > 0);
 
     /**
      * Carrega as abas salvas do workspace, descartando as de coleções que não estão
@@ -57,6 +63,7 @@ export class TabsState {
         this.tabsState.set([]);
         this.activeByContext.set({});
         this.contextState.set(null);
+        this.closedState.set([]);
 
         try {
             // Preferences virou modal (`SettingsDialog`): abas `settings` salvas por versões antigas são descartadas.
@@ -158,6 +165,7 @@ export class TabsState {
         const neighbor = siblings[position + 1] ?? siblings[position - 1];
 
         this.tabsState.set(tabs.filter((t) => t.id !== id));
+        this.closedState.update((closed) => [{ kind: tab.kind, title: tab.title, collectionId: tab.collectionId, resourceRef: tab.resourceRef }, ...closed].slice(0, MAX_CLOSED_TABS));
 
         if (this.activeByContext()[tab.collectionId ?? ''] === id && neighbor) {
             this.activeByContext.update((map) => ({ ...map, [tab.collectionId ?? '']: neighbor.id }));
@@ -184,9 +192,49 @@ export class TabsState {
         }
     }
 
+    /** Fecha todas as abas do contexto atual, uma a uma (cada uma pode pedir confirmação). */
+    async closeAll(): Promise<void> {
+        for (const tab of this.visibleTabs()) {
+            if (!this.closeGuard || (await this.closeGuard(tab))) {
+                this.remove(tab.id);
+            }
+        }
+    }
+
+    /** Reabre a última aba fechada (as de coleções fechadas já saíram da pilha em `closeCollection`). */
+    reopenClosed(): void {
+        const [spec, ...rest] = this.closedState();
+
+        if (spec) {
+            this.closedState.set(rest);
+            this.open(spec);
+        }
+    }
+
+    /** Move a aba uma posição entre as do mesmo contexto (`delta` = -1 ou 1). */
+    move(id: EntityId, delta: -1 | 1): void {
+        const tabs = this.tabsState();
+        const tab = tabs.find((t) => t.id === id);
+        const siblings = tabs.filter((t) => t.collectionId === tab?.collectionId);
+        const neighbor = siblings[siblings.findIndex((t) => t.id === id) + delta];
+
+        if (!tab || !neighbor) {
+            return;
+        }
+
+        const from = tabs.indexOf(tab);
+        const to = tabs.indexOf(neighbor);
+        const next = [...tabs];
+
+        [next[from], next[to]] = [neighbor, tab];
+        this.tabsState.set(next);
+        this.scheduleSave();
+    }
+
     /** Ao fechar uma coleção, suas abas somem e o contexto volta ao workspace. */
     closeCollection(collectionId: EntityId): void {
         this.tabsState.update((tabs) => tabs.filter((t) => t.collectionId !== collectionId));
+        this.closedState.update((closed) => closed.filter((spec) => spec.collectionId !== collectionId));
 
         if (this.contextState() === collectionId) {
             this.setContext(null);

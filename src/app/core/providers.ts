@@ -7,6 +7,7 @@ import {
     ElectronEnvironmentsGateway,
     ElectronHistoryGateway,
     ElectronHttpGateway,
+    ElectronKeybindingsGateway,
     ElectronMenuEventsGateway,
     ElectronSettingsGateway,
     ElectronTabsGateway,
@@ -23,6 +24,7 @@ import {
     EnvironmentsGateway,
     HistoryGateway,
     HttpGateway,
+    KeybindingsGateway,
     MenuEventsGateway,
     SettingsGateway,
     TabsGateway,
@@ -31,6 +33,7 @@ import {
     WorkspacesGateway,
     OpenApiGateway
 } from './ports';
+import { KeybindingService } from './keyboard/keybinding.service';
 import { ThemeService } from './theme/theme.service';
 
 /** Liga os ports do renderer às implementações sobre o IPC do Electron. */
@@ -41,6 +44,7 @@ export function provideOttoCore(): EnvironmentProviders {
         { provide: SettingsGateway, useClass: ElectronSettingsGateway },
         { provide: ThemeGateway, useClass: ElectronThemeGateway },
         { provide: HttpGateway, useClass: ElectronHttpGateway },
+        { provide: KeybindingsGateway, useClass: ElectronKeybindingsGateway },
         { provide: DialogGateway, useClass: ElectronDialogGateway },
         { provide: MenuEventsGateway, useClass: ElectronMenuEventsGateway },
         { provide: HistoryGateway, useClass: ElectronHistoryGateway },
@@ -53,6 +57,8 @@ export function provideOttoCore(): EnvironmentProviders {
         // Aplica o tema antes da primeira renderização das rotas.
         provideAppInitializer(() => {
             inject(ThemeService);
+            // Começa a escutar o teclado; os comandos são registrados pelo shell e pelas telas.
+            inject(KeybindingService);
         })
     ]);
 }

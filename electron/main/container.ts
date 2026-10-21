@@ -1,7 +1,7 @@
 import { app, shell } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import type { ICollectionMetadataRepository, IEnvironmentRepository, IHistoryRepository, IHttpExecutor, IIpcModule, ISettingsService, ITabRepository } from './core/contracts';
+import type { ICollectionMetadataRepository, IEnvironmentRepository, IHistoryRepository, IHttpExecutor, IIpcModule, IKeybindingService, ISettingsService, ITabRepository } from './core/contracts';
 import { FsCollectionStore } from './infra/collections/fs-collection-store';
 import { FsCollectionWatcher } from './infra/collections/fs-collection-watcher';
 import { YamlCollectionFormat } from './infra/collections/yaml-collection-format';
@@ -10,13 +10,14 @@ import { MIGRATIONS } from './infra/database/migrations';
 import { openDatabase } from './infra/database/sqlite';
 import { SqliteCollectionMetadataRepository } from './infra/repositories/sqlite-collection-metadata.repository';
 import { SqliteEnvironmentRepository } from './infra/repositories/sqlite-environment.repository';
+import { SqliteKeybindingStore } from './infra/repositories/sqlite-keybinding.store';
 import { SqliteHistoryRepository } from './infra/repositories/sqlite-history.repository';
 import { SqliteSettingsStore } from './infra/repositories/sqlite-settings.store';
 import { SqliteTabRepository } from './infra/repositories/sqlite-tab.repository';
 import { SqliteWorkspaceRepository } from './infra/repositories/sqlite-workspace.repository';
 import { YamlWorkspaceFormat } from './infra/workspaces/yaml-workspace-format';
 import { DEFAULT_ZIP_LIMITS } from './infra/workspaces/zip-archive';
-import { defaultBaseDirectory } from './config';
+import { defaultBaseDirectory, isMac } from './config';
 import { importLegacySettings } from './infra/settings/legacy-settings-import';
 import { electronTrash } from './infra/system/electron-trash';
 import { systemClock, uuidGenerator } from './infra/system/system';
@@ -26,6 +27,7 @@ import { CollectionsIpcModule } from './ipc/collections.ipc';
 import { EnvironmentsIpcModule } from './ipc/environments.ipc';
 import { HistoryIpcModule } from './ipc/history.ipc';
 import { HttpIpcModule } from './ipc/http.ipc';
+import { KeybindingsIpcModule } from './ipc/keybindings.ipc';
 import { SettingsIpcModule } from './ipc/settings.ipc';
 import { ThemeIpcModule } from './ipc/theme.ipc';
 import { TabsIpcModule } from './ipc/tabs.ipc';
@@ -37,6 +39,7 @@ import { CollectionService } from './services/collections/collection.service';
 import { FetchHttpExecutor } from './services/http/fetch-http-executor';
 import { HistoryRecordingExecutor } from './services/http/history-recording-executor';
 import { ImporterRegistry } from './services/import/importer-registry';
+import { KeybindingService } from './services/keybindings/keybinding.service';
 import { SettingsService } from './services/settings/settings.service';
 import { WorkspaceService, type ArchiveFiles } from './services/workspaces/workspace.service';
 import { AppCommands } from './ui/commands';
@@ -47,6 +50,7 @@ import { WindowManager } from './ui/window';
 
 export interface Container {
     settings: ISettingsService;
+    keybindings: IKeybindingService;
     theme: ThemeController;
     history: IHistoryRepository;
     tabs: ITabRepository;
@@ -85,6 +89,7 @@ export function createContainer(): Container {
     importLegacySettings(path.join(userData, 'settings.json'), settingsStore);
 
     const settings = new SettingsService(settingsStore);
+    const keybindings = new KeybindingService(new SqliteKeybindingStore(db, systemClock, isMac));
 
     const history = new SqliteHistoryRepository(db, systemClock, uuidGenerator);
     const tabs = new SqliteTabRepository(db);
@@ -145,6 +150,7 @@ export function createContainer(): Container {
 
     return {
         settings,
+        keybindings,
         theme,
         history,
         tabs,
@@ -162,6 +168,7 @@ export function createContainer(): Container {
             new WindowIpcModule(window),
             new SettingsIpcModule(settings, window),
             new ThemeIpcModule(theme),
+            new KeybindingsIpcModule(keybindings, window, isMac),
             new HttpIpcModule(http),
             new HistoryIpcModule(history),
             new TabsIpcModule(tabs),

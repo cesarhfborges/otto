@@ -4,6 +4,7 @@ export * from './common';
 export * from './environment';
 export * from './history';
 export * from './http';
+export * from './keybindings';
 export * from './request';
 export * from './settings';
 export * from './tab';

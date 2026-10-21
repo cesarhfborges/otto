@@ -29,6 +29,7 @@ export class RequestDraftsState {
 
     /** Chaves (`coleção:arquivo`) com alterações não salvas. */
     readonly dirtyKeys = computed(() => new Set([...this.entries()].filter(([, entry]) => !same(entry.saved, entry.draft)).map(([key]) => key)));
+    readonly anyDirty = computed(() => this.dirtyKeys().size > 0);
 
     constructor() {
         this.tabs.setCloseGuard((tab) => this.confirmClose(tab));
@@ -80,6 +81,26 @@ export class RequestDraftsState {
     async saveTab(tab: TabState | null): Promise<void> {
         if (tab?.kind === 'request' && tab.collectionId && tab.resourceRef) {
             await this.save(tab.collectionId, tab.resourceRef);
+        }
+    }
+
+    /** Salva todas as requisições com alterações; falhas são reunidas num único erro no fim. */
+    async saveAll(): Promise<void> {
+        const failures: string[] = [];
+
+        for (const key of this.dirtyKeys()) {
+            const separator = key.indexOf(':');
+            const path = key.slice(separator + 1);
+
+            try {
+                await this.save(key.slice(0, separator), path);
+            } catch (error) {
+                failures.push(`${path}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
+
+        if (failures.length) {
+            throw new Error(failures.join('\n'));
         }
     }
 

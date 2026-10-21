@@ -64,7 +64,12 @@ if (!app.requestSingleInstanceLock()) {
         }
 
         container.theme.start();
-        Menu.setApplicationMenu(buildAppMenu(container.commands));
+        const { commands, keybindings } = container;
+        const applyMenu = () => Menu.setApplicationMenu(buildAppMenu(commands, keybindings.get()));
+
+        // O menu exibe os atalhos configurados: reconstrói quando o usuário os altera.
+        applyMenu();
+        keybindings.onChange(applyMenu);
         container.tray.create();
         container.window.create();
     });

@@ -16,6 +16,8 @@ import type {
     HistoryQuery,
     HttpRequest,
     HttpResult,
+    CommandId,
+    KeybindingOverrides,
     MenuAction,
     NewCollectionMetadata,
     NewEnvironment,
@@ -61,6 +63,16 @@ export interface ThemeApi {
     get(): Promise<ThemeState>;
     /** Disparado quando a preferência ou o tema do sistema operacional muda. */
     onChanged(listener: (state: ThemeState) => void): () => void;
+}
+
+/** Atalhos personalizados (só as diferenças em relação ao padrão). */
+export interface KeybindingsApi {
+    get(): Promise<KeybindingOverrides>;
+    /** Substitui todos os overrides (validados no main) e retorna o resultado gravado. */
+    set(overrides: KeybindingOverrides): Promise<KeybindingOverrides>;
+    /** Restaura o padrão de um comando ou, sem `id`, de todos. */
+    reset(id?: CommandId): Promise<KeybindingOverrides>;
+    onChanged(listener: (overrides: KeybindingOverrides) => void): () => void;
 }
 
 export interface HttpApi {
@@ -200,6 +212,7 @@ export interface OttoApi extends EventsApi {
     readonly window: WindowApi;
     readonly settings: SettingsApi;
     readonly theme: ThemeApi;
+    readonly keybindings: KeybindingsApi;
     readonly http: HttpApi;
     readonly dialog: DialogApi;
     readonly history: HistoryApi;

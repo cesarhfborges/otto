@@ -1,41 +1,46 @@
 import { app, Menu, shell, type MenuItemConstructorOptions } from 'electron';
+import { toElectronAccelerator } from '../../shared/keyboard/chord';
+import { commandMeta, effectiveChords, type CommandId, type KeybindingOverrides } from '../../shared/models';
 import { APP_NAME, isDev, isMac, REPOSITORY_URL } from '../config';
 import type { AppCommands } from './commands';
 
-export function buildAppMenu(commands: AppCommands): Menu {
+/**
+ * Menu da aplicação. Os itens de comando mostram o atalho configurado pelo usuário,
+ * mas não o registram (`registerAccelerator: false`): quem trata a tecla é o renderer,
+ * que sabe o contexto (aba ativa, diálogo aberto...). O clique executa o mesmo comando.
+ * Os papéis nativos (editar, zoom, sair) mantêm seus aceleradores, reservados no app.
+ */
+export function buildAppMenu(commands: AppCommands, overrides: KeybindingOverrides): Menu {
     const separator: MenuItemConstructorOptions = { type: 'separator' };
+    const command = (id: CommandId, label: string): MenuItemConstructorOptions => {
+        const chord = effectiveChords(commandMeta(id), overrides, isMac)[0];
+
+        return { label, click: () => commands.run(id), ...(chord ? { accelerator: toElectronAccelerator(chord), registerAccelerator: false } : {}) };
+    };
 
     const template: MenuItemConstructorOptions[] = [
         ...(isMac
             ? [
                   {
                       label: APP_NAME,
-                      submenu: [
-                          { role: 'about' },
-                          separator,
-                          { label: 'Settings…', accelerator: 'Cmd+,', click: () => commands.openSettings() },
-                          separator,
-                          { role: 'services' },
-                          separator,
-                          { role: 'hide' },
-                          { role: 'hideOthers' },
-                          { role: 'unhide' },
-                          separator,
-                          { role: 'quit' }
-                      ]
+                      submenu: [{ role: 'about' }, separator, command('app.preferences', 'Settings…'), separator, { role: 'services' }, separator, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, separator, { role: 'quit' }]
                   } satisfies MenuItemConstructorOptions
               ]
             : []),
         {
             label: 'File',
             submenu: [
-                { label: 'New Request', accelerator: 'CmdOrCtrl+N', click: () => commands.newRequest() },
-                { label: 'New Collection', accelerator: 'CmdOrCtrl+Shift+N', click: () => commands.newCollection() },
-                { label: 'Import Collection…', accelerator: 'CmdOrCtrl+O', click: () => commands.importCollection() },
+                command('collection.newRequest', 'New Request'),
+                command('collection.new', 'New Collection'),
+                command('collection.import', 'Import Collection…'),
                 separator,
-                { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => commands.save() },
+                command('request.save', 'Save'),
+                command('request.saveAll', 'Save All'),
                 separator,
-                ...(isMac ? [] : [{ label: 'Settings…', accelerator: 'Ctrl+,', click: () => commands.openSettings() } satisfies MenuItemConstructorOptions, separator]),
+                command('tabs.close', 'Close Tab'),
+                command('tabs.reopenClosed', 'Reopen Closed Tab'),
+                separator,
+                ...(isMac ? [] : [command('app.preferences', 'Settings…'), separator]),
                 isMac ? { role: 'close' } : { label: 'Quit', accelerator: 'Ctrl+Q', click: () => app.quit() }
             ]
         },
@@ -43,6 +48,9 @@ export function buildAppMenu(commands: AppCommands): Menu {
         {
             label: 'View',
             submenu: [
+                command('view.toggleSidebar', 'Toggle Sidebar'),
+                command('view.toggleRequestLayout', 'Toggle Request Layout'),
+                separator,
                 { role: 'reload' },
                 { role: 'forceReload' },
                 ...(isDev ? [{ role: 'toggleDevTools' } satisfies MenuItemConstructorOptions] : []),
@@ -51,7 +59,7 @@ export function buildAppMenu(commands: AppCommands): Menu {
                 { role: 'zoomIn' },
                 { role: 'zoomOut' },
                 separator,
-                { label: 'Cycle Theme (Dark / Light / Auto)', accelerator: 'CmdOrCtrl+Shift+D', click: () => commands.toggleTheme() },
+                command('theme.cycle', 'Cycle Theme (Dark / Light / Auto)'),
                 { role: 'togglefullscreen' }
             ]
         },
@@ -59,6 +67,8 @@ export function buildAppMenu(commands: AppCommands): Menu {
         {
             role: 'help',
             submenu: [
+                command('app.shortcuts', 'Keyboard Shortcuts'),
+                separator,
                 { label: 'Documentation', click: () => void shell.openExternal(`${REPOSITORY_URL}#readme`) },
                 { label: 'Report an Issue', click: () => void shell.openExternal(`${REPOSITORY_URL}/issues`) },
                 ...(isMac ? [] : [separator, { label: `About ${APP_NAME}`, click: () => commands.showAbout() } satisfies MenuItemConstructorOptions])

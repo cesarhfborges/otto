@@ -13,6 +13,8 @@ import type {
     HistoryQuery,
     HttpRequest,
     HttpResult,
+    CommandId,
+    KeybindingOverrides,
     MenuAction,
     NewCollectionMetadata,
     NewEnvironment,
@@ -38,6 +40,7 @@ import {
     EnvironmentsGateway,
     HistoryGateway,
     HttpGateway,
+    KeybindingsGateway,
     MenuEventsGateway,
     SettingsGateway,
     TabsGateway,
@@ -117,6 +120,27 @@ export class ElectronThemeGateway extends ThemeGateway {
 
     onChanged(listener: (state: ThemeState) => void): () => void {
         return this.api?.theme.onChanged(listener) ?? (() => undefined);
+    }
+}
+
+@Injectable()
+export class ElectronKeybindingsGateway extends KeybindingsGateway {
+    private readonly api = inject(OTTO_API);
+
+    get(): Promise<KeybindingOverrides> {
+        return requireOttoApi(this.api).keybindings.get();
+    }
+
+    set(overrides: KeybindingOverrides): Promise<KeybindingOverrides> {
+        return requireOttoApi(this.api).keybindings.set(overrides);
+    }
+
+    reset(id?: CommandId): Promise<KeybindingOverrides> {
+        return requireOttoApi(this.api).keybindings.reset(id);
+    }
+
+    onChanged(listener: (overrides: KeybindingOverrides) => void): () => void {
+        return this.api?.keybindings.onChanged(listener) ?? (() => undefined);
     }
 }
 

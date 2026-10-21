@@ -44,6 +44,12 @@ const api: OttoApi = {
         get: () => invoke('theme:get'),
         onChanged: (listener) => subscribe('theme:changed', listener)
     },
+    keybindings: {
+        get: () => invoke('keybindings:get'),
+        set: (overrides) => invoke('keybindings:set', overrides),
+        reset: (id) => invoke('keybindings:reset', id),
+        onChanged: (listener) => subscribe('keybindings:changed', listener)
+    },
     http: {
         send: (request) => invoke('http:send', request),
         cancel: (id) => invoke('http:cancel', id)

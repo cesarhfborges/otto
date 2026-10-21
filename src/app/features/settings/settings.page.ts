@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, linkedSignal, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { type AbstractControl, FormBuilder, ReactiveFormsModule, type ValidationErrors, type ValidatorFn, Validators } from '@angular/forms';
 import { type AppInfo, type CodeTheme, MAX_CODE_FONT_SIZE, MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, MIN_CODE_FONT_SIZE, type OttoSettings, PRIMARY_COLORS, type PrimaryColor, type RequestLayout, SURFACE_COLORS, type SurfaceColor, type ThemeMode, type ThemePreset } from '@shared/models';
@@ -12,14 +12,17 @@ import { SelectModule } from 'primeng/select';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { AppInfoGateway, DialogGateway } from '../../core/ports';
+import { KeybindingsState } from '../../core/state/keybindings.state';
 import { SettingsState } from '../../core/state/settings.state';
 import { ThemeService } from '../../core/theme/theme.service';
 import { CODE_THEME_PALETTES } from '../../core/theme/code-themes';
 import { SURFACE_PALETTES } from '../../core/theme/otto-preset';
+import { KeyboardShortcutsSettings } from './keyboard-shortcuts';
+import { SettingsDialog } from './settings-dialog.service';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
-type PreferencesSection = 'general' | 'themes' | 'appearance' | 'proxy' | 'certificates' | 'about';
+export type PreferencesSection = 'general' | 'themes' | 'appearance' | 'shortcuts' | 'proxy' | 'certificates' | 'about';
 
 /** Aceita vazio (validado em conjunto com `enabled`) ou uma URL http(s). */
 const proxyUrlValidator: ValidatorFn = (control: AbstractControl<string>): ValidationErrors | null => {
@@ -54,7 +57,7 @@ const EXAMPLE = {
 
 @Component({
     selector: 'app-settings-page',
-    imports: [Highlight, HighlightLineNumbers, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
+    imports: [Highlight, HighlightLineNumbers, KeyboardShortcutsSettings, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule],
     templateUrl: './settings.page.html',
     styles: `
         ::ng-deep {
@@ -72,16 +75,22 @@ export class SettingsPage {
         { id: 'general', label: 'General', icon: 'pi pi-cog', description: 'Workspaces location, application behavior and request defaults.' },
         { id: 'themes', label: 'Themes', icon: 'pi pi-palette', description: 'Color scheme, base style, accent color and surface tone used across the application.' },
         { id: 'appearance', label: 'Appearance', icon: 'pi pi-desktop', description: 'How panels are arranged in the request tab.' },
+        { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: 'pi pi-key', description: 'View, change and reset the keyboard shortcuts of every command.' },
         { id: 'proxy', label: 'Proxy', icon: 'pi pi-server', description: 'Route outgoing requests through an HTTP or HTTPS proxy.' },
         { id: 'certificates', label: 'Certificates', icon: 'pi pi-shield', description: 'SSL/TLS verification and trusted certificate authorities.' },
         { id: 'about', label: 'About', icon: 'pi pi-info-circle', description: 'Version and runtime information.' }
     ];
-    protected readonly section = signal<PreferencesSection>('general');
+    /** Seção inicial vinda de `SettingsDialog.open(section)`; a navegação lateral troca livremente. */
+    private readonly requestedSection = inject(SettingsDialog).requestedSection;
+    protected readonly section = linkedSignal<PreferencesSection>(() => this.requestedSection()?.section ?? 'general');
     protected readonly current = computed(() => this.sections.find((s) => s.id === this.section())!);
     protected readonly appInfo = signal<AppInfo | null>(null);
     protected readonly maxTimeoutMs = MAX_TIMEOUT_MS;
     protected readonly maxHistoryEntries = MAX_HISTORY_ENTRIES;
     protected readonly status = signal<SaveStatus>('idle');
+    private readonly keybindings = inject(KeybindingsState);
+    /** Atalhos têm gravação própria: o indicador do cabeçalho segue a seção exibida. */
+    protected readonly headerStatus = computed(() => (this.section() === 'shortcuts' ? this.keybindings.status() : this.status()));
     protected readonly errorMessage = signal<string | null>(null);
     protected readonly requestLayoutOptions: Array<{ label: string; value: RequestLayout }> = [
         { label: 'Side by side (request | response)', value: 'horizontal' },

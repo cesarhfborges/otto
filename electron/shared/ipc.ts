@@ -19,6 +19,8 @@ import type {
     HistoryQuery,
     HttpRequest,
     HttpResult,
+    CommandId,
+    KeybindingOverrides,
     MenuAction,
     NewCollectionMetadata,
     NewEnvironment,
@@ -46,6 +48,9 @@ export interface IpcInvokeContract {
     'settings:get': { args: []; result: OttoSettings };
     'settings:set': { args: [patch: SettingsPatch]; result: OttoSettings };
     'theme:get': { args: []; result: ThemeState };
+    'keybindings:get': { args: []; result: KeybindingOverrides };
+    'keybindings:set': { args: [overrides: KeybindingOverrides]; result: KeybindingOverrides };
+    'keybindings:reset': { args: [id?: CommandId]; result: KeybindingOverrides };
     'http:send': { args: [request: HttpRequest]; result: HttpResult };
     'http:cancel': { args: [id: string]; result: boolean };
     'dialog:pick-certificate': { args: []; result: string | null };
@@ -121,6 +126,8 @@ export interface IpcEventContract {
     'window:state-changed': WindowState;
     'settings:changed': OttoSettings;
     'theme:changed': ThemeState;
+    /** Atalhos personalizados mudaram (Preferences → Keyboard Shortcuts). */
+    'keybindings:changed': KeybindingOverrides;
     /** Conteúdo da coleção mudou no disco (pelo app ou externamente). */
     'collections:changed': { collectionId: EntityId };
     /** Uma execução foi registrada no histórico (ou registros antigos foram apagados). */

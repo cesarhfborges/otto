@@ -3,6 +3,7 @@ export * from './environments';
 export * from './guards';
 export * from './history';
 export * from './http';
+export * from './keybindings';
 export * from './request';
 export * from './settings';
 export * from './tabs';

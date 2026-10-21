@@ -71,8 +71,8 @@ export class TrayManager {
         return Menu.buildFromTemplate([
             { label: this.window.isVisible ? `Hide ${APP_NAME}` : `Show ${APP_NAME}`, click: () => this.window.toggle() },
             { type: 'separator' },
-            { label: 'New Request', click: () => this.commands.newRequest() },
-            { label: 'New Collection', click: () => this.commands.newCollection() },
+            { label: 'New Request', click: () => this.commands.run('collection.newRequest') },
+            { label: 'New Collection', click: () => this.commands.run('collection.new') },
             { type: 'separator' },
             {
                 label: 'Keep running in tray when closed',

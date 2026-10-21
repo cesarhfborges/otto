@@ -3,7 +3,7 @@
 > Fonte da verdade sobre o estado atual do software. Atualizado a cada entrega.
 > Plano original: [PLANO_IMPLEMENTACAO.md](PLANO_IMPLEMENTACAO.md).
 
-**Última atualização:** 2026-10-19 — Pasta base de workspaces, entrada só por importação e cadastro de ambientes; próxima: Etapa 7.
+**Última atualização:** 2026-10-20 — Atalhos de teclado configuráveis (Preferences → Keyboard Shortcuts).
 
 ## Visão geral
 
@@ -263,6 +263,17 @@ Pedido do usuário: layout semelhante ao Bruno (5 telas de referência) antes da
 - [x] Main: `openapi-converter` (OpenAPI 3.x e Swagger 2.0, JSON/YAML, `$ref` locais, exemplos a partir do schema com `allOf`/`oneOf`, query/header params com descrição, corpos JSON/form/multipart com arquivos/XML/texto/binário, auth a partir de `security`: Bearer/Basic/API Key/OAuth2→Bearer, pastas por tag/caminho), `OpenApiService` (3 versões: spec × `openapi-snapshot.json` × coleção, ligadas pelo campo `operation` das requisições), ambiente "Default" com `baseUrl` criado na primeira sincronização se a coleção não tiver ambientes. Spec por URL é baixado pelo motor HTTP (proxy/SSL) sem ir para o histórico
 - [x] Renderer: `OpenApiState` (status por coleção e verificação automática com timers enquanto a coleção está aberta); botão de sync no cabeçalho da coleção mostra ponto quando há atualizações e abre a aba OpenAPI
 - [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (94), no app real com servidor local de spec: headers no `otto.yaml`, conectar por URL, 4 endpoints novos, Accept All + Sync (arquivos por tag, `operation`, snapshot, ambiente Default), edição local detectada (Bearer→WSSE) com diff, spec v2 com novo/alterado/removido, sync parcial (removido fica pendente), Reset, envio com header da coleção e sobrescrita pela requisição ✅, **axe sem violações** em todas as telas ✅
+
+## Atalhos de teclado configuráveis (pedido do usuário)
+
+Plano: [PLANO_ATALHOS.md](PLANO_ATALHOS.md).
+
+- [x] Catálogo de 48 comandos com atalhos padrão (`electron/shared/models/keybindings.ts`) e normalização de teclas compartilhada main/renderer (`electron/shared/keyboard/chord.ts`): `Mod` = Ctrl/Cmd, letras e dígitos pela tecla física, AltGr ignorado
+- [x] Renderer: `KeybindingService` (um listener `keydown` em captura; prioridade foco → aba → global; nada habilitado = a tecla segue normalmente), `CommandRegistry` (telas registram handlers enquanto existem), comandos globais em `registerAppCommands()` chamado pelo `Shell`. Migrados `Ctrl+S`, `Ctrl+W`, `Ctrl+Tab` e `Ctrl+Enter`; novos: `Ctrl+F4`, reabrir/fechar todas/mover/ir para aba N, salvar todas, focar URL, seções da requisição, formatar corpo, `Ctrl+Enter` no formulário em foco, F2/Delete/`Ctrl+D` na árvore, barra lateral, ambiente etc.
+- [x] Main: overrides (só diferenças do padrão) na tabela `settings` (`keybindings`), validação (`parseKeybindingOverrides`), IPC `keybindings:get/set/reset` + evento; menu nativo mostra os atalhos configurados com `registerAccelerator: false` (fim do `Ctrl+S` duplicado) e clique/tray executam o mesmo comando (`MenuAction` = `{ type: 'command', id }`)
+- [x] Preferences → **Keyboard Shortcuts**: busca por texto ou por tecla, filtros (alterados/sem atalho/conflitos), gravar/substituir/adicionar/remover, aviso de conflito com Replace, teclas reservadas recusadas, Reset por linha e Reset All; diálogo de ajuda `Ctrl+/` com "Customize…"
+- [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (94), no app real via CDP (perfil isolado): `Ctrl+N` + `Ctrl+Enter` no diálogo, `Ctrl+F4` fecha / não faz nada sem aba, `Ctrl+Shift+T`, `Ctrl+/` → Customize, gravação com `Ctrl+W` (não fecha a aba; conflito com Close tab), Escape cancela sem fechar Preferences, `Ctrl+C` recusado, `Ctrl+Alt+W` gravado e funcionando após reiniciar, remover/Reset All, `Ctrl+B`, F2 na árvore, `Ctrl+Enter` envia a requisição ✅, **axe sem violações** na seção, no gravador, no conflito e no diálogo de ajuda ✅
+- [ ] Paleta de comandos (fase 6 do plano)
 
 ## Pendências e débitos conhecidos
 

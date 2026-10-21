@@ -1,16 +1,13 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
-import type { MenuAction } from '@shared/models';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { ipcErrorMessage } from '../core/bridge/ipc-error';
-import { MenuEventsGateway } from '../core/ports';
+import { registerAppCommands } from '../core/keyboard/app-commands';
 import { CollectionsState } from '../core/state/collections.state';
-import { TabsState } from '../core/state/tabs.state';
 import { UiState } from '../core/state/ui.state';
 import { WorkspacesState } from '../core/state/workspaces.state';
 import { RequestDraftsState } from '../core/state/request-drafts.state';
-import { ThemeService } from '../core/theme/theme.service';
 import { CollectionsSidebar } from '../features/collections/collections-sidebar';
 import { NewCollectionDialog } from '../features/collections/new-collection-dialog';
 import { NewFolderDialog } from '../features/collections/new-folder-dialog';
@@ -19,7 +16,7 @@ import { ImportCollectionDialog } from '../features/collections/import-collectio
 import { RemoveCollectionDialog } from '../features/collections/remove-collection-dialog';
 import { ImportWorkspaceDialog } from '../features/workspace/import-workspace-dialog';
 import { NewWorkspaceDialog } from '../features/workspace/new-workspace-dialog';
-import { SettingsDialog } from '../features/settings/settings-dialog.service';
+import { ShortcutsDialog } from '../features/settings/shortcuts-dialog';
 import { ConfirmHost } from './confirm-host';
 import { ContextHeader } from './context-header';
 import { StatusBar } from './status-bar';
@@ -63,6 +60,7 @@ function savedSplitterSize(key: string, fallback: number): number {
         ImportCollectionDialog,
         RemoveCollectionDialog,
         ConfirmHost,
+        ShortcutsDialog,
         ToastModule,
         SplitterModule,
         NgTemplateOutlet
@@ -117,12 +115,12 @@ function savedSplitterSize(key: string, fallback: number): number {
         <app-import-workspace-dialog />
         <app-import-collection-dialog />
         <app-remove-collection-dialog />
+        <app-shortcuts-dialog />
         <p-toast position="top-right" />
         <app-confirm-host />
     `,
     host: {
-        class: 'flex h-screen flex-col text-color',
-        '(document:keydown)': 'onKeydown($event)'
+        class: 'flex h-screen flex-col text-color'
     },
     styles: `
         //::ng-deep {
@@ -154,19 +152,17 @@ export class Shell {
         gutterHandle: { role: 'separator', 'aria-label': 'Resize sidebar', 'aria-orientation': 'vertical', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(this.sidebarSize()) }
     }));
 
-    private readonly tabs = inject(TabsState);
     private readonly collections = inject(CollectionsState);
-    private readonly theme = inject(ThemeService);
     private readonly messages = inject(MessageService);
     private readonly workspaces = inject(WorkspacesState);
-    private readonly settingsDialog = inject(SettingsDialog);
-    /** Também registra a confirmação ao fechar abas com alterações não salvas. */
-    private readonly drafts = inject(RequestDraftsState);
 
     constructor() {
+        // Também registra a confirmação ao fechar abas com alterações não salvas.
+        inject(RequestDraftsState);
         void this.workspaces.load();
 
-        inject(DestroyRef).onDestroy(inject(MenuEventsGateway).onMenuAction((action) => this.onMenuAction(action)));
+        // Atalhos de teclado, menu nativo e tray (ver `core/keyboard`).
+        registerAppCommands();
 
         // Falhas de abrir/criar coleções (pasta inválida, sem permissão...) viram notificações.
         // Coleções do workspace que não existem neste computador (ex.: workspace compartilhado via Git).
@@ -193,63 +189,5 @@ export class Shell {
                 this.collections.clearError();
             }
         });
-    }
-
-    /** Atalhos do próprio renderer (os do menu nativo chegam como `menu:action`). */
-    protected onKeydown(event: KeyboardEvent): void {
-        const mod = event.ctrlKey || event.metaKey;
-        const visible = this.tabs.visibleTabs();
-        const index = visible.findIndex((tab) => tab.id === this.tabs.activeId());
-
-        if (mod && event.key.toLowerCase() === 's') {
-            // O acelerador do menu nativo também dispara `save`; salvar duas vezes não tem efeito.
-            event.preventDefault();
-            void this.saveActive();
-        } else if (mod && event.key.toLowerCase() === 'w' && index >= 0) {
-            event.preventDefault();
-            this.tabs.close(visible[index]!.id);
-        } else if (event.ctrlKey && event.key === 'Tab' && visible.length > 1) {
-            event.preventDefault();
-            this.tabs.activate(visible[(index + (event.shiftKey ? -1 : 1) + visible.length) % visible.length]!.id);
-        }
-    }
-
-    private async saveActive(): Promise<void> {
-        try {
-            await this.drafts.saveTab(this.tabs.active());
-        } catch (error) {
-            this.messages.add({ severity: 'error', summary: 'Could not save the request', detail: error instanceof Error ? error.message : String(error), life: 6000 });
-        }
-    }
-
-    private onMenuAction(action: MenuAction): void {
-        switch (action.type) {
-            case 'toggle-theme':
-                void this.theme.toggle();
-                break;
-            case 'open-settings':
-                void this.settingsDialog.open();
-                break;
-            case 'import-collection':
-                this.ui.importCollectionDialog.set(true);
-                break;
-            case 'new-collection':
-                this.ui.newCollectionDialog.set(true);
-                break;
-            case 'new-request': {
-                const collectionId = this.tabs.context() ?? this.collections.opened()[0]?.metadata.id;
-
-                if (collectionId) {
-                    this.ui.newRequestDialog.set({ collectionId, folder: '' });
-                } else {
-                    this.messages.add({ severity: 'info', summary: 'Open a collection first', detail: 'Requests are saved inside a collection folder.' });
-                }
-
-                break;
-            }
-            case 'save':
-                void this.saveActive();
-                break;
-        }
     }
 }

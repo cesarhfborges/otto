@@ -1,6 +1,6 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import { DialogService, type DynamicDialogConfig, type DynamicDialogRef } from 'primeng/dynamicdialog';
-import type { SettingsPage } from './settings.page';
+import type { PreferencesSection, SettingsPage } from './settings.page';
 
 /** Configuração única da modal de Preferences (tamanho fixo, conteúdo sem padding e ocupando toda a área). */
 const SETTINGS_DIALOG_CONFIG: DynamicDialogConfig = {
@@ -34,7 +34,15 @@ export class SettingsDialog {
     private readonly dialogs = inject(DialogService);
     private ref: DynamicDialogRef<SettingsPage> | null = null;
 
-    async open(): Promise<void> {
+    /** Seção pedida na última abertura (objeto novo a cada pedido, para a página reagir mesmo se repetida). */
+    readonly requestedSection = signal<{ section: PreferencesSection } | null>(null);
+
+    /** Abre (ou, se já aberta, só troca de seção) a modal; `section` escolhe a seção inicial. */
+    async open(section?: PreferencesSection): Promise<void> {
+        if (section) {
+            this.requestedSection.set({ section });
+        }
+
         if (this.ref) {
             return;
         }
@@ -50,7 +58,10 @@ export class SettingsDialog {
 
         if (ref) {
             this.ref = ref;
-            ref.onClose.subscribe(() => (this.ref = null));
+            ref.onClose.subscribe(() => {
+                this.ref = null;
+                this.requestedSection.set(null);
+            });
         }
     }
 

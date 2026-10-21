@@ -30,7 +30,7 @@
         </div>
         <p class="m-0 shrink-0 text-sm text-(--p-emerald-600) dark:text-(--p-emerald-500)" role="status"
            aria-live="polite">
-            @switch (status()) {
+            @switch (headerStatus()) {
                 @case ('saving') {
                     Saving…
                 }
@@ -51,6 +51,11 @@
                 <p-message severity="error">
                     <span role="alert">Could not save settings: {{ message }}</span>
                 </p-message>
+            }
+
+            <!-- Atalhos não fazem parte do formulário de preferências (modelo e gravação próprios). -->
+            @if (section() === 'shortcuts') {
+                <app-keyboard-shortcuts-settings />
             }
 
             <form [formGroup]="form" (submit)="$event.preventDefault()" class="flex flex-col gap-6">

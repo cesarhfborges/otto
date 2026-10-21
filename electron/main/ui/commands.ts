@@ -1,3 +1,4 @@
+import type { CommandId } from '../../shared/models';
 import type { DialogService } from './dialogs';
 import type { WindowManager } from './window';
 
@@ -8,28 +9,9 @@ export class AppCommands {
         private readonly dialogs: DialogService
     ) {}
 
-    newRequest(): void {
-        this.window.sendMenuAction({ type: 'new-request' });
-    }
-
-    newCollection(): void {
-        this.window.sendMenuAction({ type: 'new-collection' });
-    }
-
-    importCollection(): void {
-        this.window.sendMenuAction({ type: 'import-collection' });
-    }
-
-    save(): void {
-        this.window.sendMenuAction({ type: 'save' });
-    }
-
-    openSettings(): void {
-        this.window.sendMenuAction({ type: 'open-settings' });
-    }
-
-    toggleTheme(): void {
-        this.window.sendMenuAction({ type: 'toggle-theme' });
+    /** Executa um comando do renderer (o mesmo dos atalhos de teclado). */
+    run(id: CommandId): void {
+        this.window.sendMenuAction({ type: 'command', id });
     }
 
     showAbout(): void {

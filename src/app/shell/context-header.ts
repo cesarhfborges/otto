@@ -1,11 +1,12 @@
-import { Component, computed, effect, inject, untracked } from '@angular/core';
+import { Component, computed, effect, inject, untracked, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import type { EntityId } from '@shared/models';
 import type { MenuItem } from 'primeng/api';
 import { MenuModule } from 'primeng/menu';
-import { SelectModule } from 'primeng/select';
+import { Select, SelectModule } from 'primeng/select';
 import { TooltipModule } from 'primeng/tooltip';
+import { registerCommand } from '../core/keyboard/command-registry';
 import { CollectionsState } from '../core/state/collections.state';
 import { EnvironmentsState } from '../core/state/environments.state';
 import { TabsState } from '../core/state/tabs.state';
@@ -37,7 +38,7 @@ import { TieredMenuModule } from 'primeng/tieredmenu';
                         <span class="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>
                     }
                 </button>
-                <p-select [formControl]="environmentControl" [options]="environmentOptions()" optionLabel="label" optionValue="value" size="small" ariaLabel="Environment" placeholder="No Environment" class="w-48" appendTo="body">
+                <p-select #environmentSelect [formControl]="environmentControl" [options]="environmentOptions()" optionLabel="label" optionValue="value" size="small" ariaLabel="Environment" placeholder="No Environment" class="w-48" appendTo="body">
                     <ng-template #selectedItem let-option>
                         <span class="flex items-center gap-2 text-sm"><i class="pi pi-globe text-xs" aria-hidden="true"></i>{{ option.label }}</span>
                     </ng-template>
@@ -62,6 +63,7 @@ export class ContextHeader {
     private readonly openapi = inject(OpenApiState);
 
     protected readonly collection = computed(() => this.collections.find(this.tabs.context()));
+    private readonly environmentSelect = viewChild<Select>('environmentSelect');
     protected readonly environmentControl = new FormControl<EntityId | null>(null);
 
     protected readonly pendingUpdates = computed(() => {
@@ -128,6 +130,8 @@ export class ContextHeader {
                 }
             });
         });
+
+        registerCommand('environment.select', { when: () => !!this.environmentSelect(), run: () => this.environmentSelect()?.show(true) });
 
         this.environmentControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) => {
             const id = this.tabs.context();

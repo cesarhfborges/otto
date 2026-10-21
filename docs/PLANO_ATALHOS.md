@@ -1,6 +1,12 @@
 # Plano de Implementação — Atalhos de Teclado Configuráveis
 
-> Status: **proposta** (nada implementado ainda). Revisar a lista de atalhos e as decisões em aberto antes de começar.
+> Status: **implementado** (fases 1–5) em 2026-10-20. A fase 6 (paleta de comandos) ficou para depois.
+>
+> Diferenças em relação ao plano abaixo:
+> - 48 comandos em `electron/shared/models/keybindings.ts`: `app.quit` virou tecla reservada (o menu nativo trata) e `app.commandPalette` não existe ainda.
+> - Decisões em aberto (§11) seguiram as propostas: `Mod+Enter` envia formulários também a partir de `<textarea>`; `Escape` cancela o envio; `Mod+1…9` contam as abas do contexto atual; seção entre *Appearance* e *Proxy*; sem exportar/importar e sem restringir o `reload`.
+> - As linhas da tabela de atalhos ficaram no próprio `keyboard-shortcuts.html` (sem `shortcut-row.ts`); a diretiva `appShortcut` não foi criada — os botões usam o texto do atalho atual no `ariaLabel` (`RequestView.withShortcut`).
+> - Os comandos globais são registrados pelo `Shell` (`registerAppCommands()`), que fornece o `MessageService` dos avisos, em vez de um `provideAppInitializer`.
 
 ## 1. Objetivo
 

@@ -6,6 +6,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { SelectButtonModule } from 'primeng/selectbutton';
+import { registerCommand } from '../../core/keyboard/command-registry';
 import { DialogGateway } from '../../core/ports';
 import { CodeEditor } from '../../shared/code-editor';
 import { formatJson, formatText, formatXml, validateBody, type FormatResult } from './body-format';
@@ -99,6 +100,7 @@ export class BodyEditor {
         // O segmento reflete o modelo; escolher outro tipo converte o corpo.
         effect(() => this.typeControl.setValue(this.body().type, { emitEvent: false }));
         this.typeControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((type) => this.changeType(type));
+        registerCommand('request.formatBody', { when: () => isTextType(this.body().type), run: () => this.prettify() });
     }
 
     /** Na ordem de uso: formulários, textos, arquivo e, por último, sem corpo. */
