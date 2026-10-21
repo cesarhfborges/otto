@@ -162,7 +162,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
     const theme = new ThemeController(settings, window);
     const dialogs = new DialogService(() => window.current);
     const commands = new AppCommands(window, dialogs);
-    const tray = new TrayManager(window, settings, commands);
+    const tray = new TrayManager(window, settings);
 
     return {
         settings,

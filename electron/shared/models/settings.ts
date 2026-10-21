@@ -87,7 +87,9 @@ export interface AppearanceSettings {
 }
 
 export interface OttoSettings {
-    /** Ao fechar a janela, mantém o Otto rodando na bandeja do sistema. */
+    /** Exibe o ícone do Otto na bandeja do sistema. */
+    showTrayIcon: boolean;
+    /** Ao fechar a janela, mantém o Otto rodando na bandeja do sistema (exige `showTrayIcon`). */
     minimizeToTray: boolean;
     /** Renderização pela GPU. Lido só na inicialização: a mudança vale após reiniciar o app. */
     hardwareAcceleration: boolean;
@@ -100,6 +102,7 @@ export interface OttoSettings {
 
 /** Alteração parcial, em qualquer nível de profundidade. */
 export interface SettingsPatch {
+    showTrayIcon?: boolean;
     minimizeToTray?: boolean;
     hardwareAcceleration?: boolean;
     theme?: ThemeMode;
@@ -118,7 +121,8 @@ export const MAX_TIMEOUT_MS = 3_600_000;
 export const MAX_HISTORY_ENTRIES = 10_000;
 
 export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
-    minimizeToTray: true,
+    showTrayIcon: false,
+    minimizeToTray: false,
     hardwareAcceleration: true,
     theme: 'auto',
     http: {

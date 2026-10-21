@@ -41,16 +41,16 @@ describe('SqliteSettingsStore', () => {
 
         assert.deepEqual(settings.get(), DEFAULT_SETTINGS);
 
-        const updated = settings.update({ minimizeToTray: false, theme: 'dark', http: { proxy: { enabled: true, url: 'http://proxy:3128' } } });
+        const updated = settings.update({ minimizeToTray: true, theme: 'dark', http: { proxy: { enabled: true, url: 'http://proxy:3128' } } });
 
-        assert.equal(updated.minimizeToTray, false);
+        assert.equal(updated.minimizeToTray, true);
         assert.equal(updated.theme, 'dark');
         assert.deepEqual(updated.http.proxy, { enabled: true, url: 'http://proxy:3128', bypass: DEFAULT_SETTINGS.http.proxy.bypass });
         assert.equal(updated.http.timeoutMs, DEFAULT_SETTINGS.http.timeoutMs);
 
         db.prepare("UPDATE settings SET value = '\"yes\"' WHERE key = 'minimizeToTray'").run();
         db.prepare("UPDATE settings SET value = '\"neon\"' WHERE key = 'theme'").run();
-        assert.equal(settings.get().minimizeToTray, true);
+        assert.equal(settings.get().minimizeToTray, false);
         assert.equal(settings.get().theme, 'auto');
         assert.equal(settings.get().http.proxy.enabled, true);
     });

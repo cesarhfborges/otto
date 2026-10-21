@@ -1,7 +1,6 @@
 import { app, Menu, nativeImage, Tray } from 'electron';
 import { APP_NAME, assetPath, isMac, isWindows } from '../config';
 import type { ISettingsService } from '../core/contracts';
-import type { AppCommands } from './commands';
 import type { WindowManager } from './window';
 
 const trayIconFile = (): string => {
@@ -12,7 +11,7 @@ const trayIconFile = (): string => {
     return isWindows ? 'tray-16.png' : 'tray-32.png';
 };
 
-/** Ícone e menu da bandeja do sistema. */
+/** Ícone e menu da bandeja do sistema; exibido só quando habilitado nas configurações. */
 export class TrayManager {
     private tray: Tray | null = null;
     private unsubscribeSettings: (() => void) | null = null;
@@ -20,11 +19,28 @@ export class TrayManager {
 
     constructor(
         private readonly window: WindowManager,
-        private readonly settings: ISettingsService,
-        private readonly commands: AppCommands
+        private readonly settings: ISettingsService
     ) {}
 
-    create(): Tray | null {
+    /** Cria ou remove o ícone conforme a preferência `showTrayIcon`, acompanhando suas mudanças. */
+    start(): void {
+        const sync = () => (this.settings.get().showTrayIcon ? this.create() : this.destroy());
+
+        sync();
+        this.unsubscribeSettings = this.settings.onChange(sync);
+    }
+
+    stop(): void {
+        this.unsubscribeSettings?.();
+        this.unsubscribeSettings = null;
+        this.destroy();
+    }
+
+    private create(): void {
+        if (this.tray) {
+            return;
+        }
+
         try {
             const icon = nativeImage.createFromPath(assetPath('icons', trayIconFile()));
 
@@ -38,7 +54,7 @@ export class TrayManager {
             console.warn('[otto] Tray indisponível:', error);
             this.window.setTrayAvailable(false);
 
-            return null;
+            return;
         }
 
         this.tray.setToolTip(APP_NAME);
@@ -51,18 +67,16 @@ export class TrayManager {
 
         this.tray.on('double-click', () => this.window.show());
         this.window.events.on('visibility-changed', this.refresh);
-        // A opção "manter na bandeja" também pode mudar pelo painel de configurações.
-        this.unsubscribeSettings = this.settings.onChange(this.refresh);
         this.window.setTrayAvailable(true);
-
-        return this.tray;
     }
 
-    destroy(): void {
+    private destroy(): void {
+        if (!this.tray) {
+            return;
+        }
+
         this.window.events.off('visibility-changed', this.refresh);
-        this.unsubscribeSettings?.();
-        this.unsubscribeSettings = null;
-        this.tray?.destroy();
+        this.tray.destroy();
         this.tray = null;
         this.window.setTrayAvailable(false);
     }
@@ -70,16 +84,6 @@ export class TrayManager {
     private buildMenu(): Menu {
         return Menu.buildFromTemplate([
             { label: this.window.isVisible ? `Hide ${APP_NAME}` : `Show ${APP_NAME}`, click: () => this.window.toggle() },
-            { type: 'separator' },
-            { label: 'New Request', click: () => this.commands.run('collection.newRequest') },
-            { label: 'New Collection', click: () => this.commands.run('collection.new') },
-            { type: 'separator' },
-            {
-                label: 'Keep running in tray when closed',
-                type: 'checkbox',
-                checked: this.settings.get().minimizeToTray,
-                click: (item) => this.settings.update({ minimizeToTray: item.checked })
-            },
             { type: 'separator' },
             { label: `Quit ${APP_NAME}`, click: () => app.quit() }
         ]);

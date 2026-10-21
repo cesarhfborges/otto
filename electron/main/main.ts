@@ -98,7 +98,7 @@ if (!app.requestSingleInstanceLock()) {
         // O menu exibe os atalhos configurados: reconstrói quando o usuário os altera.
         applyMenu();
         keybindings.onChange(applyMenu);
-        container.tray.create();
+        container.tray.start();
         container.window.create();
     });
 }

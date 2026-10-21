@@ -138,7 +138,8 @@ export class SettingsPage {
 
     protected readonly form = this.fb.group({
         theme: this.fb.control<ThemeMode>('auto'),
-        minimizeToTray: this.fb.control(true),
+        showTrayIcon: this.fb.control(false),
+        minimizeToTray: this.fb.control(false),
         hardwareAcceleration: this.fb.control(true),
         http: this.fb.group({
             // Campos de texto salvam ao sair do campo; toggles e seletores salvam na hora.
@@ -188,10 +189,12 @@ export class SettingsPage {
             untracked(() => {
                 if (JSON.stringify(this.form.getRawValue()) !== JSON.stringify(settings)) {
                     this.form.setValue(settings, { emitEvent: false });
+                    this.syncTrayControls();
                 }
             });
         });
 
+        this.form.controls.showTrayIcon.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.syncTrayControls());
         this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => void this.save());
     }
 
@@ -234,6 +237,17 @@ export class SettingsPage {
 
     protected clearCertificate(): void {
         this.form.controls.http.controls.ssl.controls.caCertificatePath.setValue(null);
+    }
+
+    /** "Manter na bandeja" só faz sentido com o ícone da bandeja visível. */
+    private syncTrayControls(): void {
+        const minimizeToTray = this.form.controls.minimizeToTray;
+
+        if (this.form.controls.showTrayIcon.value) {
+            minimizeToTray.enable({ emitEvent: false });
+        } else {
+            minimizeToTray.disable({ emitEvent: false });
+        }
     }
 
     private async save(): Promise<void> {
