@@ -84,7 +84,7 @@ function mark(own: Array<[string, string]>, other: Array<[string, string]> | nul
                     <div class="grid grid-cols-2 gap-3 px-3 pb-3">
                         @for (side of [section.left, section.right]; track $index) {
                             @if (side) {
-                                <table class="w-full border-collapse self-start overflow-hidden rounded border border-surface-200 text-xs dark:border-surface-700">
+                                <table class="w-full table-fixed border-collapse self-start overflow-hidden rounded border border-surface-200 text-xs dark:border-surface-700">
                                     <caption class="sr-only">
                                         {{
                                             section.title + ($index === 0 ? ' — ' + leftLabel() : ' — ' + rightLabel())
@@ -93,7 +93,7 @@ function mark(own: Array<[string, string]>, other: Array<[string, string]> | nul
                                     <thead>
                                         <tr class="text-left text-muted-color">
                                             <th scope="col" class="w-7 px-2 py-1.5"><span class="sr-only">Change</span></th>
-                                            <th scope="col" class="px-2 py-1.5 font-medium">Field</th>
+                                            <th scope="col" class="w-2/5 px-2 py-1.5 font-medium">Field</th>
                                             <th scope="col" class="px-2 py-1.5 font-medium">Value</th>
                                         </tr>
                                     </thead>
@@ -105,7 +105,7 @@ function mark(own: Array<[string, string]>, other: Array<[string, string]> | nul
                                                         <span class="inline-block rounded px-1 font-mono text-[0.625rem] font-bold" [class]="badgeClass(row.mark)" [attr.aria-label]="markLabel(row.mark)">{{ markLetter(row.mark) }}</span>
                                                     }
                                                 </td>
-                                                <td class="px-2 py-1.5 align-top font-mono">{{ row.field || '(empty name)' }}</td>
+                                                <td class="break-all px-2 py-1.5 align-top font-mono">{{ row.field || '(empty name)' }}</td>
                                                 <td class="whitespace-pre-wrap break-all px-2 py-1.5 align-top font-mono">{{ row.value || '—' }}</td>
                                             </tr>
                                         }

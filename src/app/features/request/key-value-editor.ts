@@ -16,7 +16,8 @@ export type EditableRow = KeyValue & { kind?: 'text' | 'file' };
     selector: 'app-key-value-editor',
     imports: [ButtonModule, InputTextModule, OttoInput],
     template: `
-        <table class="w-full border-collapse text-sm">
+        <div class="overflow-x-auto">
+        <table class="w-full min-w-[36rem] table-fixed border-collapse text-sm">
             <caption class="sr-only">
                 {{
                     label()
@@ -47,11 +48,11 @@ export type EditableRow = KeyValue & { kind?: 'text' | 'file' };
                             />
                         </td>
                         <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">
-                            <app-otto-input #nameInput size="small" class="w-full !text-sm" [value]="row.key" placeholder="name" [ariaLabel]="'Name of row ' + (i + 1)" (valueChange)="patch(i, { key: $event })" />
+                            <app-otto-input #nameInput size="small" class="w-full min-w-0 !text-sm" [value]="row.key" placeholder="name" [ariaLabel]="'Name of row ' + (i + 1)" (valueChange)="patch(i, { key: $event })" />
                         </td>
                         @if (allowFiles()) {
                             <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">
-                                <select class="otto-native-select w-full" [value]="row.kind ?? 'text'" [attr.aria-label]="'Type of row ' + (i + 1)" (change)="setKind(i, $any($event.target).value)">
+                                <select class="otto-native-select w-full min-w-0" [value]="row.kind ?? 'text'" [attr.aria-label]="'Type of row ' + (i + 1)" (change)="setKind(i, $any($event.target).value)">
                                     @for (kind of kinds; track kind.value) {
                                         <option [value]="kind.value">{{ kind.label }}</option>
                                     }
@@ -65,14 +66,14 @@ export type EditableRow = KeyValue & { kind?: 'text' | 'file' };
                                     <p-button icon="pi pi-folder-open" size="small" severity="secondary" [text]="true" [ariaLabel]="'Choose file for row ' + (i + 1)" (onClick)="chooseFile(i)" />
                                 </span>
                             } @else {
-                                <app-otto-input size="small" class="w-full !text-sm" [value]="row.value" placeholder="value" [ariaLabel]="'Value of row ' + (i + 1)" (valueChange)="patch(i, { value: $event })" />
+                                <app-otto-input size="small" class="w-full min-w-0 !text-sm" [value]="row.value" placeholder="value" [ariaLabel]="'Value of row ' + (i + 1)" (valueChange)="patch(i, { value: $event })" />
                             }
                         </td>
                         <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">
                             <input
                                 pInputText
                                 pSize="small"
-                                class="w-full !text-sm"
+                                class="w-full min-w-0 !text-sm"
                                 [value]="row.description ?? ''"
                                 placeholder="description"
                                 autocomplete="off"
@@ -89,6 +90,7 @@ export type EditableRow = KeyValue & { kind?: 'text' | 'file' };
                 }
             </tbody>
         </table>
+        </div>
         <p-button [label]="addLabel()" icon="pi pi-plus" size="small" severity="secondary" [text]="true" styleClass="mt-1" (onClick)="add()" />
     `,
     host: { class: 'block' }

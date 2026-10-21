@@ -134,20 +134,20 @@ function prettyBody(response: HttpResponse): PrettyBody {
                                     }
                                 </p-tabpanel>
                                 <p-tabpanel value="headers">
-                                    <table class="w-full border-collapse text-sm">
+                                    <table class="w-full table-fixed border-collapse text-sm">
                                         <caption class="sr-only">
                                             Response headers
                                         </caption>
                                         <thead>
                                             <tr class="text-left text-xs text-muted-color">
-                                                <th scope="col" class="border-b border-surface-200 py-1.5 font-medium dark:border-surface-700">Name</th>
+                                                <th scope="col" class="w-1/3 border-b border-surface-200 py-1.5 pr-4 font-medium dark:border-surface-700">Name</th>
                                                 <th scope="col" class="border-b border-surface-200 py-1.5 font-medium dark:border-surface-700">Value</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @for (header of res.headers; track $index) {
                                                 <tr>
-                                                    <td class="border-b border-surface-100 py-1.5 pr-4 align-top font-mono dark:border-surface-800">{{ header[0] }}</td>
+                                                    <td class="break-all border-b border-surface-100 py-1.5 pr-4 align-top font-mono dark:border-surface-800">{{ header[0] }}</td>
                                                     <td class="break-all border-b border-surface-100 py-1.5 font-mono dark:border-surface-800">{{ header[1] }}</td>
                                                 </tr>
                                             }

@@ -25,7 +25,7 @@ import { EnterSubmit } from '../../shared/enter-submit.directive';
                 <p-button label="Import Workspace" icon="pi pi-download" size="small" severity="secondary" [outlined]="true" (onClick)="ui.importWorkspaceDialog.set(true)" />
             </div>
 
-            <table class="w-full border-collapse text-sm">
+            <table class="w-full table-fixed border-collapse text-sm">
                 <caption class="sr-only">
                     Workspaces
                 </caption>
@@ -41,17 +41,17 @@ import { EnterSubmit } from '../../shared/enter-submit.directive';
                     @for (workspace of workspaces.list(); track workspace.id) {
                         <tr>
                             <td class="border-b border-surface-100 py-2 pr-4 dark:border-surface-800">
-                                <span class="flex items-center gap-2 font-medium">
-                                    {{ workspace.name }}
+                                <span class="flex min-w-0 items-center gap-2 font-medium">
+                                    <span class="truncate" [title]="workspace.name">{{ workspace.name }}</span>
                                     @if (workspace.active) {
-                                        <span class="rounded bg-primary-50 px-1.5 text-xs text-primary-700 dark:bg-primary-950 dark:text-primary-300">active</span>
+                                        <span class="shrink-0 rounded bg-primary-50 px-1.5 text-xs text-primary-700 dark:bg-primary-950 dark:text-primary-300">active</span>
                                     }
                                     @if (workspace.missing) {
-                                        <span class="rounded bg-red-50 px-1.5 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">folder not found</span>
+                                        <span class="shrink-0 rounded bg-red-50 px-1.5 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">folder not found</span>
                                     }
                                 </span>
                             </td>
-                            <td class="max-w-0 border-b border-surface-100 py-2 pr-4 dark:border-surface-800">
+                            <td class="border-b border-surface-100 py-2 pr-4 dark:border-surface-800">
                                 <span class="block truncate font-mono text-xs text-muted-color" [title]="workspace.path ?? ''">{{ workspace.path ?? 'Stored only on this computer' }}</span>
                             </td>
                             <td class="border-b border-surface-100 py-2 dark:border-surface-800">{{ workspace.collectionCount }}</td>

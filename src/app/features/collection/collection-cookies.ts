@@ -16,40 +16,42 @@ import { CookieDialog } from './cookie-dialog';
             Stored only in this collection and sent automatically to matching requests (unless the request sets its own <code>Cookie</code> header). <code>Set-Cookie</code> responses update this list. In templates, use
             <code>{{ commandExample }}</code> and friends (<code>set</code>, <code>remove</code>, <code>clear</code>, <code>header</code>).
         </p>
-        <table class="w-full border-collapse text-sm">
-            <caption class="sr-only">
-                Collection cookies
-            </caption>
-            <thead>
-                <tr class="text-left text-xs text-muted-color">
-                    <th scope="col" class="w-1/5 border-b border-surface-200 py-1.5 font-medium dark:border-surface-700">Name</th>
-                    <th scope="col" class="border-b border-surface-200 py-1.5 font-medium dark:border-surface-700">Value</th>
-                    <th scope="col" class="w-1/6 border-b border-surface-200 py-1.5 font-medium dark:border-surface-700">Domain</th>
-                    <th scope="col" class="w-16 border-b border-surface-200 py-1.5 font-medium dark:border-surface-700">Path</th>
-                    <th scope="col" class="w-44 border-b border-surface-200 py-1.5 font-medium dark:border-surface-700">Expires</th>
-                    <th scope="col" class="w-20 border-b border-surface-200 py-1.5 dark:border-surface-700"><span class="sr-only">Actions</span></th>
-                </tr>
-            </thead>
-            <tbody>
-                @for (cookie of cookies(); track $index) {
-                    <tr [class.text-muted-color]="expired(cookie)">
-                        <td class="border-b border-surface-100 py-1 pr-2 font-mono dark:border-surface-800">{{ cookie.name }}</td>
-                        <td class="max-w-0 truncate border-b border-surface-100 py-1 pr-2 font-mono dark:border-surface-800" [title]="cookie.value">{{ cookie.value }}</td>
-                        <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">{{ cookie.domain || 'any' }}</td>
-                        <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">{{ cookie.path }}</td>
-                        <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">{{ cookie.expires ? (expired(cookie) ? 'Expired' : formatDate(cookie.expires)) : 'Session' }}</td>
-                        <td class="border-b border-surface-100 py-1 text-right dark:border-surface-800">
-                            <p-button icon="pi pi-pencil" size="small" severity="secondary" [text]="true" [ariaLabel]="'Edit cookie ' + cookie.name" (onClick)="edit(cookie)" />
-                            <p-button icon="pi pi-trash" size="small" severity="secondary" [text]="true" [ariaLabel]="'Remove cookie ' + cookie.name" (onClick)="remove(cookie)" />
-                        </td>
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[40rem] table-fixed border-collapse text-sm">
+                <caption class="sr-only">
+                    Collection cookies
+                </caption>
+                <thead>
+                    <tr class="text-left text-xs text-muted-color">
+                        <th scope="col" class="w-1/5 border-b border-surface-200 py-1.5 pr-2 font-medium dark:border-surface-700">Name</th>
+                        <th scope="col" class="border-b border-surface-200 py-1.5 pr-2 font-medium dark:border-surface-700">Value</th>
+                        <th scope="col" class="w-1/6 border-b border-surface-200 py-1.5 pr-2 font-medium dark:border-surface-700">Domain</th>
+                        <th scope="col" class="w-20 border-b border-surface-200 py-1.5 pr-2 font-medium dark:border-surface-700">Path</th>
+                        <th scope="col" class="w-44 border-b border-surface-200 py-1.5 pr-2 font-medium dark:border-surface-700">Expires</th>
+                        <th scope="col" class="w-20 border-b border-surface-200 py-1.5 dark:border-surface-700"><span class="sr-only">Actions</span></th>
                     </tr>
-                } @empty {
-                    <tr>
-                        <td colspan="6" class="py-3 text-muted-color">No cookies yet.</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @for (cookie of cookies(); track $index) {
+                        <tr [class.text-muted-color]="expired(cookie)">
+                            <td class="truncate border-b border-surface-100 py-1 pr-2 font-mono dark:border-surface-800" [title]="cookie.name">{{ cookie.name }}</td>
+                            <td class="truncate border-b border-surface-100 py-1 pr-2 font-mono dark:border-surface-800" [title]="cookie.value">{{ cookie.value }}</td>
+                            <td class="truncate border-b border-surface-100 py-1 pr-2 dark:border-surface-800" [title]="cookie.domain || 'any'">{{ cookie.domain || 'any' }}</td>
+                            <td class="truncate border-b border-surface-100 py-1 pr-2 dark:border-surface-800" [title]="cookie.path">{{ cookie.path }}</td>
+                            <td class="truncate border-b border-surface-100 py-1 pr-2 dark:border-surface-800">{{ cookie.expires ? (expired(cookie) ? 'Expired' : formatDate(cookie.expires)) : 'Session' }}</td>
+                            <td class="whitespace-nowrap border-b border-surface-100 py-1 text-right dark:border-surface-800">
+                                <p-button icon="pi pi-pencil" size="small" severity="secondary" [text]="true" [ariaLabel]="'Edit cookie ' + cookie.name" (onClick)="edit(cookie)" />
+                                <p-button icon="pi pi-trash" size="small" severity="secondary" [text]="true" [ariaLabel]="'Remove cookie ' + cookie.name" (onClick)="remove(cookie)" />
+                            </td>
+                        </tr>
+                    } @empty {
+                        <tr>
+                            <td colspan="6" class="py-3 text-muted-color">No cookies yet.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
         @if (error(); as message) {
             <p-message severity="error" styleClass="mt-3"
                 ><span role="alert">{{ message }}</span></p-message
