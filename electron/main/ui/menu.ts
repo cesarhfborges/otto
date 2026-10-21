@@ -51,7 +51,7 @@ export function buildAppMenu(commands: AppCommands): Menu {
                 { role: 'zoomIn' },
                 { role: 'zoomOut' },
                 separator,
-                { label: 'Toggle Dark Mode', accelerator: 'CmdOrCtrl+Shift+D', click: () => commands.toggleTheme() },
+                { label: 'Cycle Theme (Dark / Light / Auto)', accelerator: 'CmdOrCtrl+Shift+D', click: () => commands.toggleTheme() },
                 { role: 'togglefullscreen' }
             ]
         },

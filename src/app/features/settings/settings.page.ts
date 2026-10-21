@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { type AbstractControl, FormBuilder, ReactiveFormsModule, type ValidationErrors, type ValidatorFn, Validators } from '@angular/forms';
-import { type AppInfo, type CodeTheme, MAX_CODE_FONT_SIZE, MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, MIN_CODE_FONT_SIZE, type OttoSettings, type RequestLayout, type ThemeMode } from '@shared/models';
+import { type AppInfo, type CodeTheme, MAX_CODE_FONT_SIZE, MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, MIN_CODE_FONT_SIZE, type OttoSettings, PRIMARY_COLORS, type PrimaryColor, type RequestLayout, SURFACE_COLORS, type SurfaceColor, type ThemeMode, type ThemePreset } from '@shared/models';
 import { Highlight } from 'ngx-highlightjs';
 import { HighlightLineNumbers } from 'ngx-highlightjs/line-numbers';
 import { ButtonModule } from 'primeng/button';
@@ -15,6 +15,7 @@ import { AppInfoGateway, DialogGateway } from '../../core/ports';
 import { SettingsState } from '../../core/state/settings.state';
 import { ThemeService } from '../../core/theme/theme.service';
 import { CODE_THEME_PALETTES } from '../../core/theme/code-themes';
+import { SURFACE_PALETTES } from '../../core/theme/otto-preset';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -69,7 +70,7 @@ export class SettingsPage {
     protected readonly theme = inject(ThemeService);
     protected readonly sections: Array<{ id: PreferencesSection; label: string; icon: string; description: string }> = [
         { id: 'general', label: 'General', icon: 'pi pi-cog', description: 'Workspaces location, application behavior and request defaults.' },
-        { id: 'themes', label: 'Themes', icon: 'pi pi-palette', description: 'Color scheme used across the application.' },
+        { id: 'themes', label: 'Themes', icon: 'pi pi-palette', description: 'Color scheme, base style, accent color and surface tone used across the application.' },
         { id: 'appearance', label: 'Appearance', icon: 'pi pi-desktop', description: 'How panels are arranged in the request tab.' },
         { id: 'proxy', label: 'Proxy', icon: 'pi pi-server', description: 'Route outgoing requests through an HTTP or HTTPS proxy.' },
         { id: 'certificates', label: 'Certificates', icon: 'pi pi-shield', description: 'SSL/TLS verification and trusted certificate authorities.' },
@@ -94,6 +95,25 @@ export class SettingsPage {
         { label: 'Light', value: 'light', icon: 'pi pi-sun' },
         { label: 'Dark', value: 'dark', icon: 'pi pi-moon' },
         { label: 'Auto', value: 'auto', icon: 'pi pi-desktop' }
+    ];
+    protected readonly presetOptions: Array<{ label: string; value: ThemePreset; description: string }> = [
+        { label: 'Aura', value: 'aura', description: 'Modern and rounded, focused on softness.' },
+        { label: 'Lara', value: 'lara', description: 'Classic and corporate, great for dense screens.' },
+        { label: 'Nora', value: 'nora', description: 'Clean and minimal, with sharper corners.' }
+    ];
+    protected readonly primaryColorOptions = PRIMARY_COLORS.map((value) => ({
+        value,
+        label: value === 'noir' ? 'Noir' : value[0].toUpperCase() + value.slice(1),
+        swatch: value === 'noir' ? 'var(--p-text-color)' : `var(--p-${value}-500)`
+    }));
+    protected readonly surfaceColorOptions: Array<{ label: string; value: SurfaceColor | null; swatches: string[] }> = [
+        // Padrão do estilo base: slate no tema claro, zinc no escuro.
+        { label: 'Default', value: null, swatches: [SURFACE_PALETTES.slate[300], SURFACE_PALETTES.zinc[700]] },
+        ...SURFACE_COLORS.map((value) => ({
+            value,
+            label: value[0].toUpperCase() + value.slice(1),
+            swatches: [SURFACE_PALETTES[value][300], SURFACE_PALETTES[value][700]]
+        }))
     ];
     private readonly settingsState = inject(SettingsState);
     protected readonly persistent = this.settingsState.persistent;
@@ -122,6 +142,9 @@ export class SettingsPage {
             })
         }),
         appearance: this.fb.group({
+            themePreset: this.fb.control<ThemePreset>('aura'),
+            primaryColor: this.fb.control<PrimaryColor>('emerald'),
+            surfaceColor: this.fb.control<SurfaceColor | null>(null),
             requestLayout: this.fb.control<RequestLayout>('horizontal'),
             codeTheme: this.fb.control<CodeTheme>('seneca'),
             codeFontSize: this.fb.control(14, { validators: [Validators.required, Validators.min(MIN_CODE_FONT_SIZE), Validators.max(MAX_CODE_FONT_SIZE)] })

@@ -1,11 +1,15 @@
 import { computed, DestroyRef, DOCUMENT, effect, inject, Injectable, signal } from '@angular/core';
-import type { EffectiveTheme, ThemeMode, ThemeState } from '@shared/models';
+import { usePreset } from '@primeuix/themes';
+import { DEFAULT_SETTINGS, type EffectiveTheme, type ThemeMode, type ThemeState } from '@shared/models';
 import { ThemeGateway } from '../ports';
 import { SettingsState } from '../state/settings.state';
 import { CODE_THEME_PALETTES } from './code-themes';
+import { buildOttoPreset } from './otto-preset';
 
 /** Classe usada pelo PrimeNG (`darkModeSelector`) e pelos estilos do layout. */
 export const DARK_CLASS = 'app-dark';
+
+const THEME_CYCLE: readonly ThemeMode[] = ['dark', 'light', 'auto'];
 
 /**
  * Tema da aplicação: preferência do usuário (`light`/`dark`/`auto`) e tema efetivo.
@@ -19,6 +23,17 @@ export class ThemeService {
     private readonly document = inject(DOCUMENT);
     private readonly nativeState = signal<ThemeState | null>(null);
     private readonly systemPrefersDark = signal(false);
+
+    /** Chave do preset aplicado; começa com o `OttoPreset` registrado em `providePrimeNG`. */
+    private appliedPreset = `${DEFAULT_SETTINGS.appearance.themePreset}:${DEFAULT_SETTINGS.appearance.primaryColor}:${DEFAULT_SETTINGS.appearance.surfaceColor}`;
+    private readonly themeConfig = computed(
+        () => {
+            const { themePreset, primaryColor, surfaceColor } = this.settings.settings().appearance;
+
+            return { themePreset, primaryColor, surfaceColor };
+        },
+        { equal: (a, b) => a.themePreset === b.themePreset && a.primaryColor === b.primaryColor && a.surfaceColor === b.surfaceColor }
+    );
 
     readonly mode = computed<ThemeMode>(() => this.settings.settings().theme);
 
@@ -68,14 +83,34 @@ export class ThemeService {
 
             style.setProperty('--otto-code-font-size', `${codeFontSize}px`);
         });
+
+        // Estilo base, cor de destaque e superfície: troca o preset do PrimeNG em tempo de execução.
+        effect(() => {
+            const config = this.themeConfig();
+            const key = `${config.themePreset}:${config.primaryColor}:${config.surfaceColor}`;
+
+            if (key === this.appliedPreset) {
+                return;
+            }
+
+            this.appliedPreset = key;
+            buildOttoPreset(config).then(
+                // Ignora resultados atrasados (Lara/Nora são carregados sob demanda).
+                (preset) => key === this.appliedPreset && usePreset(preset),
+                (error) => console.error('[otto] failed to load theme preset', error)
+            );
+        });
     }
 
     setMode(mode: ThemeMode): Promise<unknown> {
         return this.settings.update({ theme: mode });
     }
 
-    /** Alterna entre claro e escuro explícitos (atalho Ctrl+Shift+D e botão do topo). */
+    /** Próximo modo no ciclo escuro → claro → automático. */
+    readonly nextMode = computed<ThemeMode>(() => THEME_CYCLE[(THEME_CYCLE.indexOf(this.mode()) + 1) % THEME_CYCLE.length]);
+
+    /** Avança no ciclo escuro → claro → automático (atalho Ctrl+Shift+D e botão da barra de status). */
     toggle(): Promise<unknown> {
-        return this.setMode(this.isDark() ? 'light' : 'dark');
+        return this.setMode(this.nextMode());
     }
 }

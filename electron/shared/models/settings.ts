@@ -60,7 +60,26 @@ export type CodeTheme = (typeof CODE_THEMES)[number];
 export const MIN_CODE_FONT_SIZE = 10;
 export const MAX_CODE_FONT_SIZE = 24;
 
+/** Estilo base do PrimeNG (`@primeuix/themes`). */
+export const THEME_PRESETS = ['aura', 'lara', 'nora'] as const;
+
+export type ThemePreset = (typeof THEME_PRESETS)[number];
+
+/** Cor de destaque: `noir` usa a própria paleta de superfície (monocromático). */
+export const PRIMARY_COLORS = ['noir', 'emerald', 'green', 'lime', 'orange', 'amber', 'yellow', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'] as const;
+
+export type PrimaryColor = (typeof PRIMARY_COLORS)[number];
+
+/** Tons de cinza de fundos e painéis. */
+export const SURFACE_COLORS = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'soho', 'viva', 'ocean'] as const;
+
+export type SurfaceColor = (typeof SURFACE_COLORS)[number];
+
 export interface AppearanceSettings {
+    themePreset: ThemePreset;
+    primaryColor: PrimaryColor;
+    /** `null` = tons padrão do estilo base (slate no claro, zinc no escuro). */
+    surfaceColor: SurfaceColor | null;
     requestLayout: RequestLayout;
     codeTheme: CodeTheme;
     /** Tamanho da fonte (px) dos editores de corpo e da resposta. */
@@ -108,5 +127,5 @@ export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
     },
     history: { maxEntries: 500 },
     workspaces: { baseDirectory: '' },
-    appearance: { requestLayout: 'horizontal', codeTheme: 'seneca', codeFontSize: 14 }
+    appearance: { themePreset: 'aura', primaryColor: 'emerald', surfaceColor: null, requestLayout: 'horizontal', codeTheme: 'seneca', codeFontSize: 14 }
 };
