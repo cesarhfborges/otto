@@ -52,6 +52,7 @@ Legenda: **Existe** = já funciona hoje (será migrado); **Novo** = comando novo
 | --- | --- | --- | --- |
 | `app.preferences` — Abrir Preferences | `Mod+,` | sempre | Existe (menu) |
 | `app.shortcuts` — Mostrar atalhos de teclado | `Mod+/` | sempre | Novo |
+| `app.keyboardShortcutsSettings` — Abrir Preferences → Keyboard Shortcuts | *(sem padrão)* | sempre | Novo (§7.1) |
 | `app.commandPalette` — Paleta de comandos | `Mod+Shift+P` | sempre | Novo (fase 5) |
 | `theme.cycle` — Alternar tema (escuro/claro/auto) | `Mod+Shift+D` | sempre | Existe (menu) |
 | `view.toggleSidebar` — Mostrar/ocultar barra lateral | `Mod+B` | sempre | Novo (`UiState.toggleSidebar` já existe) |
@@ -243,6 +244,7 @@ interface CommandHandler { when?: (ctx: ContextSnapshot) => boolean; run: () => 
 - `conflicts = computed(...)` → chords com 2+ comandos **do mesmo escopo** (usado na UI de Preferences).
 - Um único listener `document.addEventListener('keydown', …, { capture: true })` registrado no bootstrap (fora de componente, com cleanup no `DestroyRef` do `ApplicationRef`). Captura é necessária porque componentes do PrimeNG chamam `stopPropagation` em algumas teclas.
 - `chordFor(id)` / `labelFor(id)` (signals) para tooltips, `aria-keyshortcuts` e textos de ajuda.
+- `suspend()` / `resume()` (contador, não booleano): coloca o serviço no escopo `recording`, usado pela gravação de atalhos em Preferences (§7.4).
 
 ### 5.7 Dicas na interface
 
@@ -269,7 +271,9 @@ interface CommandHandler { when?: (ctx: ContextSnapshot) => boolean; run: () => 
 | `keybindings:reset` | invoke | `(id?: CommandId)` — restaura um comando ou todos. |
 | `keybindings:changed` | evento | Notifica o renderer (mantém consistência se houver mais de uma janela no futuro). |
 
-Seguir o padrão existente: `electron/shared/ipc.ts` (contrato), `electron/main/ipc/keybindings.ipc.ts`, `preload.ts`, `core/ports` (`KeybindingsGateway`) e `adapters/electron/electron-gateways.ts`. Estado no renderer: `src/app/core/state/keybindings.state.ts` (load/set/reset, signal `overrides`).
+Seguir o padrão existente: `electron/shared/ipc.ts` (contrato), `electron/main/ipc/keybindings.ipc.ts`, `preload.ts`, `core/ports` (`KeybindingsGateway`) e `adapters/electron/electron-gateways.ts`. Estado no renderer: `src/app/core/state/keybindings.state.ts`:
+- signals `overrides` e `status` (`idle | saving | saved | error`) e `error`;
+- `load()`, `setCommand(id, chords)` (calcula o override; igual ao padrão → remove a chave), `reassign(chord, from, to)` (o "Replace" de conflito numa única gravação), `reset(id?)`.
 
 ### 6.3 Menu nativo
 
@@ -280,20 +284,130 @@ Seguir o padrão existente: `electron/shared/ipc.ts` (contrato), `electron/main/
 - Menu reconstruído (`Menu.setApplicationMenu`) a cada `keybindings:set/reset`.
 - Teclas que o Chromium/Electron consome antes do renderer (se aparecer alguma no teste, ex.: `Ctrl+Tab` em certas plataformas) são encaminhadas pelo `webContents.on('before-input-event')` → `menu:action`. Só implementar se o teste manual mostrar necessidade.
 
-## 7. Interface de configuração (Preferences → "Keyboard Shortcuts")
+## 7. Nova seção em Preferences: "Keyboard Shortcuts"
 
-Nova seção em `settings.page.ts` (`id: 'shortcuts'`, ícone `pi pi-key`), componente próprio `features/settings/keyboard-shortcuts.ts`:
+Uma seção nova do modal de Preferences (`SettingsDialog` → `SettingsPage`) para **gerenciar os atalhos**: ver todos, buscar, alterar, adicionar uma segunda combinação, remover, desligar e restaurar o padrão. Ela é a interface sobre o `KeybindingsState` (§6.2) e o `KeybindingService` (§5.6).
 
-- Campo de busca (por nome do comando **ou** pelo atalho, ex.: digitar "ctrl+w").
-- Tabela agrupada por categoria: Comando · Atalho(s) · Ações.
-  - Cada atalho é um "chip" `<kbd>` com botão remover.
-  - **Adicionar/Alterar**: entra em modo de gravação (`role="dialog"` pequeno ou campo inline com `aria-live="polite"` dizendo "Press the new shortcut, Escape to cancel"). O `KeybindingService` entra no escopo `recording` e não executa nada. `Escape` cancela; `Backspace` sozinho limpa.
-  - Avisos: conflito no mesmo escopo ("Already used by *Close tab* — replace?"), tecla reservada, tecla única fora de escopo `focus`.
-  - **Restaurar padrão** por linha (visível só quando personalizado, com marca "Modified") e **Restaurar todos** (confirmação via `ConfirmHost`).
-- Comandos não configuráveis aparecem desabilitados com o motivo.
-- Acessibilidade: tabela com `<th scope>`, botões com `aria-label` específico ("Change shortcut for Close tab"), foco devolvido ao botão de origem ao terminar a gravação, contraste dos `<kbd>` AA nos temas claro/escuro, passar no AXE.
+### 7.1 Integração com a página de Preferences
 
-Também:
+Alterações em `src/app/features/settings/settings.page.ts` / `settings.page.html`:
+
+- `PreferencesSection` ganha `'shortcuts'`.
+- Novo item em `sections`, entre `appearance` e `proxy` (é preferência de uso, não de rede):
+  ```ts
+  { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: 'pi pi-key', description: 'View, change and reset the keyboard shortcuts of every command.' }
+  ```
+- O conteúdo **não** entra no `@switch` dentro do `<form [formGroup]="form">` atual. Esse formulário é das settings "folha" (auto-save por controle); os atalhos têm modelo, persistência e validação próprios. No HTML, o `@if (section() === 'shortcuts')` renderiza `<app-keyboard-shortcuts />` **fora** do `<form>`, no mesmo container rolável (`max-w-4xl`).
+- Indicador "Saving… / All changes saved" do cabeçalho: passa a ler um `status` combinado. Quando `section() === 'shortcuts'`, usa `KeybindingsState.status()`; nas outras seções, o `status` atual da página.
+- A seção é carregada junto com o chunk de `SettingsPage` (já lazy via `import()` em `SettingsDialog.open`), sem custo no bootstrap.
+
+Abrir direto na seção:
+- `SettingsDialog.open(section?: PreferencesSection)` passa a aceitar a seção inicial (via `DynamicDialogConfig.data`; `SettingsPage` lê com `inject(DynamicDialogConfig)` e inicializa o signal `section`). Se o modal já estiver aberto, só troca de seção.
+- Usado pelo diálogo de ajuda (`Mod+/` → "Customize…") e por um novo comando `app.keyboardShortcutsSettings` (sem atalho padrão; aparece na paleta).
+
+### 7.2 Componente `KeyboardShortcutsSettings`
+
+Arquivo `src/app/features/settings/keyboard-shortcuts.ts` (template inline se couber, senão `keyboard-shortcuts.html` ao lado). Componente "inteligente" pequeno, delegando a gravação a um subcomponente:
+
+```
+KeyboardShortcutsSettings          (busca, filtros, lista agrupada, restaurar todos)
+ ├─ ShortcutRow  × N                (um comando: chips de atalho + ações)
+ └─ ShortcutRecorder                (captura uma combinação; usado inline na linha em edição)
+```
+
+Estado (signals, sem `mutate`):
+
+```ts
+protected readonly query = signal('');
+protected readonly filter = signal<'all' | 'modified' | 'unassigned' | 'conflicts'>('all');
+/** Linha em gravação: comando + índice do chord substituído (null = adicionar novo). */
+protected readonly recording = signal<{ id: CommandId; index: number | null } | null>(null);
+protected readonly rows = computed(() => /* COMMANDS × effectiveBindings × conflicts, filtrados por query/filter, agrupados por category */);
+```
+
+### 7.3 Layout
+
+```
+┌ Keyboard Shortcuts ─────────────────────────────────── All changes saved ┐
+│ View, change and reset the keyboard shortcuts of every command.          │
+├──────────────────────────────────────────────────────────────────────────┤
+│ [🔍 Search by command or keys…        ] [All|Modified|Unassigned|Conflicts]│
+│                                                    [Reset all to default] │
+│                                                                          │
+│ Tabs                                                                     │
+│ ┌────────────────────────┬──────────────────────────────┬──────────────┐ │
+│ │ Command                │ Shortcuts                    │              │ │
+│ ├────────────────────────┼──────────────────────────────┼──────────────┤ │
+│ │ Close tab   • Modified │ [Ctrl+W ×] [Ctrl+F4 ×]  [+]  │ [↺ Reset]    │ │
+│ │ Close other tabs       │ — not assigned —        [+]  │              │ │
+│ │ Reopen closed tab      │ [Ctrl+Shift+T ×]        [+]  │              │ │
+│ │ Next tab   ⚠ Conflict  │ [Ctrl+Tab ×]            [+]  │ [↺ Reset]    │ │
+│ └────────────────────────┴──────────────────────────────┴──────────────┘ │
+│ Request …                                                                │
+│ Reserved by the system (read-only)  ▸                                    │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+- Uma `<table>` por categoria (`App`, `Tabs`, `Request`, `Forms`, `Collections`), com `<caption>` = nome da categoria. Tabela nativa (não `p-table`): é estática, pequena (~50 linhas) e fica mais simples de deixar acessível.
+- Colunas: **Command** (rótulo + marcas "Modified"/"Conflict"), **Shortcuts** (chips + botão adicionar), **Actions** (restaurar padrão).
+- Chip de atalho: `<kbd>` com `formatChord` da plataforma (`Ctrl + Shift + T` no Win/Linux, `⌘⇧T` no macOS) + botão "×" para remover. Clicar no chip entra em gravação para **substituir** aquele chord.
+- Botão `[+]` grava uma combinação **adicional** (até 4 por comando; o botão some no limite).
+- "Reset" aparece só quando o comando difere do padrão.
+- Seção recolhível "Reserved by the system": lista as teclas da §4.6, só leitura, para o usuário entender por que não pode usá-las.
+- Comandos `configurable: false` (ex.: Quit) aparecem com os chips sem "×"/`[+]` e o texto "Fixed".
+- Estado vazio da busca: "No commands match 'xyz'."
+
+### 7.4 Gravação de atalho (`ShortcutRecorder`)
+
+1. Usuário aciona `[+]` ou um chip → `recording.set({ id, index })`; o recorder aparece no lugar do chip com o texto "Press the new shortcut…" e recebe foco.
+2. `KeybindingService.suspend()` → escopo `recording`: nenhum comando executa enquanto grava (senão `Mod+W` fecharia a aba em vez de ser gravado).
+3. O recorder escuta `keydown` **em captura** e sempre chama `preventDefault()` + `stopPropagation()`:
+   - Teclas só de modificador → mostram a prévia ("Ctrl + Shift + …"), sem confirmar.
+   - `Escape` sozinho → **cancela** a gravação. O `stopPropagation` em captura impede que o `p-dialog` (`closeOnEscape: true`) feche o modal de Preferences.
+   - `Tab`/`Shift+Tab` sozinhos → cancelam e deixam o foco seguir (não prende o teclado — WCAG 2.1.2).
+   - Qualquer outra combinação → `eventToChord` → validação (passo 4).
+4. Validação, na ordem:
+   - **Reservada** (§4.6) → erro inline "Ctrl+C is reserved by the system", continua gravando.
+   - **Tecla única** (sem `Mod`/`Ctrl`/`Alt`/`Meta`) num comando de escopo `global`/`tab` → erro "Shortcuts without a modifier are only allowed for list/tree commands".
+   - **Já usada pelo mesmo comando** → ignora silenciosamente (encerra a gravação).
+   - **Conflito** com outro comando do mesmo escopo, ou de escopo `global` → aviso inline: "Ctrl+W is already used by **Close tab**." com botões **Replace** (remove do outro e atribui a este) e **Cancel**.
+   - Conflito com comando de **escopo diferente e não global** (ex.: `Mod+Enter` em `form.submit` e `request.send`) → permitido, com nota "Also used by *Send request* in another context".
+5. Confirmado → `KeybindingsState.setCommand(id, chords)` → grava (IPC `keybindings:set`), reconstrói o menu nativo, `status` vai a `saving` → `saved`.
+6. Fim (confirmado ou cancelado) → `KeybindingService.resume()`, foco volta ao chip/botão de origem, `aria-live` anuncia o resultado ("Close tab: Ctrl+Shift+W assigned").
+
+Se o modal de Preferences for fechado durante a gravação, o `DestroyRef` do recorder chama `resume()` — o serviço nunca fica suspenso.
+
+### 7.5 Ações e persistência
+
+| Ação | Efeito | Confirmação |
+| --- | --- | --- |
+| Remover chip (×) | Remove aquele chord do comando. Ficando vazio, o comando fica "not assigned" (`[]` nos overrides). | Não |
+| Substituir / adicionar | §7.4 | Só em conflito |
+| Reset (linha) | `KeybindingsState.reset(id)` → remove o override | Não |
+| Reset all to default | `KeybindingsState.reset()` | Sim, via `ConfirmHost`: "Reset all keyboard shortcuts to their defaults?" |
+
+- Salva na hora (como o resto de Preferences, sem botão "Salvar").
+- Atualização otimista: o signal `overrides` muda antes do IPC; em erro, volta ao valor anterior e exibe `p-message severity="error"` no topo da seção (mesmo padrão do `errorMessage` da página).
+- Fora do Electron (`persistent() === false`), funciona só em memória — reaproveita o aviso já existente no topo da página.
+
+### 7.6 Busca e filtros
+
+- Busca por **texto**: casa com o rótulo e a categoria do comando (sem acento/caixa).
+- Busca por **tecla**: botão "Search by keys" ao lado do campo ativa um `ShortcutRecorder` em modo busca: pressionar `Ctrl+W` filtra os comandos que usam esse chord. Útil para "o que essa tecla faz?".
+- Filtros (`p-select-button`, padrão já usado em Themes): **All**, **Modified** (diferente do padrão), **Unassigned** (sem atalho), **Conflicts** (`KeybindingService.conflicts()`). O contador de cada filtro aparece no rótulo ("Conflicts (1)").
+
+### 7.7 Acessibilidade (AXE / WCAG AA)
+
+- Tabelas com `<caption>`, `<th scope="col">` e o rótulo do comando como `<th scope="row">`.
+- Botões com nome específico: "Add shortcut for Close tab", "Change Ctrl+W for Close tab", "Remove Ctrl+W from Close tab", "Reset Close tab to default".
+- O recorder é um `button`/`div role="textbox" aria-readonly="true"` com `aria-describedby` apontando a instrução ("Press the new shortcut. Escape cancels.") e os erros em `role="alert"`.
+- Região `aria-live="polite"` para resultados de gravação, reset e remoção.
+- "Modified"/"Conflict" não dependem só de cor (texto + ícone), com contraste AA nos temas claro e escuro e em todas as `surfaceColor`.
+- `<kbd>` com `aria-label` por extenso no macOS ("Command Shift T"), já que `⌘⇧` não é bem lido por leitores de tela.
+- Foco: entra no recorder ao iniciar a gravação e volta ao controle de origem ao terminar; nada fica fora da ordem de tabulação.
+
+### 7.8 Ajuda rápida e paleta
+
 - **Diálogo "Keyboard Shortcuts"** (`app.shortcuts`, `Mod+/`): lista somente leitura com busca e link "Customize…" para a seção de Preferences.
 - **Paleta de comandos** (`app.commandPalette`, fase 5): `p-dialog` + lista filtrável sobre `COMMANDS` habilitados, exibindo o atalho de cada um; `Enter` executa. Base para depois incluir "abrir requisição" (busca nas árvores das coleções).
 
@@ -318,7 +432,9 @@ src/app/core/keyboard/app-commands.ts           # comandos globais (provideAppIn
 src/app/core/keyboard/shortcut.directive.ts     # aria-keyshortcuts + tooltip
 src/app/core/state/keybindings.state.ts
 src/app/core/ports/index.ts, adapters/electron/electron-gateways.ts
-src/app/features/settings/keyboard-shortcuts.ts # seção de Preferences
+src/app/features/settings/keyboard-shortcuts.ts # seção "Keyboard Shortcuts" de Preferences (§7)
+src/app/features/settings/shortcut-row.ts       # linha da tabela: chips + ações
+src/app/features/settings/shortcut-recorder.ts  # captura de combinação (gravação e busca por tecla)
 src/app/features/settings/shortcuts-dialog.ts   # Mod+/
 src/app/features/command-palette/command-palette.ts (fase 5)
 
@@ -329,6 +445,9 @@ src/app/core/state/tabs.state.ts                # closeAll, move, pilha de reabe
 src/app/core/state/request-drafts.state.ts      # saveAll
 src/app/features/collections/collections-sidebar.ts  # rename/duplicate/delete/filter/focus expostos como comandos
 src/app/shell/context-header.ts                 # abrir seletor de ambiente
+src/app/features/settings/settings.page.ts      # seção 'shortcuts', status combinado, seção inicial via DynamicDialogConfig.data
+src/app/features/settings/settings.page.html    # @if da seção fora do <form [formGroup]>
+src/app/features/settings/settings-dialog.service.ts  # open(section?)
 ```
 
 ## 9. Fases de implementação
@@ -339,8 +458,9 @@ src/app/shell/context-header.ts                 # abrir seletor de ambiente
    Já incluir `Ctrl+F4` (fechar aba) e `form.submit` (`Mod+Enter` no formulário em foco) e o `!modalOpen` do envio.
 2. **Novos comandos** da §4 (abas, requisição, sidebar, ambiente), incluindo os métodos novos em `TabsState` e `RequestDraftsState`.
 3. **Persistência + IPC + menu dinâmico** (§6), com o spike do macOS.
-4. **UI**: seção "Keyboard Shortcuts" em Preferences, diálogo `Mod+/`, diretiva `appShortcut` aplicada nos botões existentes, estado vazio da requisição dinâmico.
-5. **Paleta de comandos** (opcional).
+4. **Seção "Keyboard Shortcuts" em Preferences** (§7): item novo em `sections`, `SettingsDialog.open(section)`, lista agrupada com busca/filtros, `ShortcutRecorder` com validação e conflitos, remover/adicionar/reset por linha e "Reset all".
+5. **Dicas e ajuda**: diálogo `Mod+/` com "Customize…" abrindo a seção, diretiva `appShortcut` aplicada nos botões existentes, estado vazio da requisição dinâmico.
+6. **Paleta de comandos** (opcional).
 
 Cada fase termina com `npm run typecheck`, `npm run build` e verificação manual no app (sem testes unitários, conforme combinado).
 
@@ -354,6 +474,15 @@ Cada fase termina com `npm run typecheck`, `npm run build` e verificação manua
 - Layout ABNT2 com AltGr (`AltGr+Q` = `/`) não dispara `Ctrl+Alt+…`.
 - Personalizar um atalho, reiniciar o app → mantido; menu nativo mostra o novo atalho; "Restaurar padrão" volta.
 - Conflito é avisado na gravação; tecla reservada é recusada.
+- Preferences → Keyboard Shortcuts:
+  - Gravar `Mod+W` para outro comando **não** fecha a aba durante a gravação (serviço suspenso).
+  - `Escape` durante a gravação cancela **sem** fechar o modal de Preferences; `Tab` sai da gravação.
+  - "Replace" num conflito tira o atalho do outro comando; o filtro "Conflicts" esvazia.
+  - Remover todos os chords deixa o comando "not assigned" e a tecla volta a não fazer nada.
+  - "Reset" por linha e "Reset all" (com confirmação) restauram os padrões; o menu nativo acompanha.
+  - Busca por texto e "Search by keys" encontram o comando certo.
+  - Fechar o modal no meio de uma gravação não deixa os atalhos suspensos.
+  - "Customize…" no diálogo `Mod+/` abre Preferences já na seção.
 - AXE limpo na seção de Preferences e no diálogo de atalhos; navegação só por teclado funciona; foco volta ao botão de origem.
 
 ## 11. Decisões em aberto
@@ -363,3 +492,5 @@ Cada fase termina com `npm run typecheck`, `npm run build` e verificação manua
 3. **Abas — `Mod+1…9`**: contam só as abas do contexto atual (coleção/workspace visível)? (Proposta: sim, como a faixa exibe.)
 4. **Sequências de teclas** (chords em dois passos, estilo `Ctrl+K Ctrl+S`): fora do escopo inicial; o formato `KeyChord` pode evoluir para `KeyChord[]` depois sem quebrar a persistência (migrar no validador).
 5. **`reload` em produção** (`Ctrl+R` descarta rascunhos em memória): restringir ao modo dev junto com esta entrega?
+6. **Posição da seção em Preferences**: entre *Appearance* e *Proxy* (proposta) ou no fim, antes de *About*?
+7. **Exportar/importar atalhos** (arquivo JSON para levar entre máquinas): incluir na seção agora ou deixar para depois? (Proposta: depois — os overrides já são JSON, então é barato adicionar.)
