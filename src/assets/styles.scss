@@ -366,6 +366,37 @@ body {
     }
 }
 
+/* Tag aberta para edição (texto bruto): mesmas cores do chip, para seguir identificável. */
+.otto-template-editing {
+    color: var(--otto-template-ok-color);
+    background: var(--otto-template-ok-background);
+    box-shadow:
+        inset 0 1px 0 var(--otto-template-ok-border),
+        inset 0 -1px 0 var(--otto-template-ok-border);
+
+    &.otto-template-editing-open {
+        border-radius: 0.3em 0 0 0.3em;
+        box-shadow:
+            inset 1px 0 0 var(--otto-template-ok-border),
+            inset 0 1px 0 var(--otto-template-ok-border),
+            inset 0 -1px 0 var(--otto-template-ok-border);
+    }
+
+    &.otto-template-editing-close {
+        border-radius: 0 0.3em 0.3em 0;
+        box-shadow:
+            inset -1px 0 0 var(--otto-template-ok-border),
+            inset 0 1px 0 var(--otto-template-ok-border),
+            inset 0 -1px 0 var(--otto-template-ok-border);
+    }
+
+    &[data-state='error'] {
+        --otto-template-ok-color: var(--otto-template-error-color);
+        --otto-template-ok-background: var(--otto-template-error-background);
+        --otto-template-ok-border: var(--otto-template-error-border);
+    }
+}
+
 .otto-template-tooltip {
     max-width: 24rem;
     padding: 0.5rem 0.75rem;

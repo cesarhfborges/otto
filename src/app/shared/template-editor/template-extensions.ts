@@ -87,9 +87,21 @@ function buildChips(view: EditorView): DecorationSet {
                 const start = line.from + segment.start;
                 const end = line.from + segment.end;
 
-                // Com o cursor dentro da tag, o texto fica editável (sem chip).
-                if (segment.type === 'tag' && !(focused && head > start && head < end)) {
-                    builder.add(start, end, Decoration.replace({ widget: new ChipWidget(inspect(segment.inner), start) }));
+                if (segment.type !== 'tag') {
+                    continue;
+                }
+
+                const info = inspect(segment.inner);
+
+                // Com o cursor dentro da tag, o texto fica editável: realçado (com `{{`/`}}` esmaecidos) em vez do chip.
+                if (focused && head > start && head < end) {
+                    const state = info.error ? 'error' : 'ok';
+
+                    builder.add(start, start + 2, Decoration.mark({ class: 'otto-template-editing otto-template-editing-open', attributes: { 'data-state': state } }));
+                    builder.add(start + 2, end - 2, Decoration.mark({ class: 'otto-template-editing', attributes: { 'data-state': state } }));
+                    builder.add(end - 2, end, Decoration.mark({ class: 'otto-template-editing otto-template-editing-close', attributes: { 'data-state': state } }));
+                } else {
+                    builder.add(start, end, Decoration.replace({ widget: new ChipWidget(info, start) }));
                 }
             }
 
@@ -117,7 +129,7 @@ const chips = ViewPlugin.fromClass(
     {
         decorations: (plugin) => plugin.decorations,
         // Cursor pula o chip e Backspace/Delete apagam a tag inteira.
-        provide: (plugin) => EditorView.atomicRanges.of((view) => view.plugin(plugin)?.decorations ?? Decoration.none)
+        provide: (plugin) => EditorView.atomicRanges.of((view) => (view.plugin(plugin)?.decorations ?? Decoration.none).update({ filter: (_from, _to, value) => !!value.spec.widget }))
     }
 );
 
@@ -173,6 +185,25 @@ const autoCloseTag = EditorView.inputHandler.of((view, from, to, text) => {
     return true;
 });
 
+/** Com o cursor encostado no chip (sem seleção), move-o para dentro da tag, abrindo-a para edição. */
+function enterTag(view: EditorView, side: 'start' | 'end'): boolean {
+    const { main } = view.state.selection;
+
+    if (!main.empty || completionStatus(view.state) === 'active') {
+        return false;
+    }
+
+    const tag = tagAt(view.state, main.head);
+
+    if (!tag || main.head !== tag[side]) {
+        return false;
+    }
+
+    view.dispatch({ selection: { anchor: side === 'start' ? tag.start + 2 : tag.end - 2 }, scrollIntoView: true, userEvent: 'select' });
+
+    return true;
+}
+
 const templateKeymap = Prec.highest(
     keymap.of([
         {
@@ -200,6 +231,16 @@ const templateKeymap = Prec.highest(
 
                 return true;
             }
+        },
+        {
+            // Seta para a esquerda encostada no fim do chip entra na tag (texto bruto, cursor antes do `}}`).
+            key: 'ArrowLeft',
+            run: (view) => enterTag(view, 'end')
+        },
+        {
+            // Seta para a direita encostada no início do chip entra na tag (cursor depois do `{{`).
+            key: 'ArrowRight',
+            run: (view) => enterTag(view, 'start')
         },
         {
             // Encostado no chip: abre o texto bruto da tag para edição (Enter fica para enviar/quebrar linha).
