@@ -11,6 +11,9 @@ export const templateTheme = EditorView.theme({
     '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
         backgroundColor: 'color-mix(in srgb, var(--p-primary-color) 28%, transparent) !important'
     },
+    // Números de linha como a calha do app-code-editor.
+    '.cm-gutters': { backgroundColor: 'transparent', color: 'var(--p-text-muted-color)', borderRight: '1px solid var(--p-content-border-color)', marginRight: '0.75rem' },
+    '.cm-lineNumbers .cm-gutterElement': { padding: '0 0.75rem 0 0', minWidth: '2ch', textAlign: 'right' },
     '.cm-placeholder': { color: 'var(--p-inputtext-placeholder-color)' },
     '.cm-tooltip': {
         border: '1px solid var(--p-content-border-color)',

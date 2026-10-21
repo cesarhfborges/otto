@@ -1,6 +1,6 @@
 import { acceptCompletion, autocompletion, completionStatus } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { Annotation, Compartment, EditorState, Prec } from '@codemirror/state';
+import { Annotation, Compartment, EditorState, Prec, type Extension } from '@codemirror/state';
 import { EditorView, keymap, placeholder as placeholderExtension, tooltips } from '@codemirror/view';
 import { afterNextRender, booleanAttribute, computed, DestroyRef, Directive, effect, ElementRef, inject, input, model, output, signal, untracked } from '@angular/core';
 import type { ControlValueAccessor } from '@angular/forms';
@@ -75,6 +75,10 @@ export abstract class TemplateField implements ControlValueAccessor {
     protected extraContentAttributes(): Record<string, string> {
         return {};
     }
+    /** Extensões extras (reconfiguradas quando os signals lidos mudam), ex.: números de linha. */
+    protected extraExtensions(): Extension[] {
+        return [];
+    }
 
     private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
     private readonly scope = inject(TemplateScope, { optional: true });
@@ -85,6 +89,8 @@ export abstract class TemplateField implements ControlValueAccessor {
     private readonly config = new Compartment();
     private readonly data = new Compartment();
     private view: EditorView | null = null;
+    /** Editor montado (após o primeiro render), para as subclasses despacharem efeitos. */
+    protected readonly editorView = signal<EditorView | null>(null);
     private onChange: (value: string) => void = () => undefined;
     private onTouched: () => void = () => undefined;
 
@@ -189,7 +195,7 @@ export abstract class TemplateField implements ControlValueAccessor {
             attributes['aria-readonly'] = 'true';
         }
 
-        return [EditorView.contentAttributes.of(attributes), EditorView.editable.of(!disabled), EditorState.readOnly.of(disabled || this.readonly()), ...(this.placeholder() ? [placeholderExtension(this.placeholder())] : [])];
+        return [EditorView.contentAttributes.of(attributes), EditorView.editable.of(!disabled), EditorState.readOnly.of(disabled || this.readonly()), ...(this.placeholder() ? [placeholderExtension(this.placeholder())] : []), ...this.extraExtensions()];
     }
 
     private completionSource(): TemplateCompletionData {
@@ -294,6 +300,7 @@ export abstract class TemplateField implements ControlValueAccessor {
                 ]
             })
         });
+        this.editorView.set(this.view);
     }
 
     /** Enter fora da lista de sugestões: `true` = tratado (não insere quebra de linha). */

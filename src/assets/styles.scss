@@ -295,6 +295,18 @@ body {
         overflow-y: auto;
         scrollbar-width: thin;
     }
+
+    /* `otto-fill`: ocupa a altura do contêiner (ex.: corpo da requisição) em vez de `rows`. */
+    &.otto-multiline.otto-fill {
+        display: flex;
+        flex-direction: column;
+
+        .cm-editor {
+            flex: 1;
+            min-height: 0;
+            height: auto;
+        }
+    }
 }
 
 .otto-template-chip {

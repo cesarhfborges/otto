@@ -8,7 +8,7 @@ import { MessageModule } from 'primeng/message';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { registerCommand } from '../../core/keyboard/command-registry';
 import { DialogGateway } from '../../core/ports';
-import { CodeEditor } from '../../shared/code-editor';
+import { OttoTextarea } from '../../shared/template-editor';
 import { formatJson, formatText, formatXml, validateBody, type FormatResult } from './body-format';
 import { KeyValueEditor, type EditableRow } from './key-value-editor';
 
@@ -34,7 +34,7 @@ const isTextType = (type: BodyType): type is TextBodyType => type === 'json' || 
  */
 @Component({
     selector: 'app-body-editor',
-    imports: [ReactiveFormsModule, SelectButtonModule, ButtonModule, InputTextModule, MessageModule, KeyValueEditor, CodeEditor],
+    imports: [ReactiveFormsModule, SelectButtonModule, ButtonModule, InputTextModule, MessageModule, KeyValueEditor, OttoTextarea],
     template: `
         <p-select-button [options]="types" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" [formControl]="typeControl" ariaLabelledBy="body-type-label" class="flex-wrap [&_.p-togglebutton]:whitespace-nowrap" />
         <span id="body-type-label" class="sr-only">Body type</span>
@@ -69,16 +69,17 @@ const isTextType = (type: BodyType): type is TextBodyType => type === 'json' || 
                             <label for="body-content" class="text-sm font-medium">{{ typeLabel() }} content</label>
                             <p-button label="Pretty" icon="pi pi-align-left" size="small" severity="secondary" [text]="true" class="ml-auto" (onClick)="prettify()" />
                         </div>
-                        <app-code-editor
-                            class="flex-1"
+                        <app-otto-textarea
+                            class="otto-fill otto-code-view min-h-64 flex-1"
                             inputId="body-content"
                             [value]="content()"
                             (valueChange)="setContent($event)"
                             [language]="language()"
+                            [highlight]="true"
+                            [lineNumbers]="true"
                             [placeholder]="placeholder()"
                             [invalid]="!!problem()"
-                            [describedBy]="problem() ? 'body-content-error' : null"
-                            [readonly]="false"
+                            [ariaDescribedBy]="problem() ? 'body-content-error' : null"
                         />
                         @if (problem(); as message) {
                             <small id="body-content-error" class="text-red-700 dark:text-red-400" aria-live="polite">{{ message }}</small>
