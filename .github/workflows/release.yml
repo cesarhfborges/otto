@@ -18,20 +18,14 @@ permissions:
 jobs:
     release:
         runs-on: ubuntu-latest
+        # Imagem oficial do electron-builder: já traz Node, git e Wine (gera o .exe do Windows no Linux).
+        container: electronuserland/builder:wine
         steps:
             - uses: actions/checkout@v4
               with:
                   fetch-depth: 0
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 22
-                  cache: npm
-            # O instalador do Windows é gerado aqui mesmo; o Wine grava ícone e metadados no .exe.
-            - name: Install Wine
-              run: |
-                  sudo dpkg --add-architecture i386
-                  sudo apt-get update
-                  sudo apt-get install -y --no-install-recommends wine64 wine32
+            # No container o checkout pertence a outro usuário; o git (usado pelo semantic-release) exige liberar a pasta.
+            - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
             - run: npm ci
             - run: npx semantic-release
               env:
