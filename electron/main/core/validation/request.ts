@@ -81,6 +81,19 @@ export function parseRequestBody(raw: unknown): RequestBody {
     }
 }
 
+/** `scripts` é opcional; scripts vazios não são guardados. */
+function parseRequestScripts(raw: unknown): Pick<RequestDefinition, 'scripts'> {
+    if (raw === undefined || raw === null) {
+        return {};
+    }
+
+    const scripts = requireRecord(raw, 'request.scripts');
+    const preRequest = text(scripts['preRequest'], 'request.scripts.preRequest', 1_000_000);
+    const postResponse = text(scripts['postResponse'], 'request.scripts.postResponse', 1_000_000);
+
+    return preRequest || postResponse ? { scripts: { ...(preRequest && { preRequest }), ...(postResponse && { postResponse }) } } : {};
+}
+
 /**
  * Valida uma requisição vinda do renderer ou de um arquivo da coleção.
  * Campos opcionais ausentes recebem valores padrão (arquivos editados à mão costumam omiti-los).
@@ -102,6 +115,7 @@ export function parseRequestDefinition(raw: unknown): RequestDefinition {
         auth: parseRequestAuth(request['auth']),
         body: parseRequestBody(request['body']),
         docs: text(request['docs'], 'request.docs', 1_000_000),
+        ...parseRequestScripts(request['scripts']),
         ...(typeof request['operation'] === 'string' && request['operation'].trim() && { operation: request['operation'].trim().slice(0, 2_000) })
     };
 }

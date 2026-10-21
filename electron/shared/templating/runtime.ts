@@ -1,6 +1,6 @@
 import { cookieHeaderFor, normalizeDomain, upsertCookie } from '../http/cookie-jar';
 import type { CollectionCookie } from '../models';
-import { OTTO_CATALOG } from './catalog';
+import { availableIn, OTTO_CATALOG } from './catalog';
 import { TemplateError, UnresolvedError } from './errors';
 import { messageReader, type MessageSnapshot, type ReadGuard } from './message';
 import type { CatalogNode } from './node';
@@ -75,7 +75,7 @@ function buildStatic(nodes: readonly CatalogNode[]): Record<string, unknown> {
 const STATIC = buildStatic(OTTO_CATALOG.members ?? []);
 
 /** Membros de `otto.request` sem chamar (a requisição atual). */
-const CURRENT_REQUEST_MEMBERS = (OTTO_CATALOG.members ?? []).find((node) => node.name === 'request')?.members?.map((node) => node.name) ?? [];
+export const CURRENT_REQUEST_MEMBERS = (OTTO_CATALOG.members ?? []).find((node) => node.name === 'request')?.members?.filter((node) => availableIn(node, 'T')).map((node) => node.name) ?? [];
 
 const folderOf = (path: string): string => path.split('/').slice(0, -1).join('/');
 

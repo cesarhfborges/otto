@@ -81,7 +81,8 @@ export class TemplateContextService {
         return interpolateRequest({ ...definition, headers: [...collectionHeaders, ...definition.headers] }, { scopes: this.scopes(collectionId), host: this.host(collectionId, path, definition, access, chain) });
     }
 
-    private host(collectionId: EntityId, path: string, definition: RequestDefinition, access: ResponseAccess, chain: readonly string[]): OttoHost {
+    /** Implementação do `otto` (cookies, outras requisições…) usada nos templates e nos scripts. */
+    host(collectionId: EntityId, path: string, definition: RequestDefinition, access: ResponseAccess, chain: readonly string[]): OttoHost {
         const collection = this.collections.find(collectionId);
         const info = this.appInfo.value();
 

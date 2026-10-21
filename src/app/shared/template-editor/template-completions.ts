@@ -1,7 +1,7 @@
 import { startCompletion, type Completion, type CompletionContext as CmContext, type CompletionResult, type CompletionSection } from '@codemirror/autocomplete';
 import { Facet } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
-import { availableIn, completionContext, REQUEST_REF_OPTIONS, signature, type ArgSpec, type CatalogNode, type MessageTarget, type VariableEntry } from '@shared/templating';
+import { availableIn, completionContext, REQUEST_REF_OPTIONS, signature, type ArgSpec, type CatalogNode, type MessageTarget, type VariableEntry, type Where } from '@shared/templating';
 import { tagAt } from './template-extensions';
 
 export interface MessageSuggestions {
@@ -31,7 +31,7 @@ export interface TemplateCompletionData {
 
 export const completionData = Facet.define<TemplateCompletionData, TemplateCompletionData | null>({ combine: (values) => values.at(-1) ?? null });
 
-const SECTIONS: Record<string, CompletionSection> = {
+export const SECTIONS: Record<string, CompletionSection> = {
     variables: { name: 'Variables', rank: 0 },
     commands: { name: 'Commands', rank: 1 },
     shortcuts: { name: 'Shortcuts', rank: 2 },
@@ -39,7 +39,7 @@ const SECTIONS: Record<string, CompletionSection> = {
     values: { name: 'Values', rank: 0 }
 };
 
-const quote = (value: string): string => `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+export const quote = (value: string): string => `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 const preview = (value: unknown): string => {
     const text = typeof value === 'string' ? JSON.stringify(value) : Array.isArray(value) ? '[…]' : value && typeof value === 'object' ? '{…}' : String(value);
 
@@ -47,7 +47,7 @@ const preview = (value: unknown): string => {
 };
 
 /** Aplica o texto e reabre a lista (namespaces, `(`…). `cursorBack`: recua o cursor (dentro de `()`/`('')`). */
-const insert =
+export const insert =
     (text: string, cursorBack = 0, reopen = false) =>
     (view: EditorView, _completion: Completion, from: number, to: number): void => {
         view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length - cursorBack }, userEvent: 'input.complete' });
@@ -69,9 +69,10 @@ function variableOptions(variables: VariableEntry[], withPrefix: boolean): Compl
     }));
 }
 
-function memberOptions(members: readonly CatalogNode[]): Completion[] {
+/** Membros do catálogo disponíveis em `where` (templates ou scripts). */
+export function memberOptions(members: readonly CatalogNode[], where: Where = 'T'): Completion[] {
     return members
-        .filter((member) => availableIn(member, 'T'))
+        .filter((member) => availableIn(member, where))
         .map((member) => {
             const callable = member.kind === 'function';
             const firstIsText = callable && !!member.args?.[0] && !member.args[0].name.endsWith('…') && member.args[0].name !== 'value' && member.args[0].name !== 'options';
@@ -101,7 +102,7 @@ const argument =
         view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length + skip }, userEvent: 'input.complete' });
     };
 
-function argumentOptions(spec: ArgSpec | undefined, target: MessageTarget | null, quoted: boolean, data: TemplateCompletionData): Completion[] {
+export function argumentOptions(spec: ArgSpec | undefined, target: MessageTarget | null, quoted: boolean, data: TemplateCompletionData): Completion[] {
     const value = (label: string, detail?: string, apply = label): Completion => ({ label, ...(detail && { detail }), type: 'value', section: SECTIONS['values'], apply: argument(quoted ? apply : quote(apply)) });
 
     if (spec?.values) {

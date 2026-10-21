@@ -4,12 +4,13 @@ import { Annotation, Compartment, EditorState, Prec, type Extension } from '@cod
 import { EditorView, keymap, placeholder as placeholderExtension, tooltips } from '@codemirror/view';
 import { afterNextRender, booleanAttribute, computed, DestroyRef, Directive, effect, ElementRef, inject, input, model, output, signal, untracked } from '@angular/core';
 import type { ControlValueAccessor } from '@angular/forms';
-import { draftKey, RequestDraftsState } from '@/app/core/state/request-drafts.state';
+import { RequestDraftsState } from '@/app/core/state/request-drafts.state';
 import { ResponsesState } from '@/app/core/state/responses.state';
 import { TemplateContextService } from '@/app/core/templating/template-context.service';
 import { TemplateScope } from '@/app/core/templating/template-scope';
-import { inspectTag, jsonPaths, parseSetCookie, requestSnapshot, tokenize, type MessageSnapshot, type MessageTarget } from '@shared/templating';
-import { completionData, templateCompletions, type MessageSuggestions, type TemplateCompletionData } from './template-completions';
+import { inspectTag, tokenize } from '@shared/templating';
+import { completionData, templateCompletions, type TemplateCompletionData } from './template-completions';
+import { templateCompletionData } from './completion-data';
 import { tagInspector, templateExtensions } from './template-extensions';
 import { templateTheme } from './template-theme';
 
@@ -17,26 +18,6 @@ import { templateTheme } from './template-theme';
 const external = Annotation.define<boolean>();
 
 const ICONS: Record<string, string> = { variable: 'pi-at', secret: 'pi-lock', function: 'pi-bolt', namespace: 'pi-angle-right', property: 'pi-circle-fill', request: 'pi-link', value: 'pi-minus' };
-
-const unique = (items: string[]): string[] => [...new Set(items)];
-
-function suggestionsOf(snapshot: MessageSnapshot, title: string): MessageSuggestions {
-    let body: unknown;
-
-    try {
-        body = JSON.parse(snapshot.bodyEncoding === 'utf8' ? snapshot.body : '');
-    } catch {
-        body = undefined;
-    }
-
-    const names = (pairs: Array<[string, string]> = []): string[] => unique(pairs.map(([name]) => name));
-    const cookies =
-        snapshot.kind === 'response'
-            ? snapshot.headers.filter(([name]) => name.toLowerCase() === 'set-cookie').flatMap(([, value]) => parseSetCookie(value)?.name ?? [])
-            : (snapshot.headers.find(([name]) => name.toLowerCase() === 'cookie')?.[1] ?? '').split(';').flatMap((part) => part.split('=')[0]?.trim() || []);
-
-    return { title, paths: body === undefined ? [] : jsonPaths(body), headers: names(snapshot.headers), cookies: unique(cookies), params: names(snapshot.params), forms: names(snapshot.forms) };
-}
 
 /**
  * Base de `app-otto-input` e `app-otto-textarea`: CodeMirror 6 com chips de
@@ -199,36 +180,7 @@ export abstract class TemplateField implements ControlValueAccessor {
     }
 
     private completionSource(): TemplateCompletionData {
-        const collectionId = this.collectionId();
-        const scopes = this.validation().scopes;
-        const requestPath = this.scope?.requestPath() ?? null;
-
-        return {
-            variables: () => scopes.entries(),
-            requests: () => this.templates.requests(collectionId),
-            message: (target: MessageTarget) => {
-                if (!collectionId) {
-                    return null;
-                }
-
-                const entry = target.ref ? this.templates.findRequest(collectionId, target.ref) : null;
-                const path = target.ref ? entry?.path : requestPath;
-
-                if (!path) {
-                    return null;
-                }
-
-                if (target.kind === 'response') {
-                    const snapshot = this.responses.lastResponse(collectionId, path);
-
-                    return snapshot ? suggestionsOf(snapshot, `${entry?.name ?? path} · ${snapshot.status} · last response`) : null;
-                }
-
-                const definition = this.drafts.draft(draftKey(collectionId, path));
-
-                return definition ? suggestionsOf(requestSnapshot(definition), entry?.name ?? 'This request') : null;
-            }
-        };
+        return templateCompletionData({ templates: this.templates, responses: this.responses, drafts: this.drafts }, this.collectionId(), this.validation().scopes, this.scope?.requestPath() ?? null);
     }
 
     private mount(): void {

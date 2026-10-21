@@ -72,6 +72,8 @@ export const COMMANDS = [
     section('headers', 'Headers', 3),
     section('auth', 'Auth', 4),
     section('docs', 'Docs', 5),
+    section('preRequest', 'Pre-request script', 6),
+    section('postResponse', 'Post-response script', 7),
     { id: 'request.formatBody', label: 'Format body (JSON / XML)', category: 'Request', scope: 'tab', defaults: ['Alt+Shift+F'] },
 
     { id: 'form.submit', label: 'Submit the focused form', category: 'Forms', scope: 'focus', defaults: ['Mod+Enter'] },

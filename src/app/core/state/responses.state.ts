@@ -1,12 +1,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { buildHttpRequest } from '@shared/http/build-request';
 import { applySetCookies, cookieHeaderFor } from '@shared/http/cookie-jar';
-import type { EntityId, HttpResult, RequestDefinition } from '@shared/models';
+import type { EntityId, HttpResult, HttpTimelineEntry, RequestDefinition } from '@shared/models';
 import { responseSnapshot, TemplateError, type MessageSnapshot } from '@shared/templating';
 import { ipcErrorMessage } from '../bridge/ipc-error';
 import { HttpGateway } from '../ports';
 import { CollectionsState } from './collections.state';
 import { TemplateContextService, type ResponseAccess } from '../templating/template-context.service';
+import { ScriptRunner } from '../scripting/script-runner';
 
 export type ResponseEntry = { status: 'sending'; requestId: string } | { status: 'done'; result: HttpResult; receivedAt: number };
 
@@ -15,7 +16,11 @@ const MAX_KEPT_RESPONSES = 20;
 
 export const responseKey = (collectionId: EntityId, path: string): string => `${collectionId}:${path}`;
 
-const failure = (error: string, code?: string): HttpResult => ({ ok: false, error, ...(code && { code }), timeMs: 0, timeline: [] });
+const failure = (error: string, code?: string, timeline: HttpTimelineEntry[] = []): HttpResult => ({ ok: false, error, ...(code && { code }), timeMs: 0, timeline });
+
+/** Mensagens dos scripts entram no console antes (pre-request) e depois (post-response) das da execução. */
+const withLogs = (result: HttpResult, before: HttpTimelineEntry[], after: HttpTimelineEntry[] = []): HttpResult =>
+    before.length || after.length ? { ...result, timeline: [...before, ...result.timeline, ...after] } : result;
 
 /**
  * Execuções das requisições abertas, por arquivo da coleção. Fica fora do
@@ -27,6 +32,7 @@ export class ResponsesState implements ResponseAccess {
     private readonly http = inject(HttpGateway);
     private readonly templates = inject(TemplateContextService);
     private readonly collections = inject(CollectionsState);
+    private readonly scripts = inject(ScriptRunner);
     private readonly entries = signal<ReadonlyMap<string, ResponseEntry>>(new Map());
 
     get(key: string): ResponseEntry | undefined {
@@ -68,10 +74,26 @@ export class ResponsesState implements ResponseAccess {
             throw new TemplateError(`Circular reference between requests: ${[...chain, path].join(' → ')}`);
         }
 
+        let preLogs: HttpTimelineEntry[] = [];
+        const preRequest = definition.scripts?.preRequest;
+
+        if (preRequest?.trim()) {
+            const outcome = await this.scripts.run('preRequest', preRequest, { collectionId, path, definition, access: this, chain: [...chain, path] });
+
+            if (outcome.error) {
+                this.set(key, { status: 'done', result: failure(outcome.error, 'SCRIPT_ERROR', outcome.logs), receivedAt: Date.now() });
+
+                return;
+            }
+
+            definition = outcome.definition;
+            preLogs = outcome.logs;
+        }
+
         const { definition: resolved, unresolved, errors } = await this.templates.prepare(collectionId, path, definition, this, [...chain, path]);
 
         if (unresolved.length || errors.length) {
-            this.set(key, { status: 'done', result: failure(this.describeProblems(collectionId, unresolved, errors), unresolved.length ? 'UNRESOLVED_VARIABLES' : 'TEMPLATE_ERROR'), receivedAt: Date.now() });
+            this.set(key, { status: 'done', result: failure(this.describeProblems(collectionId, unresolved, errors), unresolved.length ? 'UNRESOLVED_VARIABLES' : 'TEMPLATE_ERROR', preLogs), receivedAt: Date.now() });
 
             return;
         }
@@ -79,7 +101,7 @@ export class ResponsesState implements ResponseAccess {
         let request = buildHttpRequest(resolved, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } });
 
         if (!request.url) {
-            this.set(key, { status: 'done', result: failure('Enter a URL to send this request.', 'MISSING_URL'), receivedAt: Date.now() });
+            this.set(key, { status: 'done', result: failure('Enter a URL to send this request.', 'MISSING_URL', preLogs), receivedAt: Date.now() });
 
             return;
         }
@@ -102,9 +124,19 @@ export class ResponsesState implements ResponseAccess {
             result = failure(ipcErrorMessage(error));
         }
 
+        let postLogs: HttpTimelineEntry[] = [];
+
         if (result.ok) {
             await this.storeCookies(collectionId, result.response.url || request.url, result.response.headers);
+
+            const postResponse = definition.scripts?.postResponse;
+
+            if (postResponse?.trim()) {
+                postLogs = (await this.scripts.run('postResponse', postResponse, { collectionId, path, definition: resolved, access: this, chain: [...chain, path], response: result.response })).logs;
+            }
         }
+
+        result = withLogs(result, preLogs, postLogs);
 
         // Ignora se, nesse meio-tempo, uma nova execução substituiu esta.
         const current = this.get(key);

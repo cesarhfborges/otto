@@ -33,6 +33,11 @@ export type RequestBody =
     /** Conteúdo de um arquivo enviado como está (`file` = caminho absoluto). */
     | { type: 'binary'; file: string };
 
+export interface RequestScripts {
+    preRequest?: string;
+    postResponse?: string;
+}
+
 /** Conteúdo de um arquivo de requisição da coleção (antes da interpolação de variáveis). */
 export interface RequestDefinition {
     /** Identificador estável (`rq_…`), usado por `otto.request(id)`; gerado na primeira gravação. */
@@ -48,6 +53,8 @@ export interface RequestDefinition {
     body: RequestBody;
     /** Documentação em Markdown. */
     docs: string;
+    /** Scripts JavaScript executados antes do envio e depois da resposta (API `otto`). */
+    scripts?: RequestScripts;
     /** Operação do spec OpenAPI que gerou a requisição (`MÉTODO /caminho`), usada na sincronização. */
     operation?: string;
 }

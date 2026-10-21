@@ -23,10 +23,11 @@ import { BodyEditor } from './body-editor';
 import { KeyValueEditor } from './key-value-editor';
 import { ResponsePanel } from './response-panel';
 import { EditorModule } from 'primeng/editor';
+import { ScriptEditor } from '../../shared/script-editor/script-editor';
 
 const REQUEST_SPLITTER_KEY = 'otto.splitter.request';
 
-type Section = 'params' | 'body' | 'headers' | 'auth' | 'docs';
+type Section = 'params' | 'body' | 'headers' | 'auth' | 'docs' | 'preRequest' | 'postResponse';
 
 /** Primeiro tamanho (%) salvo pelo `stateKey` do splitter; `localStorage` pode estar indisponível. */
 function savedSplitterSize(key: string, fallback: number): number {
@@ -44,8 +45,14 @@ const SECTION_COMMANDS: ReadonlyArray<[CommandId, Section]> = [
     ['request.section.body', 'body'],
     ['request.section.headers', 'headers'],
     ['request.section.auth', 'auth'],
-    ['request.section.docs', 'docs']
+    ['request.section.docs', 'docs'],
+    ['request.section.preRequest', 'preRequest'],
+    ['request.section.postResponse', 'postResponse']
 ];
+
+const PRE_REQUEST_PLACEHOLDER = ``;
+
+const POST_RESPONSE_PLACEHOLDER = ``;
 
 /** Atalhos exibidos no painel de resposta vazio. */
 const HINT_COMMANDS: readonly CommandId[] = ['request.send', 'request.save', 'collection.newRequest', 'app.preferences', 'app.shortcuts'];
@@ -62,7 +69,7 @@ import { OttoInput } from '../../shared/template-editor';
 @Component({
     selector: 'app-request-view',
     providers: [TemplateScope],
-    imports: [ReactiveFormsModule, FormsModule, TabsModule, ButtonModule, InputTextModule, MessageModule, SelectModule, SplitterModule, MethodBadge, OttoInput, KeyValueEditor, BodyEditor, AuthEditor, ResponsePanel, EditorModule],
+    imports: [ReactiveFormsModule, FormsModule, TabsModule, ButtonModule, InputTextModule, MessageModule, SelectModule, SplitterModule, MethodBadge, OttoInput, KeyValueEditor, BodyEditor, AuthEditor, ResponsePanel, EditorModule, ScriptEditor],
     template: `
         @if (error(); as message) {
             <p-message severity="error" styleClass="m-4"
@@ -150,6 +157,18 @@ import { OttoInput } from '../../shared/template-editor';
                                         }
                                     </p-tab>
                                     <p-tab value="docs">Docs</p-tab>
+                                    <p-tab value="preRequest"
+                                        >Pre-request
+                                        @if (req.scripts?.preRequest?.trim()) {
+                                            <span class="text-xs text-muted-color">•</span>
+                                        }
+                                    </p-tab>
+                                    <p-tab value="postResponse"
+                                        >Post-response
+                                        @if (req.scripts?.postResponse?.trim()) {
+                                            <span class="text-xs text-muted-color">•</span>
+                                        }
+                                    </p-tab>
                                 </p-tablist>
                                 <p-tabpanels class="flex min-h-0 flex-1 flex-col">
                                     <p-tabpanel value="params">
@@ -178,6 +197,34 @@ import { OttoInput } from '../../shared/template-editor';
                                             (input)="update({ docs: $any($event.target).value })"
                                         ></textarea>
                                         <!-- <p-editor [(ngModel)]="req.docs" [style]="{ height: '320px' }" (ngModelChange)="update({ docs: $event }); teste($event)" [formats]="quillFormats" [modules]="quillModules" />-->
+                                    </p-tabpanel>
+                                    <p-tabpanel value="preRequest" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
+                                        <p id="pre-request-help" class="m-0 mb-2 text-xs text-muted-color">
+                                            JavaScript run before sending: change the request with <code>otto.request.setHeader(…)</code> and others, and variables with <code>otto.environment.set(…)</code>; every <code>{{ '{{' }} otto.… {{ '}}' }}</code> command works here too. Errors stop the request. Press Esc then Tab to leave the editor.
+                                        </p>
+                                        <app-script-editor
+                                            class="min-h-0 flex-1"
+                                            phase="preRequest"
+                                            ariaLabel="Pre-request script"
+                                            ariaDescribedBy="pre-request-help"
+                                            [placeholder]="preRequestPlaceholder"
+                                            [value]="req.scripts?.preRequest ?? ''"
+                                            (valueChange)="updateScripts({ preRequest: $event })"
+                                        />
+                                    </p-tabpanel>
+                                    <p-tabpanel value="postResponse" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
+                                        <p id="post-response-help" class="m-0 mb-2 text-xs text-muted-color">
+                                            JavaScript run after the response: read it with <code>otto.response.json('$.path')</code>, <code>.header(…)</code>, <code>.status</code>… and save values with <code>otto.environment.set(…)</code>. Output goes to the Console tab. Press Esc then Tab to leave the editor.
+                                        </p>
+                                        <app-script-editor
+                                            class="min-h-0 flex-1"
+                                            phase="postResponse"
+                                            ariaLabel="Post-response script"
+                                            ariaDescribedBy="post-response-help"
+                                            [placeholder]="postResponsePlaceholder"
+                                            [value]="req.scripts?.postResponse ?? ''"
+                                            (valueChange)="updateScripts({ postResponse: $event })"
+                                        />
                                     </p-tabpanel>
                                 </p-tabpanels>
                             </p-tabs>
@@ -252,6 +299,8 @@ export class RequestView {
 
         return { params: request ? enabledCount(request.params) : 0, headers: request ? enabledCount(request.headers) : 0 };
     });
+    protected readonly preRequestPlaceholder = PRE_REQUEST_PLACEHOLDER;
+    protected readonly postResponsePlaceholder = POST_RESPONSE_PLACEHOLDER;
     protected readonly sending = computed(() => this.response()?.status === 'sending');
     private readonly settings = inject(SettingsState);
     /** Layout escolhido em Preferences → Appearance. */
@@ -317,6 +366,14 @@ export class RequestView {
 
     protected update(changes: Partial<RequestDefinition>): void {
         this.drafts.update(this.key(), (draft) => ({ ...draft, ...changes }));
+    }
+
+    protected updateScripts(changes: { preRequest?: string; postResponse?: string }): void {
+        // Scripts vazios somem, para o rascunho voltar a ficar igual ao arquivo.
+        const { preRequest, postResponse } = { ...this.request()?.scripts, ...changes };
+        const scripts = preRequest || postResponse ? { ...(preRequest && { preRequest }), ...(postResponse && { postResponse }) } : undefined;
+
+        this.update({ scripts });
     }
 
     protected async save(): Promise<void> {

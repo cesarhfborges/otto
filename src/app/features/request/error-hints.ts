@@ -76,6 +76,10 @@ const HELP: Record<string, ErrorHelp> = {
         title: 'Invalid variable or command',
         hints: ['Fix the highlighted (red) chips in the request: hover them to see the reason.', 'A referenced request without a response is sent automatically unless it uses { send: \'never\' }.']
     },
+    SCRIPT_ERROR: {
+        title: 'Pre-request script failed',
+        hints: ['Fix the error in the Pre-request tab; the request was not sent.', 'Messages written with console.log appear in the Console tab.']
+    },
     MISSING_URL: {
         title: 'Missing URL',
         hints: ['Type the address of the request in the URL field, then send it again.']

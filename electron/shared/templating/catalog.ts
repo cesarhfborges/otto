@@ -69,6 +69,38 @@ function messageMembers(kind: 'request' | 'response'): CatalogNode[] {
           ];
 }
 
+/** Alterações da requisição atual: só no pre-request (valem para o envio, não vão para o arquivo). */
+const REQUEST_SETTERS: CatalogNode[] = [
+    fn('setUrl', 'void', 'Replace the URL', [arg('url')]),
+    fn('setMethod', 'void', 'Replace the HTTP method', [arg('method', { values: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] })]),
+    fn('setHeader', 'void', 'Add or replace a header', [arg('name', { source: 'headers' }), arg('value')], undefined, { example: "otto.request.setHeader('Authorization', `Bearer ${otto.environment.get('token')}`)" }),
+    fn('addHeader', 'void', 'Add a header (keeps others with the same name)', [arg('name', { source: 'headers' }), arg('value')]),
+    fn('removeHeader', 'void', 'Remove a header', [arg('name', { source: 'headers' })]),
+    fn('setParam', 'void', 'Add or replace a query parameter', [arg('name', { source: 'params' }), arg('value')]),
+    fn('addParam', 'void', 'Add a query parameter', [arg('name', { source: 'params' }), arg('value')]),
+    fn('removeParam', 'void', 'Remove a query parameter', [arg('name', { source: 'params' })]),
+    fn('setBody', 'void', 'Replace the body (objects become JSON)', [arg('content'), opt('type', { values: ['json', 'text', 'xml'] })], undefined, { example: "otto.request.setBody({ user: otto.environment.get('user') })" })
+].map((node) => ({ ...node, where: ['Pre'] }));
+
+/** Variáveis nos scripts: `set`/`unset` são gravados quando o script termina. */
+const variableStore = (name: string, description: string, writable: boolean): CatalogNode =>
+    ns(
+        name,
+        description,
+        [
+            fn('get', 'string', 'Variable value (undefined when not defined)', [arg('name', { source: 'variables' })], undefined, { example: `otto.${name}.get('token')` }),
+            fn('has', 'boolean', 'Whether the variable is defined', [arg('name', { source: 'variables' })]),
+            fn('all', 'object', 'All variables as an object', []),
+            ...(writable
+                ? [
+                      fn('set', 'void', 'Create or update a variable (saved when the script ends)', [arg('name', { source: 'variables' }), arg('value')], undefined, { example: `otto.${name}.set('token', otto.response.json('$.access_token'))` }),
+                      fn('unset', 'void', 'Remove a variable', [arg('name', { source: 'variables' })])
+                  ]
+                : [])
+        ],
+        { where: ['Pre', 'Post'] }
+    );
+
 const IDENTIFICATION = [prop('id', 'string', 'Stable id'), prop('name', 'string', 'Name'), prop('path', 'string', 'File in the collection'), prop('folder', 'string', 'Folder')];
 
 export const REQUEST_REF_OPTIONS = { send: ['never', 'empty', 'expired', 'always'] } as const;
@@ -79,7 +111,7 @@ export const REQUEST_REF_OPTIONS = { send: ['never', 'empty', 'expired', 'always
  */
 const REQUEST: CatalogNode = fn('request', 'RequestRef', 'The request being sent, or another request of this collection when called', [arg('ref', { source: 'requests' }), opt('options')], undefined, {
     example: "{{ otto.request('rq_…', { send: 'expired', maxAge: 600 }).response.json('$.token') }}",
-    members: [...IDENTIFICATION, ...messageMembers('request')],
+    members: [...IDENTIFICATION, ...messageMembers('request'), ...REQUEST_SETTERS],
     result: [
         { ...ns('response', 'Last response of the request', messageMembers('response')), kind: 'object', returns: 'Response' },
         { ...ns('request', 'Definition of the request (interpolated)', messageMembers('request')), kind: 'object', returns: 'Request' },
@@ -103,6 +135,10 @@ const COOKIES: CatalogNode = ns('cookies', 'Cookies stored in this collection', 
 /** Catálogo do objeto `otto`. Um módulo novo de funções entra aqui e passa a valer em validação, autocomplete e execução. */
 export const OTTO_CATALOG: CatalogNode = ns('otto', 'Otto commands and request data', [
     REQUEST,
+    { ...ns('response', 'Response received (post-response scripts)', messageMembers('response')), kind: 'object', returns: 'Response', where: ['Post'], example: "otto.response.json('$.access_token')" },
+    variableStore('environment', 'Variables of the selected environment', true),
+    variableStore('collectionVariables', 'Variables of the collection (otto.yaml)', true),
+    variableStore('variables', 'Resolved variables, as {{$.name}} reads them', false),
     COOKIES,
     ns('collection', 'This collection', [prop('name', 'string', 'Collection name'), prop('id', 'string', 'Collection id')]),
     { ...ns('info', 'Environment, collection, workspace and app', [prop('environment', 'string', 'Selected environment'), prop('collection', 'string', 'Collection name'), prop('workspace', 'string', 'Workspace name'), ns('app', 'Otto', [prop('version', 'string', 'Otto version')]), prop('platform', 'string', 'linux, win32 or darwin')]), kind: 'object', returns: 'Info' },

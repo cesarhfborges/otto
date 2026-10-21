@@ -110,6 +110,13 @@ export class YamlCollectionFormat implements ICollectionFormat {
             document['docs'] = docs;
         }
 
+        const preRequest = request.scripts?.preRequest?.trim() ? request.scripts.preRequest : undefined;
+        const postResponse = request.scripts?.postResponse?.trim() ? request.scripts.postResponse : undefined;
+
+        if (preRequest || postResponse) {
+            document['scripts'] = { ...(preRequest && { preRequest }), ...(postResponse && { postResponse }) };
+        }
+
         return toYaml(document);
     }
 }

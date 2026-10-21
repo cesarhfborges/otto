@@ -66,6 +66,9 @@ function resolve(chain: readonly Op[]): Resolved | null {
 
             if (names.join('.') === 'request') {
                 target = { ref: null, kind: 'request' };
+            } else if (names.join('.') === 'response') {
+                // Scripts de post-response: a resposta da própria requisição.
+                target = { ref: null, kind: 'response' };
             } else if (referenced && names.length === 2 && (op.name === 'response' || op.name === 'request')) {
                 target = { ref, kind: op.name };
             }
