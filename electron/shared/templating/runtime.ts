@@ -1,3 +1,5 @@
+import { cookieHeaderFor, normalizeDomain, upsertCookie } from '../http/cookie-jar';
+import type { CollectionCookie } from '../models';
 import { OTTO_CATALOG } from './catalog';
 import { TemplateError, UnresolvedError } from './errors';
 import { messageReader, type MessageSnapshot, type ReadGuard } from './message';
@@ -37,6 +39,8 @@ export interface OttoHost {
     info: { environment: string | null; workspace: string | null; appVersion: string; platform: string };
     currentRequest: RequestIdentity | null;
     findRequest(ref: string): RequestRefHandle | null;
+    /** Cookies da coleção (`otto.cookies`); ausente = sem coleção. */
+    cookies?: { list(): readonly CollectionCookie[]; save(cookies: CollectionCookie[]): Promise<void> };
 }
 
 /** Objetos do próprio `otto` (membro inexistente é erro, não "valor não encontrado"). */
@@ -156,7 +160,59 @@ export function createOtto(host: OttoHost, currentRequest?: () => Promise<Messag
     return runtime({
         ...STATIC,
         request,
+        cookies: cookiesApi(host),
         collection: runtime({ id: host.collection?.id ?? '', name: host.collection?.name ?? '' }),
         info: runtime({ environment: host.info.environment ?? '', collection: host.collection?.name ?? '', workspace: host.info.workspace ?? '', app: runtime({ version: host.info.appVersion }), platform: host.info.platform })
+    });
+}
+
+/** `otto.cookies`: leitura e alteração dos cookies da coleção (alterações não valem no preview). */
+function cookiesApi(host: OttoHost): object {
+    const list = (): readonly CollectionCookie[] => host.cookies?.list() ?? [];
+    const save = async (cookies: CollectionCookie[]): Promise<string> => {
+        if (!host.preview) {
+            await host.cookies?.save(cookies);
+        }
+
+        return '';
+    };
+    const ofDomain = (cookie: CollectionCookie, domain: unknown): boolean => domain === undefined || normalizeDomain(cookie.domain) === normalizeDomain(String(domain));
+
+    return runtime({
+        get: (name: unknown) => {
+            const cookie = list().find((item) => item.name === String(name));
+
+            if (!cookie) {
+                throw new UnresolvedError(`Cookie "${String(name)}" not found in this collection`);
+            }
+
+            return cookie.value;
+        },
+        has: (name: unknown) => list().some((item) => item.name === String(name)),
+        all: () => list().map((cookie) => ({ ...cookie })),
+        header: (url?: unknown) => (url === undefined ? list().map((cookie) => `${cookie.name}=${cookie.value}`).join('; ') : cookieHeaderFor(list(), String(url))),
+        set: (name: unknown, value: unknown, rawOptions?: unknown) => {
+            const options = (typeof rawOptions === 'object' && rawOptions !== null ? rawOptions : {}) as Record<string, unknown>;
+            const expires = options['expires'] === undefined || options['expires'] === null ? null : new Date(options['expires'] as string | number);
+
+            if (!String(name ?? '').trim()) {
+                throw new TemplateError('otto.cookies.set needs a cookie name');
+            }
+
+            return save(
+                upsertCookie(list(), {
+                    name: String(name).trim(),
+                    value: value === undefined || value === null ? '' : String(value),
+                    domain: normalizeDomain(String(options['domain'] ?? '')),
+                    path: String(options['path'] ?? '/'),
+                    expires: expires && !Number.isNaN(expires.getTime()) ? expires.toISOString() : null,
+                    secure: options['secure'] === true,
+                    httpOnly: options['httpOnly'] === true,
+                    hostOnly: options['hostOnly'] === true
+                })
+            );
+        },
+        remove: (name: unknown, domain?: unknown) => save(list().filter((cookie) => !(cookie.name === String(name) && ofDomain(cookie, domain)))),
+        clear: (domain?: unknown) => save(list().filter((cookie) => !ofDomain(cookie, domain)))
     });
 }

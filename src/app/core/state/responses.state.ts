@@ -1,9 +1,11 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { buildHttpRequest } from '@shared/http/build-request';
+import { applySetCookies, cookieHeaderFor } from '@shared/http/cookie-jar';
 import type { EntityId, HttpResult, RequestDefinition } from '@shared/models';
 import { responseSnapshot, TemplateError, type MessageSnapshot } from '@shared/templating';
 import { ipcErrorMessage } from '../bridge/ipc-error';
 import { HttpGateway } from '../ports';
+import { CollectionsState } from './collections.state';
 import { TemplateContextService, type ResponseAccess } from '../templating/template-context.service';
 
 export type ResponseEntry = { status: 'sending'; requestId: string } | { status: 'done'; result: HttpResult; receivedAt: number };
@@ -24,6 +26,7 @@ const failure = (error: string, code?: string): HttpResult => ({ ok: false, erro
 export class ResponsesState implements ResponseAccess {
     private readonly http = inject(HttpGateway);
     private readonly templates = inject(TemplateContextService);
+    private readonly collections = inject(CollectionsState);
     private readonly entries = signal<ReadonlyMap<string, ResponseEntry>>(new Map());
 
     get(key: string): ResponseEntry | undefined {
@@ -73,12 +76,20 @@ export class ResponsesState implements ResponseAccess {
             return;
         }
 
-        const request = buildHttpRequest(resolved, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } });
+        let request = buildHttpRequest(resolved, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } });
 
         if (!request.url) {
             this.set(key, { status: 'done', result: failure('Enter a URL to send this request.', 'MISSING_URL'), receivedAt: Date.now() });
 
             return;
+        }
+
+        // Cookies da coleção, a menos que a requisição defina o header `Cookie`.
+        const jar = this.collections.find(collectionId)?.manifest.cookies ?? [];
+        const cookieHeader = cookieHeaderFor(jar, request.url);
+
+        if (cookieHeader && !Object.keys(request.headers ?? {}).some((name) => name.toLowerCase() === 'cookie')) {
+            request = { ...request, headers: { ...request.headers, Cookie: cookieHeader } };
         }
 
         this.set(key, { status: 'sending', requestId: request.id });
@@ -91,11 +102,31 @@ export class ResponsesState implements ResponseAccess {
             result = failure(ipcErrorMessage(error));
         }
 
+        if (result.ok) {
+            await this.storeCookies(collectionId, result.response.url || request.url, result.response.headers);
+        }
+
         // Ignora se, nesse meio-tempo, uma nova execução substituiu esta.
         const current = this.get(key);
 
         if (current?.status === 'sending' && current.requestId === request.id) {
             this.set(key, { status: 'done', result, receivedAt: Date.now() });
+        }
+    }
+
+    /** Guarda os `Set-Cookie` da resposta no `otto.yaml` da coleção. */
+    private async storeCookies(collectionId: EntityId, url: string, headers: ReadonlyArray<[string, string]>): Promise<void> {
+        const setCookies = headers.filter(([name]) => name.toLowerCase() === 'set-cookie').map(([, value]) => value);
+        const current = this.collections.find(collectionId)?.manifest.cookies;
+
+        if (!setCookies.length || !current) {
+            return;
+        }
+
+        const cookies = applySetCookies(current, url, setCookies);
+
+        if (JSON.stringify(cookies) !== JSON.stringify(current)) {
+            await this.collections.updateManifest(collectionId, { cookies }).catch(() => undefined);
         }
     }
 

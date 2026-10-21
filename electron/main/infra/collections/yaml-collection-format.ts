@@ -1,6 +1,6 @@
 import { COLLECTION_FORMAT_VERSION, newRequestId, type CollectionManifest, type KeyValue, type RequestDefinition } from '../../../shared/models';
 import type { FolderMetadata, ICollectionFormat } from '../../core/contracts';
-import { parseKeyValues, parseOpenApiConfig, parseRequestDefinition, requireInteger, requireRecord, requireString } from '../../core/validation';
+import { parseCookies, parseKeyValues, parseOpenApiConfig, parseRequestDefinition, requireInteger, requireRecord, requireString } from '../../core/validation';
 import { parseYaml, toYaml } from '../yaml';
 
 const MANIFEST_FILE = 'otto.yaml';
@@ -51,6 +51,7 @@ export class YamlCollectionFormat implements ICollectionFormat {
             description: manifest['description'] === undefined || manifest['description'] === null ? '' : requireString(manifest['description'], 'description', { allowEmpty: true, maxLength: 100_000 }),
             headers: parseKeyValues(manifest['headers'], 'headers'),
             variables: parseKeyValues(manifest['variables'], 'variables'),
+            cookies: parseCookies(manifest['cookies'], 'cookies'),
             openapi: manifest['openapi'] === undefined || manifest['openapi'] === null ? null : parseOpenApiConfig(manifest['openapi'])
         };
     }
@@ -62,6 +63,7 @@ export class YamlCollectionFormat implements ICollectionFormat {
             ...(manifest.description ? { description: manifest.description } : {}),
             ...(manifest.headers.length ? { headers: compactKeyValues(manifest.headers) } : {}),
             ...(manifest.variables.length ? { variables: compactKeyValues(manifest.variables) } : {}),
+            ...(manifest.cookies.length ? { cookies: manifest.cookies.map(({ secure, httpOnly, hostOnly, ...cookie }) => ({ ...cookie, ...(secure && { secure }), ...(httpOnly && { httpOnly }), ...(hostOnly && { hostOnly }) })) } : {}),
             ...(manifest.openapi ? { openapi: manifest.openapi } : {})
         });
     }

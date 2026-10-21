@@ -12,9 +12,10 @@ import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
 import { MethodBadge } from '../../shared/method-badge';
 import { OpenApiPanel } from '../openapi/openapi-panel';
+import { CollectionCookies } from './collection-cookies';
 import { CollectionKeyValues } from './collection-key-values';
 
-type Section = 'overview' | 'headers' | 'variables' | 'openapi';
+type Section = 'overview' | 'headers' | 'variables' | 'cookies' | 'openapi';
 
 interface TreeStats {
     requests: number;
@@ -42,7 +43,7 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
 /** Página da coleção: visão geral, headers base e sincronização OpenAPI. */
 @Component({
     selector: 'app-collection-overview',
-    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, OpenApiPanel],
+    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, CollectionCookies, OpenApiPanel],
     template: `
         @if (collection(); as current) {
             <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="px-4 pt-2">
@@ -58,6 +59,12 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
                         >Variables
                         @if (current.manifest.variables.length) {
                             <span class="text-xs text-muted-color">({{ current.manifest.variables.length }})</span>
+                        }
+                    </p-tab>
+                    <p-tab value="cookies"
+                        >Cookies
+                        @if (current.manifest.cookies.length) {
+                            <span class="text-xs text-muted-color">({{ current.manifest.cookies.length }})</span>
                         }
                     </p-tab>
                     <p-tab value="openapi"
@@ -160,6 +167,9 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
                         <app-collection-key-values [collectionId]="current.metadata.id" field="variables" label="Collection variables" addLabel="Add Variable">
                             Saved in <code>otto.yaml</code> (versioned with the collection) and used as <code>{{ variableExample }}</code>. The selected environment overrides a variable with the same name. Keep secrets in an environment, not here.
                         </app-collection-key-values>
+                    </p-tabpanel>
+                    <p-tabpanel value="cookies">
+                        <app-collection-cookies [collectionId]="current.metadata.id" />
                     </p-tabpanel>
                     <p-tabpanel value="openapi">
                         <app-openapi-panel [collectionId]="current.metadata.id" />

@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { COLLECTION_EXPORT_FORMATS, type CollectionExportFormat, type CollectionImportRequest } from '../../shared/models';
 import type { ICollectionMetadataRepository, IIpcModule, IIpcRegistrar, IRendererNotifier } from '../core/contracts';
-import { parseCollectionPatch, parseCollectionPath, parseEntityId, parseEntryName, parseNewCollection, parseKeyValues, parseOpenApiConfig, requireBoolean, requireOneOf, requireRecord, requireString, ValidationError } from '../core/validation';
+import { parseCollectionPatch, parseCollectionPath, parseEntityId, parseEntryName, parseNewCollection, parseCookies, parseKeyValues, parseOpenApiConfig, requireBoolean, requireOneOf, requireRecord, requireString, ValidationError } from '../core/validation';
 import type { CollectionService } from '../services/collections/collection.service';
 import type { OpenApiService } from '../services/openapi/openapi.service';
 import type { WorkspaceService } from '../services/workspaces/workspace.service';
@@ -94,8 +94,9 @@ export class CollectionsIpcModule implements IIpcModule {
             const description = patch['description'] === undefined ? undefined : requireString(patch['description'], 'patch.description', { allowEmpty: true, maxLength: 100_000 });
             const headers = patch['headers'] === undefined ? undefined : parseKeyValues(patch['headers'], 'patch.headers');
             const variables = patch['variables'] === undefined ? undefined : parseKeyValues(patch['variables'], 'patch.variables');
+            const cookies = patch['cookies'] === undefined ? undefined : parseCookies(patch['cookies'], 'patch.cookies');
 
-            return this.service.updateManifest(parseEntityId(id), (manifest) => ({ ...manifest, ...(description !== undefined && { description }), ...(headers && { headers }), ...(variables && { variables }) }));
+            return this.service.updateManifest(parseEntityId(id), (manifest) => ({ ...manifest, ...(description !== undefined && { description }), ...(headers && { headers }), ...(variables && { variables }), ...(cookies && { cookies }) }));
         });
 
         this.service.onChanged((collectionId) => this.notifier.notify('collections:changed', { collectionId }));

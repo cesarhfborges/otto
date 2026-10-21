@@ -36,11 +36,28 @@ export interface CollectionManifest {
     headers: KeyValue[];
     /** Variáveis da coleção (versionadas): perdem para as do ambiente selecionado. */
     variables: KeyValue[];
+    /** Cookies da coleção (isolados por coleção): enviados e atualizados a cada requisição. */
+    cookies: CollectionCookie[];
     openapi: OpenApiConfig | null;
 }
 
+/** Cookie guardado na coleção. */
+export interface CollectionCookie {
+    name: string;
+    value: string;
+    /** Host sem protocolo (`localhost`, `api.exemplo.com`). */
+    domain: string;
+    path: string;
+    /** ISO 8601; `null` = cookie de sessão. */
+    expires: string | null;
+    secure: boolean;
+    httpOnly: boolean;
+    /** Só o host exato (sem subdomínios). */
+    hostOnly: boolean;
+}
+
 /** Alteração editável pela UI no `otto.yaml`. */
-export type CollectionManifestPatch = Partial<Pick<CollectionManifest, 'description' | 'headers' | 'variables'>>;
+export type CollectionManifestPatch = Partial<Pick<CollectionManifest, 'description' | 'headers' | 'variables' | 'cookies'>>;
 
 /** Nó da árvore de uma coleção lida do disco. */
 export type CollectionNode = CollectionFolderNode | CollectionRequestNode;

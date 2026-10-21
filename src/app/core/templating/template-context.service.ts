@@ -89,6 +89,12 @@ export class TemplateContextService {
             preview: false,
             collection: collection ? { id: collectionId, name: collection.manifest.name } : null,
             info: { environment: this.environments.selected(collectionId)?.name ?? null, workspace: this.workspaces.activeName(), appVersion: info?.version ?? '', platform: info?.platform ?? '' },
+            cookies: collection
+                ? {
+                      list: () => this.collections.find(collectionId)?.manifest.cookies ?? [],
+                      save: (cookies) => this.collections.updateManifest(collectionId, { cookies })
+                  }
+                : undefined,
             currentRequest: { id: definition.id ?? null, name: definition.name, path, folder: path.split('/').slice(0, -1).join('/'), method: definition.method },
             findRequest: (ref): RequestRefHandle | null => {
                 const entry = this.findRequest(collectionId, ref);

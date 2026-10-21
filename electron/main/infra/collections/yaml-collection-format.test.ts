@@ -67,10 +67,10 @@ describe('YamlCollectionFormat', () => {
     });
 
     it('lê e escreve o manifesto, recusando formato mais novo', () => {
-        const manifest = { version: 1, name: 'Petstore', description: 'Demo API', headers: [], variables: [], openapi: null };
+        const manifest = { version: 1, name: 'Petstore', description: 'Demo API', headers: [], variables: [], cookies: [], openapi: null };
 
         assert.deepEqual(format.parseManifest(format.serializeManifest(manifest)), manifest);
-        assert.deepEqual(format.parseManifest('name: Minimal\n'), { version: 1, name: 'Minimal', description: '', headers: [], variables: [], openapi: null });
+        assert.deepEqual(format.parseManifest('name: Minimal\n'), { version: 1, name: 'Minimal', description: '', headers: [], variables: [], cookies: [], openapi: null });
         assert.throws(() => format.parseManifest('version: 99\nname: Future\n'), /newer than this app supports/);
         assert.throws(() => format.parseManifest('description: no name\n'), /"name"/);
     });

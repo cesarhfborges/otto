@@ -198,7 +198,7 @@ export class CollectionService {
 
         await this.store.createRoot(root);
 
-        const manifest: CollectionManifest = { version: COLLECTION_FORMAT_VERSION, name, description: '', headers: [], variables: [], openapi: null };
+        const manifest: CollectionManifest = { version: COLLECTION_FORMAT_VERSION, name, description: '', headers: [], variables: [], cookies: [], openapi: null };
 
         await this.store.writeFile(root, this.format.manifestFile, this.format.serializeManifest(manifest), { createOnly: true });
 

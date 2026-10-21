@@ -89,9 +89,21 @@ const REQUEST: CatalogNode = fn('request', 'RequestRef', 'The request being sent
     ]
 });
 
+/** `otto.cookies`: cookies guardados na coleção (implementado pelo `OttoHost`). */
+const COOKIES: CatalogNode = ns('cookies', 'Cookies stored in this collection', [
+    fn('get', 'string', 'Cookie value', [arg('name')], undefined, { example: "{{ otto.cookies.get('session') }}" }),
+    fn('has', 'boolean', 'Whether the cookie exists', [arg('name')]),
+    fn('all', 'array', 'All cookies (name, value, domain, path…)', []),
+    fn('header', 'string', 'Cookie header value (name=value; …), optionally only the ones for a URL', [opt('url')]),
+    fn('set', 'string', 'Add or replace a cookie (options: domain, path, expires, secure, httpOnly); returns empty text', [arg('name'), arg('value'), opt('options')], undefined, { example: "{{ otto.cookies.set('token', $.token, { domain: 'localhost', path: '/' }) }}" }),
+    fn('remove', 'string', 'Remove a cookie (all domains when omitted); returns empty text', [arg('name'), opt('domain')]),
+    fn('clear', 'string', 'Remove every cookie of the collection (or of a domain); returns empty text', [opt('domain')])
+]);
+
 /** Catálogo do objeto `otto`. Um módulo novo de funções entra aqui e passa a valer em validação, autocomplete e execução. */
 export const OTTO_CATALOG: CatalogNode = ns('otto', 'Otto commands and request data', [
     REQUEST,
+    COOKIES,
     ns('collection', 'This collection', [prop('name', 'string', 'Collection name'), prop('id', 'string', 'Collection id')]),
     { ...ns('info', 'Environment, collection, workspace and app', [prop('environment', 'string', 'Selected environment'), prop('collection', 'string', 'Collection name'), prop('workspace', 'string', 'Workspace name'), ns('app', 'Otto', [prop('version', 'string', 'Otto version')]), prop('platform', 'string', 'linux, win32 or darwin')]), kind: 'object', returns: 'Info' },
     ...ID_FUNCTIONS,

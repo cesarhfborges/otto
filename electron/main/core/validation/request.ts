@@ -1,4 +1,4 @@
-import { AUTH_TYPES, BODY_TYPES, HTTP_METHODS, type KeyValue, type MultipartField, type RequestAuth, type RequestBody, type RequestDefinition } from '../../../shared/models';
+import { AUTH_TYPES, BODY_TYPES, HTTP_METHODS, type CollectionCookie, type KeyValue, type MultipartField, type RequestAuth, type RequestBody, type RequestDefinition } from '../../../shared/models';
 import { requireArray, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
 export const MAX_KEY_VALUES = 500;
@@ -126,4 +126,30 @@ export function parseEntryName(raw: unknown, field = 'name'): string {
     }
 
     return value;
+}
+
+const MAX_COOKIES = 1_000;
+
+/** Cookies da coleção (`otto.yaml`). */
+export function parseCookies(raw: unknown, field: string): CollectionCookie[] {
+    if (raw === undefined || raw === null) {
+        return [];
+    }
+
+    return requireArray(raw, field, MAX_COOKIES).map((item, i) => {
+        const entry = requireRecord(item, `${field}[${i}]`);
+        const flag = (name: string): boolean => (entry[name] === undefined ? false : requireBoolean(entry[name], `${field}[${i}].${name}`));
+        const expires = entry['expires'] === undefined || entry['expires'] === null || entry['expires'] === '' ? null : text(entry['expires'], `${field}[${i}].expires`, 100);
+
+        return {
+            name: requireString(entry['name'], `${field}[${i}].name`, { maxLength: 1_000 }),
+            value: text(entry['value'], `${field}[${i}].value`),
+            domain: text(entry['domain'], `${field}[${i}].domain`, 1_000),
+            path: text(entry['path'], `${field}[${i}].path`, 2_000) || '/',
+            expires: expires && !Number.isNaN(Date.parse(expires)) ? new Date(expires).toISOString() : null,
+            secure: flag('secure'),
+            httpOnly: flag('httpOnly'),
+            hostOnly: flag('hostOnly')
+        };
+    });
 }
