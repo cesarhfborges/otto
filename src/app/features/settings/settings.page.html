@@ -28,7 +28,7 @@
             <h2 class="m-0 text-lg font-semibold">{{ current().label }}</h2>
             <p class="m-0 mt-1 text-sm text-muted-color">{{ current().description }}</p>
         </div>
-        <p class="m-0 shrink-0 text-sm text-primary" role="status"
+        <p class="m-0 shrink-0 text-sm text-(--p-emerald-600) dark:text-(--p-emerald-500)" role="status"
            aria-live="polite">
             @switch (status()) {
                 @case ('saving') {

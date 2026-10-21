@@ -1,25 +1,41 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import type { ThemeMode } from '@shared/models';
+import { TieredMenuModule } from 'primeng/tieredmenu';
 import { TooltipModule } from 'primeng/tooltip';
 import { AppInfoGateway } from '../core/ports';
 import { ThemeService } from '../core/theme/theme.service';
-import { TooltipOptions } from 'primeng/api';
+import { MenuItem, TooltipOptions } from 'primeng/api';
 import { SettingsDialog } from '../features/settings/settings-dialog.service';
 
-const THEME_ICONS: Record<ThemeMode, string> = { dark: 'pi-moon', light: 'pi-sun', auto: 'pi-desktop' };
-const THEME_NAMES: Record<ThemeMode, string> = { dark: 'dark', light: 'light', auto: 'auto (system)' };
+const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[] = [
+    { mode: 'dark', label: 'Dark', icon: 'pi pi-moon' },
+    { mode: 'light', label: 'Light', icon: 'pi pi-sun' },
+    { mode: 'auto', label: 'Auto (system)', icon: 'pi pi-desktop' }
+];
 
 /** Barra de status: atalhos para preferências e tema, versão do app. */
 @Component({
     selector: 'app-status-bar',
-    imports: [TooltipModule],
+    imports: [TooltipModule, TieredMenuModule],
     template: `
         <button type="button" class="otto-icon-button !h-6 !w-7" aria-label="Preferences" pTooltip [tooltipOptions]="tooltipConfig" (click)="settingsDialog.open()">
             <i class="pi pi-cog text-xs" aria-hidden="true"></i>
         </button>
-        <button type="button" class="otto-icon-button h-6! w-7!" [attr.aria-label]="themeLabel()" pTooltip [tooltipOptions]="tooltipColor()" (click)="theme.toggle()">
-            <i class="pi text-xs" [class]="themeIcon()" aria-hidden="true"></i>
+        <button type="button" class="otto-icon-button h-6! w-7!" [attr.aria-label]="themeLabel()" aria-haspopup="menu" pTooltip [tooltipOptions]="tooltipColor()" (click)="themeMenu.toggle($event)">
+            <i class="text-xs" [class]="themeIcon()" aria-hidden="true"></i>
         </button>
+        <p-tieredmenu #themeMenu [model]="themeItems()" [popup]="true" appendTo="body">
+            <ng-template #item let-item>
+                <a class="p-tieredmenu-item-link">
+                    <span class="p-tieredmenu-item-icon" [class]="item.icon" aria-hidden="true"></span>
+                    <span class="p-tieredmenu-item-label">{{ item.label }}</span>
+                    @if (item.state?.selected) {
+                        <i class="pi pi-check ml-auto pl-3 text-xs" aria-hidden="true"></i>
+                        <span class="sr-only">(current)</span>
+                    }
+                </a>
+            </ng-template>
+        </p-tieredmenu>
         <span class="ml-auto px-2 text-xs text-muted-color">{{ version() }}</span>
     `,
     host: {
@@ -42,8 +58,10 @@ export class StatusBar {
         // tooltipPosition="top"
         // appendTo="body"
     };
-    protected readonly themeIcon = computed(() => THEME_ICONS[this.theme.mode()]);
-    protected readonly themeLabel = computed(() => `Theme: ${THEME_NAMES[this.theme.mode()]} — switch to ${THEME_NAMES[this.theme.nextMode()]}`);
+
+    private readonly currentTheme = computed(() => THEME_OPTIONS.find((option) => option.mode === this.theme.mode()) ?? THEME_OPTIONS[0]);
+    protected readonly themeIcon = computed(() => this.currentTheme().icon);
+    protected readonly themeLabel = computed(() => `Theme: ${this.currentTheme().label}`);
     protected readonly tooltipColor = computed<TooltipOptions>(() => ({
         tooltipLabel: this.themeLabel(),
         positionLeft: -30,
@@ -53,6 +71,14 @@ export class StatusBar {
         // tooltipPosition="top"
         // appendTo="body"
     }));
+    protected readonly themeItems = computed<MenuItem[]>(() =>
+        THEME_OPTIONS.map(({ mode, label, icon }) => ({
+            label,
+            icon,
+            state: { selected: mode === this.theme.mode() },
+            command: () => void this.theme.setMode(mode)
+        }))
+    );
 
     constructor() {
         inject(AppInfoGateway)
