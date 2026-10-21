@@ -178,6 +178,8 @@ export class ManageWorkspaces {
             header: 'Remove Workspace',
             message: `Remove "${workspace.name}" from the list? Its folder and collections are not deleted.`,
             acceptLabel: 'Remove',
+            acceptIcon: 'pi pi-times',
+            icon: 'pi pi-times-circle',
             severity: 'danger'
         });
 

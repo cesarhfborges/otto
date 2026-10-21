@@ -245,7 +245,7 @@ export class EnvironmentsPage {
     }
 
     protected async remove(environment: Environment): Promise<void> {
-        const accepted = await this.confirm.ask({ header: 'Delete Environment', message: `Delete "${environment.name}" and its ${environment.variables.length} variables?`, acceptLabel: 'Delete', severity: 'danger' });
+        const accepted = await this.confirm.askDelete({ header: 'Delete Environment', message: `Delete "${environment.name}" and its ${environment.variables.length} variables?` });
 
         if (!accepted) {
             return;
@@ -269,7 +269,14 @@ export class EnvironmentsPage {
         });
     }
 
-    protected removeVariable(index: number): void {
+    protected async removeVariable(index: number): Promise<void> {
+        const { key, value } = this.variables.at(index).getRawValue();
+
+        // Linhas vazias saem direto; com conteúdo, pede confirmação.
+        if ((key || value) && !(await this.confirm.askDelete({ header: 'Remove Variable', message: `Remove the variable "${key || `#${index + 1}`}"?`, acceptLabel: 'Remove', detail: 'The change is only applied when you save.' }))) {
+            return;
+        }
+
         this.variables.removeAt(index);
         this.form.markAsDirty();
     }
@@ -321,7 +328,7 @@ export class EnvironmentsPage {
             return true;
         }
 
-        const discard = await this.confirm.ask({ header: 'Unsaved Changes', message: 'Discard the changes to this environment?', acceptLabel: 'Discard', severity: 'danger' });
+        const discard = await this.confirm.ask({ header: 'Unsaved Changes', message: 'Discard the changes to this environment?', acceptLabel: 'Discard', severity: 'warn', icon: 'pi pi-exclamation-triangle' });
 
         if (discard) {
             this.form.markAsPristine();

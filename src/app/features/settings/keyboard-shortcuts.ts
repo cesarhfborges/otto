@@ -186,7 +186,7 @@ export class KeyboardShortcutsSettings {
     }
 
     protected async resetAll(): Promise<void> {
-        const accepted = await this.confirm.ask({ header: 'Reset keyboard shortcuts', message: 'Reset all keyboard shortcuts to their defaults?', acceptLabel: 'Reset All', severity: 'danger' });
+        const accepted = await this.confirm.ask({ header: 'Reset keyboard shortcuts', message: 'Reset all keyboard shortcuts to their defaults?', acceptLabel: 'Reset All', severity: 'warn', icon: 'pi pi-refresh' });
 
         if (accepted) {
             await this.keybindings.reset();

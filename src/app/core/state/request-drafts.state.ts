@@ -136,7 +136,7 @@ export class RequestDraftsState {
         const key = draftKey(tab.collectionId, tab.resourceRef);
 
         if (this.isDirty(key)) {
-            const discard = await this.confirm.ask({ header: 'Unsaved Changes', message: `"${tab.title}" has unsaved changes. Close it and discard them?`, acceptLabel: 'Discard and Close', severity: 'danger' });
+            const discard = await this.confirm.ask({ header: 'Unsaved Changes', message: `"${tab.title}" has unsaved changes. Close it and discard them?`, acceptLabel: 'Discard and Close', severity: 'warn' });
 
             if (!discard) {
                 return false;

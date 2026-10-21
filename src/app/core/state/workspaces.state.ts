@@ -155,7 +155,8 @@ export class WorkspacesState {
             header: 'Workspace Folder Not Found',
             message: `The folder of "${workspace.name}" no longer exists (${workspace.path}). Remove the workspace from the list, or recreate the folder in the same place with the collections that still exist.`,
             acceptLabel: 'Remove from List',
-            severity: 'danger',
+            severity: 'warn',
+            icon: 'pi pi-folder',
             alternativeLabel: 'Recreate Folder'
         });
 

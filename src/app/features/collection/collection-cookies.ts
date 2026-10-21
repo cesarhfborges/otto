@@ -5,6 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { CollectionsState } from '../../core/state/collections.state';
+import { ConfirmState } from '../../core/state/confirm.state';
 import { CookieDialog } from './cookie-dialog';
 
 /** Cookies da coleção (`otto.yaml`): lista, cadastro/edição pela modal e remoção. */
@@ -60,7 +61,7 @@ import { CookieDialog } from './cookie-dialog';
         <div class="mt-3 flex items-center gap-2">
             <p-button label="Add Cookie" icon="pi pi-plus" size="small" severity="secondary" [text]="true" (onClick)="edit(null)" />
             @if (cookies().length) {
-                <p-button label="Clear All" icon="pi pi-trash" size="small" severity="secondary" [text]="true" (onClick)="save([])" />
+                <p-button label="Clear All" icon="pi pi-trash" size="small" severity="secondary" [text]="true" (onClick)="clearAll()" />
             }
         </div>
         <app-cookie-dialog [(visible)]="dialogOpen" [cookie]="editing()" (saved)="store($event)" />
@@ -71,6 +72,7 @@ export class CollectionCookies {
     readonly collectionId = input.required<EntityId>();
 
     private readonly collections = inject(CollectionsState);
+    private readonly confirm = inject(ConfirmState);
 
     protected readonly commandExample = "{{ otto.cookies.get('session') }}";
     protected readonly cookies = computed<CollectionCookie[]>(() => this.collections.find(this.collectionId())?.manifest.cookies ?? []);
@@ -92,8 +94,18 @@ export class CollectionCookies {
         void this.save(upsertCookie(rest, cookie));
     }
 
-    protected remove(cookie: CollectionCookie): void {
-        void this.save(this.cookies().filter((item) => !sameCookie(item, cookie)));
+    protected async remove(cookie: CollectionCookie): Promise<void> {
+        if (await this.confirm.askDelete({ header: 'Delete Cookie', message: `Delete the cookie "${cookie.name}" (${cookie.domain || 'any domain'})?` })) {
+            await this.save(this.cookies().filter((item) => !sameCookie(item, cookie)));
+        }
+    }
+
+    protected async clearAll(): Promise<void> {
+        const count = this.cookies().length;
+
+        if (await this.confirm.askDelete({ header: 'Clear All Cookies', message: `Delete all ${count} cookie${count === 1 ? '' : 's'} of this collection?`, acceptLabel: 'Clear All' })) {
+            await this.save([]);
+        }
     }
 
     protected async save(cookies: CollectionCookie[]): Promise<void> {

@@ -17,7 +17,6 @@ import { RemoveCollectionDialog } from '../features/collections/remove-collectio
 import { ImportWorkspaceDialog } from '../features/workspace/import-workspace-dialog';
 import { NewWorkspaceDialog } from '../features/workspace/new-workspace-dialog';
 import { ShortcutsDialog } from '../features/settings/shortcuts-dialog';
-import { ConfirmHost } from './confirm-host';
 import { ContextHeader } from './context-header';
 import { StatusBar } from './status-bar';
 import { TabHost } from './tab-host';
@@ -59,7 +58,6 @@ function savedSplitterSize(key: string, fallback: number): number {
         ImportWorkspaceDialog,
         ImportCollectionDialog,
         RemoveCollectionDialog,
-        ConfirmHost,
         ShortcutsDialog,
         ToastModule,
         SplitterModule,
@@ -117,7 +115,6 @@ function savedSplitterSize(key: string, fallback: number): number {
         <app-remove-collection-dialog />
         <app-shortcuts-dialog />
         <p-toast position="top-right" />
-        <app-confirm-host />
     `,
     host: {
         class: 'flex h-screen flex-col text-color'

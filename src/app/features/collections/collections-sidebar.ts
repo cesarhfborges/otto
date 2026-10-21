@@ -531,6 +531,8 @@ export class CollectionsSidebar {
             header: target.kind === 'folder' ? 'Delete folder' : 'Delete request',
             message: target.kind === 'folder' ? `Move the folder "${name}" and everything inside it to the trash?` : `Move the request "${name}" to the trash?`,
             acceptLabel: 'Move to Trash',
+            acceptIcon: 'pi pi-trash',
+            detail: 'It can be restored from the system trash.',
             severity: 'danger'
         });
 

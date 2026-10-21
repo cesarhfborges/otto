@@ -4,6 +4,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogGateway } from '../../core/ports';
 import { OttoInput } from '../../shared/template-editor';
+import { ConfirmState } from '../../core/state/confirm.state';
 
 /** Linha editável; `kind` só existe em formulários multipart (texto ou arquivo). */
 export type EditableRow = KeyValue & { kind?: 'text' | 'file' };
@@ -104,6 +105,7 @@ export class KeyValueEditor {
     readonly allowFiles = input(false);
 
     private readonly dialogs = inject(DialogGateway);
+    private readonly confirm = inject(ConfirmState);
     private readonly names = viewChildren('nameInput', { read: OttoInput });
 
     protected readonly kinds = [
@@ -121,7 +123,14 @@ export class KeyValueEditor {
         });
     }
 
-    protected remove(index: number): void {
+    protected async remove(index: number): Promise<void> {
+        const row = this.items()[index];
+
+        // Linhas vazias saem direto; com conteúdo, pede confirmação.
+        if ((row?.key || row?.value) && !(await this.confirm.askDelete({ header: 'Remove Row', message: `Remove "${row.key || `row ${index + 1}`}" from ${this.label().toLowerCase()}?`, acceptLabel: 'Remove' }))) {
+            return;
+        }
+
         this.items.update((rows) => rows.filter((_, i) => i !== index));
     }
 

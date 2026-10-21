@@ -446,6 +446,7 @@ export class OpenApiPanel {
             header: 'Revert All to Spec',
             message: `Replace ${keys.length} edited request${keys.length === 1 ? '' : 's'} with the last synced spec version? Local edits are lost.`,
             acceptLabel: 'Revert All',
+            icon: 'pi pi-undo',
             severity: 'danger'
         });
 

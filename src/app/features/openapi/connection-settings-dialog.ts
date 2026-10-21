@@ -188,7 +188,7 @@ export class ConnectionSettingsDialog {
     }
 
     protected async disconnect(): Promise<void> {
-        const accepted = await this.confirm.ask({ header: 'Disconnect Sync', message: 'Stop syncing this collection with the OpenAPI spec? Requests already in the collection are kept.', acceptLabel: 'Disconnect', severity: 'danger' });
+        const accepted = await this.confirm.ask({ header: 'Disconnect Sync', message: 'Stop syncing this collection with the OpenAPI spec? Requests already in the collection are kept.', acceptLabel: 'Disconnect', severity: 'danger', icon: 'pi pi-link' });
 
         if (accepted) {
             await this.openapi.disconnect(this.collectionId());
