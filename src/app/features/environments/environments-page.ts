@@ -70,7 +70,7 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
                         <p-button label="Delete" icon="pi pi-trash" severity="danger" [text]="true" (onClick)="remove(environment)" />
                     </div>
 
-                    <table class="w-full border-collapse text-sm">
+                    <table class="w-full table-fixed border-collapse text-sm">
                         <caption class="sr-only">
                             Variables
                         </caption>
@@ -90,16 +90,10 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
                                         <p-checkbox formControlName="enabled" [binary]="true" [ariaLabel]="'Enable variable ' + (i + 1)" />
                                     </td>
                                     <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">
-                                        <input pInputText formControlName="key" class="w-full font-mono !text-sm" pSize="small" placeholder="baseUrl" autocomplete="off" spellcheck="false" [attr.aria-label]="'Variable ' + (i + 1) + ' name'" />
+                                        <input pInputText formControlName="key" class="w-full min-w-0 font-mono !text-sm" pSize="small" placeholder="baseUrl" autocomplete="off" spellcheck="false" [attr.aria-label]="'Variable ' + (i + 1) + ' name'" />
                                     </td>
                                     <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">
-                                        <app-otto-input
-                                            formControlName="value"
-                                            class="w-full !text-sm"
-                                            size="small"
-                                            [type]="row.controls.secret.value ? 'password' : 'text'"
-                                            [ariaLabel]="'Variable ' + (i + 1) + ' value'"
-                                        />
+                                        <app-otto-input formControlName="value" class="w-full min-w-0 !text-sm" size="small" [type]="row.controls.secret.value ? 'password' : 'text'" [ariaLabel]="'Variable ' + (i + 1) + ' value'" />
                                     </td>
                                     <td class="border-b border-surface-100 py-1 dark:border-surface-800">
                                         <p-checkbox formControlName="secret" [binary]="true" [ariaLabel]="'Hide value of variable ' + (i + 1)" />
