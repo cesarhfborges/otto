@@ -1,8 +1,11 @@
 import { app } from 'electron';
 import * as path from 'node:path';
 
-export const APP_ID = 'dev.otto.app';
-export const APP_NAME = 'Otto';
+/** Versões de pré-release (`1.2.0-beta.3`) rodam como "Otto Beta", com dados separados da versão final. */
+export const isBeta = app.getVersion().includes('-beta');
+
+export const APP_ID = isBeta ? 'dev.otto.app.beta' : 'dev.otto.app';
+export const APP_NAME = isBeta ? 'Otto Beta' : 'Otto';
 export const REPOSITORY_URL = 'https://github.com/cesarhfborges/otto';
 
 /** Modo desenvolvimento: carrega o `ng serve` em vez do build estático. */

@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import type { ThemeMode } from '@shared/models';
+import { Title } from '@angular/platform-browser';
 import { TieredMenuModule } from 'primeng/tieredmenu';
 import { TooltipModule } from 'primeng/tooltip';
 import { AppInfoGateway } from '../core/ports';
@@ -36,7 +37,10 @@ const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[]
                 </a>
             </ng-template>
         </p-tiered-menu>
-        <span class="ml-auto px-2 text-xs text-muted-color">{{ version() }}</span>
+        @if (beta()) {
+            <span class="ml-auto rounded bg-orange-100 px-1.5 text-xs font-semibold text-orange-800 dark:bg-orange-900 dark:text-orange-100" title="Pre-release build for testing">BETA</span>
+        }
+        <span class="px-2 text-xs text-muted-color" [class.ml-auto]="!beta()">{{ version() }}</span>
     `,
     host: {
         role: 'contentinfo',
@@ -47,6 +51,9 @@ export class StatusBar {
     protected readonly settingsDialog = inject(SettingsDialog);
     protected readonly theme = inject(ThemeService);
     protected readonly version = signal('');
+    /** Pré-releases (`1.2.0-beta.3`) são sinalizadas na barra e no título da janela. */
+    protected readonly beta = computed(() => this.version().includes('-beta'));
+    private readonly title = inject(Title);
     protected readonly tooltipConfig: TooltipOptions = {
         tooltipLabel: 'Preferences',
         positionLeft: -30,
@@ -84,7 +91,13 @@ export class StatusBar {
         inject(AppInfoGateway)
             .info()
             .then(
-                (info) => this.version.set(`v${info.version}`),
+                (info) => {
+                    this.version.set(`v${info.version}`);
+
+                    if (this.beta()) {
+                        this.title.setTitle(`Otto Beta ${info.version}`);
+                    }
+                },
                 () => undefined
             );
     }

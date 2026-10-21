@@ -72,7 +72,9 @@ O `npm start` sobe o `ng serve` (porta 4200), compila o processo main em modo wa
 | `npm run build`            | Limpa `dist/`, faz o build do Angular e compila o Electron          |
 | `npm run dist`             | Gera instaladores para a plataforma atual em `release/`             |
 | `npm run dist:linux`       | Gera `AppImage` e `.deb`                                            |
-| `npm run dist:win`         | Gera instalador `NSIS` (`.exe`)                                     |
+| `npm run dist:win`         | Gera instalador `NSIS` (`.exe`); no Linux exige Wine                |
+| `npm run dist:win:docker`  | Gera o `.exe` no Linux via Docker (`electronuserland/builder:wine`) |
+| `npm run dist:release`     | Gera Linux + Windows (usado pela release automática)               |
 | `npm run dist:mac`         | Gera `.dmg`                                                         |
 | `npm run typecheck`        | Checagem de tipos do main/preload e do Angular                      |
 | `npm test`                 | Testes unitários do Angular (Karma/Jasmine)                         |
@@ -80,6 +82,14 @@ O `npm start` sobe o `ng serve` (porta 4200), compila o processo main em modo wa
 | `npm run format`           | Formata o código com Prettier                                       |
 
 > **Dependências:** o Angular já é empacotado em `dist/otto`, então todos os pacotes ficam em `devDependencies` e não entram no instalador. Use `dependencies` apenas para módulos que o processo main (`electron/`) precisa em tempo de execução.
+
+## Releases
+
+Releases são automáticas (GitHub Actions + semantic-release); veja `docs/PLANO_BUILD_DEPLOY.md`.
+
+- Crie a branch a partir da `master` e abra o PR para a **`beta`**. O merge publica `X.Y.Z-beta.N` como *Pre-release* ("Otto Beta", instalável ao lado da versão final).
+- O PR `beta` → `master` publica a versão final `X.Y.Z`.
+- O título do PR (Squash and merge) define a versão: `fix:` → correção, `feat:` → recurso, `feat!:` → quebra. `chore:`/`docs:` não geram release.
 
 ## Estrutura do projeto
 
