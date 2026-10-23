@@ -197,7 +197,13 @@ export abstract class TemplateField implements ControlValueAccessor {
                     return false;
                 }
 
-                return this.onEnter(event);
+                const handled = this.onEnter(event);
+
+                if (handled) {
+                    event.preventDefault();
+                }
+
+                return handled;
             }
         });
 
@@ -228,6 +234,9 @@ export abstract class TemplateField implements ControlValueAccessor {
                         ]
                     }),
                     Prec.high(keymap.of([{ key: 'Tab', run: acceptCompletion }])),
+                    // Uma linha: Enter (e variações) nunca inserem quebra; com a lista aberta o
+                    // keymap do autocomplete (precedência maior) aceita a sugestão antes daqui.
+                    ...(this.multiline ? [] : [Prec.high(keymap.of(['Enter', 'Shift-Enter', 'Mod-Enter', 'Alt-Enter'].map((key) => ({ key, run: () => true }))))]),
                     keymap.of([...defaultKeymap, ...historyKeymap]),
                     singleLineEnter,
                     ...templateExtensions(this.multiline),

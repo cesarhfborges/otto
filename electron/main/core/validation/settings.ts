@@ -82,6 +82,7 @@ export const SETTING_LEAVES: readonly SettingLeaf[] = [
     leaf('appearance.primaryColor', (v, f) => requireOneOf(v, PRIMARY_COLORS, f)),
     leaf('appearance.surfaceColor', (v, f) => (v === null ? null : requireOneOf(v, SURFACE_COLORS, f))),
     leaf('appearance.requestLayout', (v, f) => requireOneOf(v, REQUEST_LAYOUTS, f)),
+    leaf('appearance.showQueryInUrl', requireBoolean),
     leaf('appearance.codeTheme', (v, f) => requireOneOf(v, CODE_THEMES, f)),
     leaf('appearance.codeFontSize', (v, f) => requireInteger(v, f, MIN_CODE_FONT_SIZE, MAX_CODE_FONT_SIZE)),
     leaf('http.timeoutMs', parseTimeout),

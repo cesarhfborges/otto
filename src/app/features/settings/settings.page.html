@@ -342,6 +342,17 @@
                                       [options]="requestLayoutOptions" optionLabel="label" optionValue="value"
                                       aria-describedby="request-layout-help" appendTo="body" class="w-full sm:w-80" />
                         </div>
+                        <div formGroupName="appearance"
+                             class="mt-4 flex items-center justify-between gap-6 rounded-lg border border-surface-200 px-4 py-3 dark:border-surface-700">
+                            <div class="min-w-0">
+                                <label id="show-query-label" for="show-query" class="font-medium">Show query params in the URL</label>
+                                <p id="show-query-help" class="m-0 mt-0.5 text-sm text-muted-color">Display the enabled
+                                    params after the request URL, read-only and color-coded. They are always sent,
+                                    whether shown or not.</p>
+                            </div>
+                            <p-toggleswitch formControlName="showQueryInUrl" inputId="show-query"
+                                            ariaLabelledBy="show-query-label" />
+                        </div>
                         <fieldset formGroupName="appearance"
                                   class="m-0 mt-4 divide-y divide-surface-200 rounded-lg border border-surface-200 p-0 dark:divide-surface-700 dark:border-surface-700">
                             <legend class="sr-only">Syntax highlighting</legend>

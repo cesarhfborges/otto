@@ -76,6 +76,8 @@ export interface AppearanceSettings {
     /** `null` = tons padrão do estilo base (slate no claro, zinc no escuro). */
     surfaceColor: SurfaceColor | null;
     requestLayout: RequestLayout;
+    /** Mostra a query dos params (somente leitura, colorida) depois da URL da requisição. */
+    showQueryInUrl: boolean;
     codeTheme: CodeTheme;
     /** Tamanho da fonte (px) dos editores de corpo e da resposta. */
     codeFontSize: number;
@@ -133,6 +135,6 @@ export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
         ssl: { verifyCertificates: true, caCertificatePath: null }
     },
     workspaces: { baseDirectory: '' },
-    appearance: { themePreset: 'aura', primaryColor: 'emerald', surfaceColor: null, requestLayout: 'horizontal', codeTheme: 'seneca', codeFontSize: 14 },
+    appearance: { themePreset: 'aura', primaryColor: 'emerald', surfaceColor: null, requestLayout: 'horizontal', showQueryInUrl: true, codeTheme: 'seneca', codeFontSize: 14 },
     updates: { autoCheck: true, autoDownload: false }
 };

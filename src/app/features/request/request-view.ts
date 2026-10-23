@@ -131,7 +131,6 @@ import { OttoInput } from '../../shared/template-editor';
                         ariaLabel="Request URL"
                         [ariaDescribedBy]="querySuffix() ? 'request-url-query' : null"
                         (valueChange)="changeUrl($event)"
-                        (enter)="send()"
                     />
                 </div>
                 @if (querySuffix(); as query) {
@@ -440,7 +439,7 @@ export class RequestView {
     protected readonly querySuffix = computed(() => {
         const request = this.request();
 
-        return request ? querySuffix(request.url, request.params) : '';
+        return request && this.settings.settings().appearance.showQueryInUrl ? querySuffix(request.url, request.params) : '';
     });
 
     /** Colar um comando cURL na URL preenche método, URL, params, headers, auth e corpo. */
