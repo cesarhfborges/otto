@@ -1,17 +1,15 @@
 import { Component, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { commandMeta, type CommandId, type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type KeyValue, type RequestDefinition, type ResponseExample } from '@shared/models';
+import { commandMeta, type CommandId, type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition, type ResponseExample } from '@shared/models';
 import { looksLikeCurl, parseCurl } from '@shared/http/curl-import';
 import { MessageService } from 'primeng/api';
-import { isMockRelevantHeader } from '@shared/http/mock-headers';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { SelectModule } from 'primeng/select';
 import { SplitterModule } from 'primeng/splitter';
 import { TabsModule } from 'primeng/tabs';
-import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import type { SplitterPassThrough, SplitterResizeEndEvent } from 'primeng/types/splitter';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
@@ -31,14 +29,12 @@ import { EditorModule } from 'primeng/editor';
 import { ScriptEditor } from '../../shared/script-editor/script-editor';
 import { CodeDialog } from './code-dialog';
 import { ExamplesEditor } from './examples-editor';
+import { type ExampleSource, SaveExampleDialog } from './save-example-dialog';
 import { RequestHistory } from './request-history';
 
 const REQUEST_SPLITTER_KEY = 'otto.splitter.request';
 
 type Section = 'params' | 'body' | 'headers' | 'auth' | 'docs' | 'preRequest' | 'postResponse' | 'examples' | 'history';
-
-/** Toast do "Save as example", com a ação de manter todos os headers da resposta. */
-const EXAMPLE_TOAST = 'example-headers';
 
 /** Primeiro tamanho (%) salvo pelo `stateKey` do splitter; `localStorage` pode estar indisponível. */
 function savedSplitterSize(key: string, fallback: number): number {
@@ -81,7 +77,6 @@ import { OttoInput } from '../../shared/template-editor';
     selector: 'app-request-view',
     providers: [TemplateScope],
     imports: [
-        ToastModule,
         ReactiveFormsModule,
         FormsModule,
         TabsModule,
@@ -100,24 +95,15 @@ import { OttoInput } from '../../shared/template-editor';
         ScriptEditor,
         CodeDialog,
         ExamplesEditor,
+        SaveExampleDialog,
         RequestHistory,
         TooltipModule
     ],
     template: `
-        <p-toast [key]="exampleToast" position="bottom-right" >
-            <ng-template let-message #message>
-                <div class="flex flex-1 items-start gap-3">
-                    <i class="pi pi-check-circle mt-0.5" aria-hidden="true"></i>
-                    <div class="flex flex-1 flex-col gap-1">
-                        <span class="font-semibold">{{ message.summary }}</span>
-                        <span class="text-sm">{{ message.detail }}</span>
-                        @if (message.data; as data) {
-                            <p-button label="Keep all headers" icon="pi pi-list" size="small" severity="secondary" [outlined]="true" styleClass="mt-1 self-start" (onClick)="keepAllHeaders(data)" />
-                        }
-                    </div>
-                </div>
-            </ng-template>
-        </p-toast>
+        <!-- Criado já visível: abrir uma instância existente exigia um segundo clique. -->
+        @if (pendingExample()) {
+            <app-save-example-dialog [(source)]="pendingExample" [taken]="exampleNames()" (saved)="appendExample($event)" />
+        }
         @if (error(); as message) {
             <p-message severity="error" styleClass="m-4"
                 ><span role="alert">Could not read this request: {{ message }}</span></p-message
@@ -476,47 +462,19 @@ export class RequestView {
     }
 
     /** Resposta recebida (ou do histórico) vira um exemplo do mock server. */
-    protected addExample(source: { status: number; headers: ReadonlyArray<[string, string]>; body: string; name: string }): void {
-        const examples = this.request()?.examples ?? [];
-        const all = source.headers.map(([key, value]) => ({ key, value, enabled: true }));
-        const headers = all.filter((header) => isMockRelevantHeader(header.key));
-        let body = source.body;
+    protected addExample(source: ExampleSource): void {
+        this.pendingExample.set(source);
+    }
 
-        try {
-            body = JSON.stringify(JSON.parse(body), null, 2);
-        } catch {
-            // Não é JSON: guarda como veio.
-        }
-
-        const taken = new Set(examples.map((example) => example.name));
-        let name = source.name || `Example ${examples.length + 1}`;
-
-        for (let i = 2; taken.has(name); i++) {
-            name = `${source.name} (${i})`;
-        }
-
-        this.update({ examples: [...examples, { name, status: source.status, headers, body, delayMs: 0 }] });
+    protected appendExample(example: ResponseExample): void {
+        this.update({ examples: [...(this.request()?.examples ?? []), example] });
         this.section.set('examples');
-        this.messages.clear(EXAMPLE_TOAST);
-        this.messages.add({
-            key: EXAMPLE_TOAST,
-            severity: 'success',
-            summary: 'Example added',
-            detail: `Saved with ${headers.length} header(s)${all.length > headers.length ? ` (${all.length - headers.length} ignored)` : ''}. Save the request to serve it from the mock server.`,
-            life: 8000,
-            data: all.length > headers.length ? { name, headers: all } : null
-        });
+        this.messages.add({ severity: 'success', summary: 'Example added', detail: 'Save the request to serve it from the mock server.', life: 4000 });
     }
 
-    /** Ação "Keep all" do toast: regrava o exemplo com todos os headers da resposta original. */
-    protected readonly exampleToast = EXAMPLE_TOAST;
-
-    protected keepAllHeaders(data: { name: string; headers: KeyValue[] }): void {
-        const examples = this.request()?.examples ?? [];
-
-        this.messages.clear(EXAMPLE_TOAST);
-        this.update({ examples: examples.map((example) => (example.name === data.name ? { ...example, headers: data.headers } : example)) });
-    }
+    /** Resposta aguardando confirmação no diálogo "Save as example". */
+    protected readonly pendingExample = signal<ExampleSource | null>(null);
+    protected readonly exampleNames = computed(() => (this.request()?.examples ?? []).map((example) => example.name));
 
     protected updateScripts(changes: { preRequest?: string; postResponse?: string }): void {
         // Scripts vazios somem, para o rascunho voltar a ficar igual ao arquivo.
