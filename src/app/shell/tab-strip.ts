@@ -52,7 +52,7 @@ export const TAB_PANEL_ID = 'otto-tab-panel';
                         }
                         <span class="truncate" [class.italic]="tab.kind === 'request' && !methodOf(tab)">{{ tab.title }}</span>
                         @if (isDirty(tab)) {
-                            <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true"></span>
+                            <span class="h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden="true"></span>
                             <span class="sr-only">(unsaved changes)</span>
                         }
                     </button>
