@@ -56,9 +56,15 @@ export const templateTheme = EditorView.theme({
     },
     '.otto-input-suffix-action': { cursor: 'pointer', transition: 'background-color .15s' },
     '.otto-input-suffix-action:hover': { backgroundColor: 'color-mix(in srgb, var(--p-primary-color) 14%, transparent)' },
-    '.otto-input-suffix-sep': { padding: '0 1px' },
+    // Cores da query: tom 700 no tema claro e 400 no escuro (contraste AA nos dois).
+    '.otto-input-suffix-amp': { padding: '0 1px', fontWeight: '600', color: 'light-dark(var(--p-orange-700), var(--p-orange-400))' },
+    '.otto-input-suffix-eq': { padding: '0 1px', color: 'light-dark(var(--p-purple-700), var(--p-purple-400))' },
     '.otto-input-suffix-key': { color: 'var(--p-primary-color)' },
     '.otto-input-suffix-value': { color: 'var(--p-text-muted-color)', fontStyle: 'italic' },
+    '.otto-input-suffix-var': { color: 'light-dark(var(--p-sky-700), var(--p-sky-400))', fontStyle: 'normal' },
+    '.otto-input-suffix-number': { color: 'light-dark(var(--p-amber-700), var(--p-amber-300))', fontStyle: 'normal' },
+    '.otto-input-suffix-keyword': { color: 'light-dark(var(--p-pink-700), var(--p-pink-400))', fontStyle: 'normal' },
+    '.otto-input-suffix-punct': { color: 'light-dark(var(--p-red-700), var(--p-red-400))', fontStyle: 'normal' },
     '.otto-completion-icon': { width: '1rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--p-text-muted-color)' },
     'li[aria-selected] .otto-completion-icon': { color: 'inherit' },
     '.cm-tooltip.cm-completionInfo': { padding: '0.5rem 0.75rem', maxWidth: '22rem', whiteSpace: 'pre-line', lineHeight: '1.4' }
