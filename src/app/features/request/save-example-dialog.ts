@@ -54,13 +54,14 @@ export interface ExampleSource {
                             }
                         </small>
                         @if (headers().length) {
-                            <ul class="m-0 flex max-h-40 list-none flex-col gap-0.5 overflow-auto rounded-md bg-surface-100 p-2 font-mono text-xs dark:bg-surface-800" aria-label="Headers that will be saved">
-                                @for (header of headers(); track $index) {
-                                    <li class="truncate" [title]="header[0] + ': ' + header[1]">
-                                        <span class="font-semibold">{{ header[0] }}</span>: {{ header[1] }}
-                                    </li>
-                                }
-                            </ul>
+                            <div class="max-h-48 overflow-auto rounded-md border border-surface-200 dark:border-surface-700" tabindex="0" role="region" aria-label="Headers that will be saved">
+                                <dl class="m-0 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] font-mono text-xs leading-5">
+                                    @for (header of headers(); track $index) {
+                                        <dt class="truncate border-b border-surface-200 px-2 py-1 font-semibold text-color dark:border-surface-700" [title]="header[0]">{{ header[0] }}</dt>
+                                        <dd class="m-0 truncate border-b border-surface-200 px-2 py-1 text-muted-color dark:border-surface-700" [title]="header[1]">{{ header[1] }}</dd>
+                                    }
+                                </dl>
+                            </div>
                         }
                     </div>
                 </form>
