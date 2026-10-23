@@ -43,6 +43,7 @@ export const templateTheme = EditorView.theme({
     '.cm-completionDetail': { marginLeft: 'auto', paddingLeft: '1rem', fontStyle: 'normal', color: 'var(--p-text-muted-color)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '16rem' },
     'li[aria-selected] .cm-completionDetail': { color: 'inherit' },
     '.cm-completionIcon': { display: 'none' },
+    '.otto-input-suffix': { color: 'var(--p-text-muted-color)', userSelect: 'none', whiteSpace: 'pre' },
     '.otto-completion-icon': { width: '1rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--p-text-muted-color)' },
     'li[aria-selected] .otto-completion-icon': { color: 'inherit' },
     '.cm-tooltip.cm-completionInfo': { padding: '0.5rem 0.75rem', maxWidth: '22rem', whiteSpace: 'pre-line', lineHeight: '1.4' }

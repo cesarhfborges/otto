@@ -1,12 +1,12 @@
 import { WORKSPACE_FORMAT_VERSION, WORKSPACE_MANIFEST_FILE, type WorkspaceManifest } from '../../../shared/models';
 import type { IWorkspaceFormat } from '../../core/contracts';
-import { requireArray, requireInteger, requireRecord, requireString } from '../../core/validation';
+import { parseEnvironmentVariables, requireArray, requireInteger, requireRecord, requireString } from '../../core/validation';
 import { parseYaml, toYaml } from '../yaml';
 
 const MAX_COLLECTIONS = 1_000;
 
 /**
- * `workspace.yaml`: nome e lista de coleções. Caminhos relativos à pasta do
+ * `workspace.yaml`: nome, lista de coleções e ambientes globais. Caminhos relativos à pasta do
  * workspace (com `/`, portáveis entre sistemas) ou absolutos.
  */
 export class YamlWorkspaceFormat implements IWorkspaceFormat {
@@ -28,14 +28,29 @@ export class YamlWorkspaceFormat implements IWorkspaceFormat {
             return { path: requireString(value, `collections[${i}].path`, { maxLength: 4_096 }).trim() };
         });
 
+        const environments =
+            manifest['environments'] === undefined
+                ? undefined
+                : (manifest['environments'] === null ? [] : requireArray(manifest['environments'], 'environments', 1_000)).map((entry, i) => {
+                      const environment = requireRecord(entry, `environments[${i}]`);
+
+                      return { name: requireString(environment['name'], `environments[${i}].name`, { maxLength: 200 }).trim(), variables: parseEnvironmentVariables(environment['variables'] ?? []) };
+                  });
+
         return {
             version,
             name: requireString(manifest['name'], 'name', { maxLength: 200 }).trim(),
-            collections
+            collections,
+            ...(environments ? { environments } : {})
         };
     }
 
     serializeManifest(manifest: WorkspaceManifest): string {
-        return toYaml({ version: manifest.version, name: manifest.name, collections: manifest.collections.map(({ path }) => ({ path })) });
+        return toYaml({
+            version: manifest.version,
+            name: manifest.name,
+            collections: manifest.collections.map(({ path }) => ({ path })),
+            ...(manifest.environments ? { environments: manifest.environments.map(({ name, variables }) => ({ name, variables: variables.map((variable) => (variable.secret ? { ...variable, value: '' } : variable)) })) } : {})
+        });
     }
 }

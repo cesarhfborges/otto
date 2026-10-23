@@ -6,6 +6,7 @@ import { convertSpec, parseSpec, type ConvertedSpec } from '../../infra/openapi/
 import { buildOpenApiSpec } from '../../infra/openapi/openapi-exporter';
 import { toYaml } from '../../infra/yaml';
 import type { CollectionService } from '../collections/collection.service';
+import { mergeRequest } from './request-merge';
 
 /** Último spec sincronizado, na raiz da coleção (vai junto no Git e na exportação). */
 export const OPENAPI_SNAPSHOT_FILE = 'openapi-snapshot.json';
@@ -90,7 +91,7 @@ export class OpenApiService {
         }
 
         const spec = cached.converted;
-        const specUpdates = this.specUpdates(spec, snapshot, local);
+        const specUpdates = this.specUpdates(spec, snapshot, local, config.preserveValues);
         const changedKeys = new Set([...specUpdates, ...collectionChanges].map((change) => change.key));
 
         return {
@@ -110,7 +111,7 @@ export class OpenApiService {
      * coleção fica ligada ao spec (verificação automática só se `autoSync`).
      */
     async importSpec(source: OpenApiConfig['source'], autoSync: boolean, create: (name: string) => Promise<OpenedCollection>): Promise<OpenedCollection> {
-        const config: OpenApiConfig = { source, autoCheck: autoSync, intervalMinutes: 15, groupBy: 'tags' };
+        const config: OpenApiConfig = { source, autoCheck: autoSync, intervalMinutes: 15, groupBy: 'tags', preserveValues: true };
         const text = await this.load(null, config);
         const converted = convertSpec(parseSpec(text), config.groupBy);
         const opened = await create(converted.info.title.trim() || 'Imported API');
@@ -166,8 +167,8 @@ export class OpenApiService {
     }
 
     /**
-     * Aplica as atualizações do spec escolhidas (substituição completa da requisição):
-     * novas viram arquivos, alteradas são sobrescritas e removidas vão para a lixeira.
+     * Aplica as atualizações do spec escolhidas: novas viram arquivos, alteradas são
+     * mescladas com a da coleção (`mergeRequest`) e removidas vão para a lixeira.
      * Itens não escolhidos continuam pendentes.
      */
     async sync(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus> {
@@ -187,7 +188,9 @@ export class OpenApiService {
             const existing = local.get(key);
 
             if (operation) {
-                await this.writeRequest(collectionId, operation.folder, operation.request, existing?.path);
+                const request = existing ? mergeRequest(existing.request, snapshot.operations[key]?.request, operation.request, config.preserveValues) : operation.request;
+
+                await this.writeRequest(collectionId, operation.folder, request, existing?.path);
                 snapshot.operations[key] = { folder: operation.folder, request: operation.request };
             } else if (snapshot.operations[key]) {
                 // Endpoint removido do spec.
@@ -223,7 +226,8 @@ export class OpenApiService {
         return this.status(collectionId);
     }
 
-    private specUpdates(spec: ConvertedSpec, snapshot: Snapshot, local: Map<string, { path: string; request: RequestDefinition }>): EndpointChange[] {
+    /** O lado "depois" é o que a sincronização vai gravar (já mesclado com a coleção). */
+    private specUpdates(spec: ConvertedSpec, snapshot: Snapshot, local: Map<string, { path: string; request: RequestDefinition }>, preserveValues: boolean): EndpointChange[] {
         const changes: EndpointChange[] = [];
         const specKeys = new Set<string>();
 
@@ -231,15 +235,17 @@ export class OpenApiService {
             const synced = snapshot.operations[operation.key]?.request;
             const current = local.get(operation.key);
 
+            const incoming = current ? mergeRequest(current.request, synced, operation.request, preserveValues) : operation.request;
+
             specKeys.add(operation.key);
 
             if (!synced) {
                 // Nunca sincronizado: só é novidade se a coleção ainda não tiver igual.
-                if (!current || !same(current.request, operation.request)) {
-                    changes.push(this.change(operation.key, operation.operationId, 'added', current?.request ?? null, operation.request, current?.path ?? null));
+                if (!current || !same(current.request, incoming)) {
+                    changes.push(this.change(operation.key, operation.operationId, 'added', current?.request ?? null, incoming, current?.path ?? null));
                 }
             } else if (!same(synced, operation.request)) {
-                changes.push(this.change(operation.key, operation.operationId, 'modified', current?.request ?? synced, operation.request, current?.path ?? null));
+                changes.push(this.change(operation.key, operation.operationId, 'modified', current?.request ?? synced, incoming, current?.path ?? null));
             }
         }
 

@@ -1,5 +1,6 @@
 import type { OpenedCollection } from './collection';
 import type { EntityId, IsoDateTime, Timestamps } from './common';
+import type { Environment } from './environment';
 
 /** Workspace local criado pelo app na primeira execução; não tem pasta e não pode ser removido. */
 export const DEFAULT_WORKSPACE_ID = 'default';
@@ -33,6 +34,11 @@ export interface WorkspaceManifest {
     version: number;
     name: string;
     collections: Array<{ path: string }>;
+    /**
+     * Ambientes globais do workspace (valores `secret` vão vazios: ficam só no cofre local).
+     * Ausente = arquivo anterior a este campo; o app grava os do banco na próxima carga.
+     */
+    environments?: Array<Pick<Environment, 'name' | 'variables'>>;
 }
 
 /** Coleções do workspace ativo carregadas do disco; as que falharam (pasta ausente, manifesto inválido) vêm à parte. */

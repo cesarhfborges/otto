@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { commandMeta, type CommandId, type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition, type ResponseExample } from '@shared/models';
 import { looksLikeCurl, parseCurl } from '@shared/http/curl-import';
+import { querySuffix } from '@shared/http/url-query';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -123,12 +124,18 @@ import { OttoInput } from '../../shared/template-editor';
                         #urlInput
                         class="otto-request-url min-w-0 flex-1 self-stretch !rounded-none !border-0 !bg-transparent !px-3 !py-0 !text-sm !shadow-none"
                         [value]="req.url"
+                        [suffix]="querySuffix()"
+                        suffixHint="Edit query parameters in the Params tab"
                         [placeholder]="'https://api.example.com/users or ' + urlExample"
                         ariaLabel="Request URL"
+                        [ariaDescribedBy]="querySuffix() ? 'request-url-query' : null"
                         (valueChange)="changeUrl($event)"
                         (enter)="send()"
                     />
                 </div>
+                @if (querySuffix(); as query) {
+                    <span id="request-url-query" class="sr-only">Query string from the Params tab: {{ query }}</span>
+                }
                 <p-button icon="pi pi-code" size="small" severity="secondary" [text]="true" ariaLabel="Generate code" pTooltip="Generate code (cURL, fetch, Python…)" tooltipPosition="bottom" (onClick)="codeOpen.set(true)" />
                 <p-button label="Save" icon="pi pi-save" size="small" severity="secondary" [outlined]="true" [disabled]="!dirty()" [loading]="saving()" [ariaLabel]="withShortcut('Save request', 'request.save')" (onClick)="save()" />
                 @if (sending()) {
@@ -214,7 +221,7 @@ import { OttoInput } from '../../shared/template-editor';
                                 <p-tabpanels class="flex min-h-0 flex-1 flex-col">
                                     <p-tabpanel value="params">
                                         <app-key-value-editor [items]="req.params" (itemsChange)="update({ params: $event })" label="Query parameters" addLabel="Add Param" />
-                                        <p class="m-0 mt-2 text-xs text-muted-color">Enabled params are appended to the URL query string when the request is sent.</p>
+                                        <p class="m-0 mt-2 text-xs text-muted-color">Enabled params are shown in gray after the URL and appended to the query string when the request is sent.</p>
                                     </p-tabpanel>
                                     @if (bodyAllowed()) {
                                         <!-- Ativo vira flex para o editor ocupar a altura restante (inativo segue com [hidden]). -->
@@ -427,6 +434,13 @@ export class RequestView {
     protected update(changes: Partial<RequestDefinition>): void {
         this.drafts.update(this.key(), (draft) => ({ ...draft, ...changes }));
     }
+
+    /** Query dos params habilitados, exibida (somente leitura) depois da URL; edita-se na aba Params. */
+    protected readonly querySuffix = computed(() => {
+        const request = this.request();
+
+        return request ? querySuffix(request.url, request.params) : '';
+    });
 
     /** Colar um comando cURL na URL preenche método, URL, params, headers, auth e corpo. */
     protected changeUrl(url: string): void {

@@ -60,7 +60,7 @@ const locationValidator = (control: AbstractControl): ValidationErrors | null =>
                 <div class="flex items-center justify-between gap-3">
                     <div>
                         <label id="auto-check-label" for="auto-check" class="font-medium">Auto-check for updates</label>
-                        <p class="m-0 text-sm text-muted-color">Automatically check for spec changes at a regular interval while the collection is open.</p>
+                        <p class="m-0 text-sm text-muted-color">Automatically check for spec changes at a regular interval while the app is open and the collection is in the active workspace.</p>
                     </div>
                     <div class="flex-none">
                         <p-toggleswitch size="large" formControlName="autoCheck" inputId="auto-check" ariaLabelledBy="auto-check-label" />
@@ -78,6 +78,16 @@ const locationValidator = (control: AbstractControl): ValidationErrors | null =>
                     <span id="grouping-label" class="font-medium">Folder grouping</span>
                     <p-select-button formControlName="groupBy" [options]="groupings" optionLabel="label" optionValue="value" [allowEmpty]="false" ariaLabelledBy="grouping-label" size="small" />
                     <small class="text-muted-color">Where new requests from the spec are created: one folder per tag, or per first path segment.</small>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <label id="preserve-values-label" for="preserve-values" class="font-medium">Preserve values</label>
+                        <p id="preserve-values-help" class="m-0 text-sm text-muted-color">When applying spec updates, keep param, header and form values, credentials, bodies and fields edited in the collection. Off replaces the whole request.</p>
+                    </div>
+                    <div class="flex-none">
+                        <p-toggleswitch size="large" formControlName="preserveValues" inputId="preserve-values" ariaLabelledBy="preserve-values-label" />
+                    </div>
                 </div>
 
                 @if (error(); as message) {
@@ -123,7 +133,8 @@ export class ConnectionSettingsDialog {
         source: this.fb.group({ type: this.fb.control<'url' | 'file'>('url'), location: this.fb.control('') }, { validators: [locationValidator] }),
         autoCheck: this.fb.control(true),
         intervalMinutes: this.fb.control<OpenApiCheckInterval>(5, Validators.required),
-        groupBy: this.fb.control<OpenApiGrouping>('tags')
+        groupBy: this.fb.control<OpenApiGrouping>('tags'),
+        preserveValues: this.fb.control(true)
     });
 
     constructor() {
@@ -140,8 +151,8 @@ export class ConnectionSettingsDialog {
                 this.error.set(null);
                 this.form.reset(
                     config
-                        ? { source: { ...config.source }, autoCheck: config.autoCheck, intervalMinutes: config.intervalMinutes, groupBy: config.groupBy }
-                        : { source: { type: 'url', location: '' }, autoCheck: true, intervalMinutes: 5, groupBy: 'tags' },
+                        ? { source: { ...config.source }, autoCheck: config.autoCheck, intervalMinutes: config.intervalMinutes, groupBy: config.groupBy, preserveValues: config.preserveValues }
+                        : { source: { type: 'url', location: '' }, autoCheck: true, intervalMinutes: 5, groupBy: 'tags', preserveValues: true },
                     { emitEvent: false }
                 );
             });

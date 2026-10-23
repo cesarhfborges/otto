@@ -274,7 +274,6 @@ Plano: [PLANO_ATALHOS.md](PLANO_ATALHOS.md).
 - [x] Preferences → **Keyboard Shortcuts**: busca por texto ou por tecla, filtros (alterados/sem atalho/conflitos), gravar/substituir/adicionar/remover, aviso de conflito com Replace, teclas reservadas recusadas, Reset por linha e Reset All; diálogo de ajuda `Ctrl+/` com "Customize…"
 - [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (94), no app real via CDP (perfil isolado): `Ctrl+N` + `Ctrl+Enter` no diálogo, `Ctrl+F4` fecha / não faz nada sem aba, `Ctrl+Shift+T`, `Ctrl+/` → Customize, gravação com `Ctrl+W` (não fecha a aba; conflito com Close tab), Escape cancela sem fechar Preferences, `Ctrl+C` recusado, `Ctrl+Alt+W` gravado e funcionando após reiniciar, remover/Reset All, `Ctrl+B`, F2 na árvore, `Ctrl+Enter` envia a requisição ✅, **axe sem violações** na seção, no gravador, no conflito e no diálogo de ajuda ✅
 - [x] Ajuste: `Ctrl+,` (Preferences), `Ctrl+/` (ajuda de atalhos) e `Escape` (cancelar envio) viraram **reservados do sistema** (fixos, listados em "Reserved by the system", recusados no main e na gravação); "Cycle theme" ficou sem atalho padrão. Verificado no app real, axe ✅
-- [ ] Paleta de comandos (fase 6 do plano)
 
 ## Mock server, cofre, código/cURL e histórico comparável (pedido do usuário)
 
@@ -282,39 +281,43 @@ Plano: [PLANO_ATALHOS.md](PLANO_ATALHOS.md).
 - [x] **Cofre de segredos**: `EncryptedEnvironmentRepository` (decorator) cifra os valores das variáveis `secret` com o `safeStorage` do Electron (chaveiro do SO) — prefixo `otto-enc:v1:`; segredos antigos em texto puro são cifrados na inicialização. Backups/exportações levam a variável **sem o valor**. `AppInfo.secretStorage` (`os`/`basic`/`unavailable`) exibido em Environments. O histórico mascara os valores secretos enviados (`HttpRequest.redact`) e os headers `Authorization`/`Proxy-Authorization`/`Cookie`
 - [x] **Gerar código** (`electron/shared/http/codegen.ts`): cURL, HTTPie, fetch, axios, Python requests, Go e PowerShell, com ou sem resolver variáveis (segredos voltam a `{{$.nome}}`; scripts não rodam e requisições referenciadas não são enviadas). Botão `</>` na linha da URL
 - [x] **Importar cURL** (`electron/shared/http/curl-import.ts`): colar um `curl …` (ex.: "Copy as cURL" do DevTools) na URL preenche método, URL, params, headers, Basic/Bearer, corpo JSON/form/texto/multipart (`-d`, `--data-*`, `--json`, `-F`, `-u`, `-b`, `-G`, `-I`)
-- [x] **Histórico navegável e comparação**: migração 004 (`history.detail` JSON com requisição/resposta; corpos até 512 KB) e índice por requisição; IPC `history:get`; filtro `requestPath`. Aba **History** na requisição: ver uma execução, comparar duas (ou com a anterior) — diff por linhas de corpo (JSON com chaves ordenadas), headers e requisição, além de status/tempo/tamanho
+- [x] **Histórico navegável e comparação**: migração 004 (`history.detail` JSON com requisição/resposta; corpos até 512 KB) e índice por requisição; IPC `history:get`; filtro `requestPath`. *(Depois substituído: a migração 005 removeu a tabela e o histórico passou a ficar só em memória, até 50 execuções por aba, em `RequestHistoryState`.)* Aba **History** na requisição: ver uma execução, comparar duas (ou com a anterior) — diff por linhas de corpo (JSON com chaves ordenadas), headers e requisição, além de status/tempo/tamanho
 - [x] Verificação: `typecheck` ✅, `npm run build` ✅, `test:electron` ✅ (94; expectativa de migrações atualizada para incluir a 004); mock server testado com HTTP real (rotas, parâmetros, exemplo por header, corpo JSON, 404 com lista de rotas, preflight CORS)
-- [ ] Verificação no app real (CDP) e axe nas telas novas
+
+## URL ↔ params, mesclagem OpenAPI e ambientes no workspace.yaml (pedido do usuário)
+
+- [x] **Query dos params na URL** (`electron/shared/http/url-query.ts`): os params habilitados aparecem logo após a URL, em cinza (`?a=1&b=2`), como um sufixo somente leitura do `app-otto-input` (input `suffix`, widget do CodeMirror; não é selecionável nem editável, tooltip e descrição para leitores de tela). A edição dos params é feita só na aba Params. O arquivo e o envio não mudaram (URL + `params`). O import de cURL separa a query com `extractQuery`
+- [x] **OpenAPI "Preserve values"** (`preserveValues` no `otto.yaml`, padrão ligado; toggle em Connection Settings e linha no Overview): aplicar uma atualização do spec mescla campo a campo (`services/openapi/request-merge.ts`) — nome/método/URL/docs editados desde o último sync ficam; params, headers e campos de formulário mantêm valor/estado/descrição pelo nome e os criados na coleção continuam; auth do mesmo tipo mantém as credenciais; corpo do mesmo tipo mantém o conteúdo. Desligado, o resto vem do spec. Em ambos os modos id, ordem, scripts e exemplos nunca são perdidos. O diff de "Spec Updates" mostra o resultado já mesclado
+- [x] Verificação automática do OpenAPI: já rodava para todas as coleções do workspace ativo (não depende de abas); só o texto do diálogo foi corrigido
+- [x] **Ambientes globais no `workspace.yaml`** (seção `environments`, segredos sem valor): gravados a cada criar/alterar/excluir; ao carregar o workspace o arquivo é a fonte da verdade (o banco é ajustado pelo nome, mantendo ids e os segredos locais). Arquivos antigos sem a seção recebem os ambientes do banco na primeira carga
+- [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (84), helpers conferidos com Node (query dos params, formato do `workspace.yaml`, mesclagem com e sem preservar)
+- [ ] Verificação no app real (CDP) e axe no novo toggle de Connection Settings
 
 ## Pendências e débitos conhecidos
 
-- O `workspace.yaml` não é observado enquanto o app está aberto: mudanças externas (git pull) entram ao trocar de workspace ou reiniciar.
-- Ambientes de workspace ficam no SQLite (não vão no `workspace.yaml` nem no .zip exportado).
+> Revisado em 2026-10-23 contra o código. Itens já resolvidos (undici, métricas, histórico, interpolação, editor com destaque, renomear/mover/arrastar, splitters, árvore persistida, cofre `safeStorage`, múltiplos workspaces) foram removidos.
 
-- `auth: inherit` ainda não envia nada (depende da auth da coleção, Etapa 8). Params não são sincronizados com a query digitada na URL (são acrescentados no envio). Editor de corpo é um `textarea` (sem destaque de sintaxe). Sem tela de histórico (os dados e o evento `history:changed` já existem; o tipo de aba `history` está reservado).
-- OpenAPI: parâmetros de caminho viram `{{nome}}` (precisam de variável no ambiente); "Preserve values" e mesclagem campo a campo ainda não existem (a sincronização substitui a requisição inteira). Verificação automática só roda com a coleção aberta.
-- Métricas não separam DNS/TCP/TLS (o `fetch` não expõe); dá para obter via `diagnostics_channel` do undici se for necessário. Proxy SOCKS não é suportado (a validação aceita só http/https). Sem certificado de cliente (mTLS).
-- Exibição do corpo limitada a 1 milhão de caracteres e sem syntax highlight (visualizador completo na Etapa 7). Renomear/mover pela árvore, arrastar e soltar e redimensionar painéis (sidebar e requisição/resposta) ainda não existem.
-- Seleção de ambiente por coleção fica em `localStorage` (preferência visual). A interpolação de `{{variáveis}}` no envio ainda é da Etapa 7.
-- Mudar a pasta base não move workspaces existentes (continuam onde foram criados).
-- O workspace é único ("My Workspace"); o menu dele leva às abas Overview/Environments/Preferences. Múltiplos workspaces não estão no plano.
-- Sem testes unitários do Angular (Karma precisa de Chrome; avaliar Vitest). Estados como `TabsState` são bons candidatos.
-- O estado expandido da árvore não é persistido (só é reconstruído a partir da aba ativa).
-- Sem detecção de conflito de escrita (arquivo alterado no disco enquanto aberto no editor): tratar na Etapa 7 comparando conteúdo/mtime antes de salvar.
-- `fs.watch` recursivo depende do SO (Linux exige Node ≥ 20; ok no Electron 44). Em falha o app segue sem atualização automática.
-- Sem Content-Security-Policy no `index.html` (PrimeNG injeta estilos inline e o dev server usa websocket); definir antes da primeira release.
-- A auditoria axe foi feita com `axe-core` instalado só no scratchpad; considerar adicioná-lo como devDependency com um teste automatizado.
-- `eslint.config.js` está em formato legado (`root`, `extends`, `overrides`) dentro de um arquivo flat config e as dependências `@typescript-eslint`/`@angular-eslint` não estão instaladas → lint não funciona. Corrigir ou remover.
-- `node:sqlite` é marcado como experimental no Node 22 (tooling); no Electron 44 (Node 24) é estável o suficiente. Os testes usam `--disable-warning=ExperimentalWarning`.
-- Histórico ainda não tem política de retenção (limite de registros/idade) — definir na Etapa 5.
-- Variáveis `secret` ficam em texto puro no SQLite local; avaliar `safeStorage` do Electron quando houver a aba Secrets (Etapa 8).
+### Funcionalidades
+- [ ] Paleta de comandos (fase 6 do plano de atalhos).
+- [ ] Autenticação, variáveis e scripts no nível da coleção. Hoje `auth: inherit` não envia nada (`electron/shared/http/build-request.ts`).
+- [ ] Importar coleções do Postman e do Insomnia. O `ImporterRegistry` existe, mas não tem nenhum importador registrado.
+- [ ] Métricas sem separação de DNS/TCP/TLS (seria possível com `diagnostics_channel` do undici).
+- [ ] Proxy SOCKS não é suportado (a validação aceita só http/https).
+- [ ] Sem certificado de cliente (mTLS).
+
+### Robustez
+- [ ] Sem detecção de conflito ao salvar: uma requisição alterada no disco (git pull, outro editor) é sobrescrita pelo rascunho sem aviso.
+- [ ] O `workspace.yaml` não é observado. Mudanças externas só entram ao trocar de workspace ou reiniciar.
+- [ ] Mudar a pasta base não move os workspaces existentes.
+- [ ] `fs.watch` recursivo depende do SO; se falhar, o app segue sem atualização automática.
+
+### Qualidade e build
+- [ ] Verificação no app real (CDP) e axe nas telas de mock server, cofre, código/cURL e histórico.
+- [ ] Sem Content-Security-Policy no `index.html`.
+- [ ] `eslint.config.js` está em formato legado dentro de um flat config, então o lint não funciona. Corrigir ou remover.
+- [ ] `axe-core` não é devDependency, então não há auditoria automatizada.
+
+### Observações (sem ação necessária)
+- `node:sqlite` é experimental no Node 22 (tooling); os testes usam `--disable-warning=ExperimentalWarning`. No Electron 44 (Node 24) ele é estável.
 - Alterações em `electron/` exigem reiniciar o Electron manualmente em `npm start`.
-- `@types/node` está em ^26, à frente do Node do runtime (24) e do tooling (22); cuidado com APIs novas.
-
-## Próximos passos (Etapa 5)
-
-1. Adicionar `undici` como dependência de runtime e migrar o `FetchHttpExecutor` para `undici.fetch` com `dispatcher`: `Agent` (`connect.rejectUnauthorized` = `ssl.verifyCertificates`, `ca` = sistema + `caCertificatePath`) e `ProxyAgent` (respeitando `proxy.bypass`). Cachear dispatchers por configuração.
-2. Métricas por requisição: tempos (DNS/conexão/TTFB/download quando disponíveis), tamanho de headers/corpo, versão HTTP, redirecionamentos seguidos.
-3. `HistoryRecordingExecutor` (decorator de `IHttpExecutor`) gravando no `IHistoryRepository`, com política de retenção (ex.: últimos N registros, configurável nas settings).
-4. Limite de tamanho de corpo de resposta e corpo binário (base64 ou arquivo temporário) para não travar o IPC.
-5. Testes com servidor HTTPS local (certificado autoassinado), proxy local e redirecionamentos.
+- `@types/node` está em ^26, à frente do Node do runtime (24) e do tooling (22). Cuidado com APIs novas.

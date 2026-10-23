@@ -346,6 +346,7 @@ export class OpenApiPanel {
             { label: 'Last synced at', value: relative(status?.lastSyncedAt ?? null) },
             { label: 'Synced spec version', value: status?.syncedSpecVersion || '—' },
             { label: 'Folder grouping', value: config?.groupBy === 'path' ? 'Path' : 'Tags' },
+            { label: 'Preserve values', value: config?.preserveValues ? 'On' : 'Off' },
             { label: 'Auto check for updates', value: config?.autoCheck ? `Every ${config.intervalMinutes} min` : 'Off' },
             { label: 'Last checked', value: relative(status?.lastCheckedAt ?? null) },
             { label: 'Format', value: status?.spec ? (status.spec.format.startsWith('2') ? `Swagger ${status.spec.format}` : `OpenAPI ${status.spec.format}`) : '—' },

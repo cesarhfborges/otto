@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
-import { DEFAULT_WORKSPACE_ID, WORKSPACE_FORMAT_VERSION, type EntityId, type LoadedWorkspace, type OpenedCollection, type Workspace, type WorkspaceManifest, type WorkspaceSummary } from '../../../shared/models';
+import { DEFAULT_WORKSPACE_ID, WORKSPACE_FORMAT_VERSION, type EntityId, type Environment, type LoadedWorkspace, type OpenedCollection, type Workspace, type WorkspaceManifest, type WorkspaceSummary } from '../../../shared/models';
 import type { IClock, ICollectionMetadataRepository, ICollectionStore, IEnvironmentRepository, IWorkspaceFormat, IWorkspaceRepository } from '../../core/contracts';
 import { createZip, readZip } from '../../infra/workspaces/zip-archive';
 import type { CollectionService } from '../collections/collection.service';
@@ -38,6 +38,13 @@ function archiveRoot(names: string[], manifestFile: string): string | null {
 
     return tops.size === 1 && names.includes(`${top}/${manifestFile}`) ? `${top}/` : null;
 }
+
+/** Compara como ficam no `workspace.yaml` (segredos sem valor). */
+const sameEnvironments = (a: WorkspaceManifest['environments'], b: NonNullable<WorkspaceManifest['environments']>): boolean => {
+    const plain = (list: NonNullable<WorkspaceManifest['environments']>): string => JSON.stringify(list.map(({ name, variables }) => ({ name, variables: variables.map((variable) => (variable.secret ? { ...variable, value: '' } : variable)) })));
+
+    return !!a && plain(a) === plain(b);
+};
 
 /** Manifesto da coleção (`otto.yaml`), procurado na raiz do pacote importado. */
 const COLLECTION_MANIFEST = 'otto.yaml';
@@ -527,12 +534,73 @@ export class WorkspaceService {
         }
 
         this.workspaces.setCollections(workspace.id, ids);
+        await this.syncEnvironmentsFromManifest(workspace, manifest);
 
         if (manifest.name && manifest.name !== workspace.name) {
             this.workspaces.update(workspace.id, { name: manifest.name });
         }
 
         return failed;
+    }
+
+    /**
+     * Grava os ambientes globais do workspace ativo no `workspace.yaml` (vão para o Git com ele).
+     * Chamado sempre que um ambiente global é criado, alterado ou excluído.
+     */
+    async saveEnvironments(): Promise<void> {
+        const workspace = this.workspaces.active();
+
+        if (workspace.path) {
+            const environments = this.environments.findByCollection(null, workspace.id).map(({ name, variables }) => ({ name, variables }));
+
+            await this.updateManifest(workspace, (manifest) => (sameEnvironments(manifest.environments, environments) ? manifest : { ...manifest, environments }));
+        }
+    }
+
+    /**
+     * O `workspace.yaml` é a fonte da verdade dos ambientes globais (mudanças vindas do Git):
+     * o banco é ajustado pelo nome, mantendo ids (ambiente selecionado) e os valores secretos
+     * locais. Arquivo sem a seção (anterior a ela) recebe os ambientes do banco.
+     */
+    private async syncEnvironmentsFromManifest(workspace: Workspace, manifest: WorkspaceManifest): Promise<void> {
+        if (!manifest.environments) {
+            await this.saveEnvironments();
+
+            return;
+        }
+
+        const current = this.environments.findByCollection(null, workspace.id);
+        const byName = new Map<string, Environment>();
+
+        for (const environment of current) {
+            if (byName.has(environment.name)) {
+                this.environments.delete(environment.id);
+            } else {
+                byName.set(environment.name, environment);
+            }
+        }
+
+        for (const { name, variables } of manifest.environments) {
+            const existing = byName.get(name);
+
+            byName.delete(name);
+
+            if (!existing) {
+                this.environments.create({ collectionId: null, name, variables }, workspace.id);
+                continue;
+            }
+
+            // Segredo vem vazio do arquivo: vale o valor guardado no cofre desta máquina.
+            const merged = variables.map((variable) => (variable.secret && !variable.value ? { ...variable, value: existing.variables.find((local) => local.secret && local.key === variable.key)?.value ?? '' } : variable));
+
+            if (JSON.stringify(merged) !== JSON.stringify(existing.variables)) {
+                this.environments.update(existing.id, { variables: merged }, workspace.id);
+            }
+        }
+
+        for (const leftover of byName.values()) {
+            this.environments.delete(leftover.id);
+        }
     }
 
     private async readManifest(root: string): Promise<WorkspaceManifest> {

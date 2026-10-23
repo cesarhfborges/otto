@@ -17,6 +17,8 @@ export interface OpenApiConfig {
     intervalMinutes: OpenApiCheckInterval;
     /** Pastas das requisições geradas: pela primeira tag da operação ou pelo primeiro segmento do caminho. */
     groupBy: OpenApiGrouping;
+    /** Ao aplicar atualizações do spec, mantém valores e edições da coleção (mesclagem campo a campo) em vez de substituir a requisição. */
+    preserveValues: boolean;
 }
 
 /** Resumo do spec lido. */

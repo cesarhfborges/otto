@@ -28,6 +28,7 @@ export function parseOpenApiConfig(raw: unknown, field = 'openapi'): OpenApiConf
         source: { type, location },
         autoCheck: config['autoCheck'] === undefined ? false : requireBoolean(config['autoCheck'], `${field}.autoCheck`),
         intervalMinutes: parseInterval(config['intervalMinutes'], `${field}.intervalMinutes`),
-        groupBy: config['groupBy'] === undefined ? 'tags' : requireOneOf(config['groupBy'], OPENAPI_GROUPINGS, `${field}.groupBy`)
+        groupBy: config['groupBy'] === undefined ? 'tags' : requireOneOf(config['groupBy'], OPENAPI_GROUPINGS, `${field}.groupBy`),
+        preserveValues: config['preserveValues'] === undefined ? true : requireBoolean(config['preserveValues'], `${field}.preserveValues`)
     };
 }

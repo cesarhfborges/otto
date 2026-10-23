@@ -1,6 +1,7 @@
 import type { KeyValue } from '../models/common';
 import { HTTP_METHODS, type HttpMethod } from '../models/http';
 import type { MultipartField, RequestAuth, RequestBody, RequestDefinition } from '../models/request';
+import { extractQuery } from './url-query';
 
 /** Parte da requisição obtida de um comando cURL. */
 export type CurlImport = Pick<RequestDefinition, 'method' | 'url' | 'params' | 'headers' | 'auth' | 'body'>;
@@ -258,28 +259,9 @@ export function parseCurl(command: string): CurlImport {
     const body: RequestBody = form.length ? { type: 'multipart-form', fields: form } : data.length ? bodyFrom(data, json, contentType) : { type: 'none' };
 
     // Query string vira a lista de params (a URL fica sem ela).
-    const params: KeyValue[] = [];
-    const queryStart = url.indexOf('?');
+    const { url: baseUrl, params } = extractQuery(url);
 
-    if (queryStart >= 0) {
-        const hashStart = url.indexOf('#', queryStart);
-        const query = url.slice(queryStart + 1, hashStart < 0 ? undefined : hashStart);
-
-        for (const pair of query.split('&').filter(Boolean)) {
-            const [key = '', ...rest] = pair.split('=');
-            const decode = (text: string): string => {
-                try {
-                    return decodeURIComponent(text.replace(/\+/g, ' '));
-                } catch {
-                    return text;
-                }
-            };
-
-            params.push({ key: decode(key), value: decode(rest.join('=')), enabled: true });
-        }
-
-        url = url.slice(0, queryStart);
-    }
+    url = baseUrl;
 
     // Multipart: o main define o Content-Type com o boundary.
     const keptHeaders = form.length ? headers.filter((header) => header.key.toLowerCase() !== 'content-type') : headers;

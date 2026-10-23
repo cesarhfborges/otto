@@ -196,7 +196,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
             new HttpIpcModule(http),
             new TabsIpcModule(tabs),
             new WorkspacesIpcModule(workspaceService, window, (folder) => shell.showItemInFolder(path.join(folder, 'workspace.yaml'))),
-            new EnvironmentsIpcModule(environments, () => workspaceService.active().id),
+            new EnvironmentsIpcModule(environments, () => workspaceService.active().id, () => workspaceService.saveEnvironments().catch((error: unknown) => console.warn('[otto] could not write the environments to workspace.yaml', error))),
             new CollectionsIpcModule(collections, collectionService, workspaceService, openapi, window),
             new OpenApiIpcModule(openapi),
             new CollectionFilesIpcModule(collectionService, (file) => shell.showItemInFolder(file)),
