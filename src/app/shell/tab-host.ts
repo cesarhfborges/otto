@@ -8,7 +8,7 @@ import { ManageWorkspaces } from '../features/workspace/manage-workspaces';
 import { WorkspaceOverview } from '../features/workspace/workspace-overview';
 import { TabsState } from '../core/state/tabs.state';
 import { UiState } from '../core/state/ui.state';
-import { TAB_ACTIVE } from './tab-active';
+import { TabActiveScope } from './tab-active';
 import { TAB_PANEL_ID } from './tab-strip';
 
 /** Abas mantidas vivas em segundo plano; acima disso a usada há mais tempo é desmontada (continua aberta). */
@@ -16,6 +16,7 @@ const MAX_MOUNTED_TABS = 15;
 
 interface PanelContext {
     $implicit: Signal<TabState | undefined>;
+    active: Signal<boolean>;
 }
 
 /**
@@ -26,9 +27,10 @@ interface PanelContext {
  */
 @Component({
     selector: 'app-tab-host',
-    imports: [ButtonModule, ManageWorkspaces, WorkspaceOverview, EnvironmentsPage, CollectionOverview, RequestView],
+    imports: [ButtonModule, TabActiveScope, ManageWorkspaces, WorkspaceOverview, EnvironmentsPage, CollectionOverview, RequestView],
     template: `
-        <ng-template #panel let-tab>
+        <ng-template #panel let-tab let-active="active">
+            <ng-container [appTabActive]="active">
             @if (tab(); as tab) {
                 @switch (tab.kind) {
                     @case ('overview') {
@@ -61,6 +63,7 @@ interface PanelContext {
                     }
                 }
             }
+            </ng-container>
         </ng-template>
 
         <div #container role="tabpanel" [id]="panelId" [attr.aria-labelledby]="tabs.activeId() ? 'tab-' + tabs.activeId() : null" [hidden]="!tabs.active()" class="h-full min-h-0 overflow-auto" tabindex="-1">
@@ -152,15 +155,17 @@ export class TabHost {
         if (view) {
             outlet.insert(view);
         } else {
-            this.views.set(active, outlet.createEmbeddedView(template, { $implicit: computed(() => this.tabs.tabs().find((tab) => tab.id === active)) }, { injector: this.panelInjector(active) }));
+            this.views.set(
+                active,
+                outlet.createEmbeddedView(template, {
+                    $implicit: computed(() => this.tabs.tabs().find((tab) => tab.id === active)),
+                    active: computed(() => this.tabs.activeId() === active)
+                })
+            );
         }
 
         const scrollTop = this.scrollTops.get(active) ?? 0;
 
         afterNextRender(() => (element.scrollTop = scrollTop), { injector: this.injector });
-    }
-
-    private panelInjector(id: EntityId): Injector {
-        return Injector.create({ providers: [{ provide: TAB_ACTIVE, useValue: computed(() => this.tabs.activeId() === id) }], parent: this.injector });
     }
 }

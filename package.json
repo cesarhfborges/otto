@@ -1,7 +1,7 @@
 {
     "name": "otto",
     "productName": "Otto",
-    "version": "0.0.1-beta.1",
+    "version": "0.1.1-beta.1",
     "description": "Otto — open-source, offline-first API client (Angular + Electron), inspired by Bruno.",
     "author": {
         "name": "Cesar Borges",
