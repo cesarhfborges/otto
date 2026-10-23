@@ -5,31 +5,57 @@ import { NG_VALUE_ACCESSOR } from '@angular/forms';
 import { InputText } from 'primeng/inputtext';
 import { TemplateField } from './template-field';
 
-/** Texto fixo depois do conteúdo (ex.: a query montada pelos params); não é editável nem selecionável. */
+/**
+ * Texto fixo depois do conteúdo (ex.: a query montada pelos params); não é editável nem
+ * selecionável. Uma query (`?a=1&b=2`) ganha cores por parte: separadores, nomes e valores.
+ */
 class SuffixWidget extends WidgetType {
     constructor(
         private readonly text: string,
-        private readonly hint: string
+        private readonly hint: string,
+        private readonly onClick: (() => void) | null
     ) {
         super();
     }
 
     override eq(other: SuffixWidget): boolean {
-        return other.text === this.text && other.hint === this.hint;
+        return other.text === this.text && other.hint === this.hint && !!other.onClick === !!this.onClick;
     }
 
     toDOM(): HTMLElement {
-        const span = document.createElement('span');
+        const wrapper = document.createElement('span');
+        let inValue = false;
 
-        span.className = 'otto-input-suffix';
-        span.textContent = this.text;
-        span.title = this.hint;
+        wrapper.className = 'otto-input-suffix';
+        wrapper.title = this.hint;
+        wrapper.setAttribute('aria-hidden', 'true');
 
-        return span;
+        for (const part of this.text.split(/([?&=])/).filter(Boolean)) {
+            const span = document.createElement('span');
+            const separator = part === '?' || part === '&' || part === '=';
+
+            span.textContent = part;
+            span.className = separator ? 'otto-input-suffix-sep' : inValue ? 'otto-input-suffix-value' : 'otto-input-suffix-key';
+            inValue = part === '=' ? true : part === '?' || part === '&' ? false : inValue;
+            wrapper.append(span);
+        }
+
+        if (this.onClick) {
+            const onClick = this.onClick;
+
+            wrapper.classList.add('otto-input-suffix-action');
+            wrapper.addEventListener('mousedown', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onClick();
+            });
+        }
+
+        return wrapper;
     }
 
     override ignoreEvent(): boolean {
-        return false;
+        return true;
     }
 }
 
@@ -54,6 +80,8 @@ export class OttoInput extends TemplateField {
     readonly suffix = input('');
     /** Dica (tooltip) do sufixo. */
     readonly suffixHint = input('');
+    /** Clique no sufixo (ex.: abrir a aba Params). */
+    readonly suffixClick = output<void>();
 
     protected readonly multiline = false;
 
@@ -68,7 +96,7 @@ export class OttoInput extends TemplateField {
             return [];
         }
 
-        const widget = Decoration.widget({ widget: new SuffixWidget(suffix, this.suffixHint()), side: 1 });
+        const widget = Decoration.widget({ widget: new SuffixWidget(suffix, this.suffixHint(), () => this.suffixClick.emit()), side: 1 });
 
         return [EditorView.decorations.of((view) => Decoration.set([widget.range(view.state.doc.length)]))];
     }

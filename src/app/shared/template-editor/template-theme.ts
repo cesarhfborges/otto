@@ -43,7 +43,22 @@ export const templateTheme = EditorView.theme({
     '.cm-completionDetail': { marginLeft: 'auto', paddingLeft: '1rem', fontStyle: 'normal', color: 'var(--p-text-muted-color)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '16rem' },
     'li[aria-selected] .cm-completionDetail': { color: 'inherit' },
     '.cm-completionIcon': { display: 'none' },
-    '.otto-input-suffix': { color: 'var(--p-text-muted-color)', userSelect: 'none', whiteSpace: 'pre' },
+    // Query montada pelos params: "fantasma" depois da URL, somente leitura.
+    '.otto-input-suffix': {
+        marginLeft: '1px',
+        padding: '0.0625rem 0.375rem',
+        borderRadius: '0.25rem',
+        backgroundColor: 'color-mix(in srgb, var(--p-text-muted-color) 10%, transparent)',
+        color: 'var(--p-text-muted-color)',
+        fontSize: '.85rem',
+        userSelect: 'none',
+        whiteSpace: 'pre'
+    },
+    '.otto-input-suffix-action': { cursor: 'pointer', transition: 'background-color .15s' },
+    '.otto-input-suffix-action:hover': { backgroundColor: 'color-mix(in srgb, var(--p-primary-color) 14%, transparent)' },
+    '.otto-input-suffix-sep': { padding: '0 1px' },
+    '.otto-input-suffix-key': { color: 'var(--p-primary-color)' },
+    '.otto-input-suffix-value': { color: 'var(--p-text-muted-color)', fontStyle: 'italic' },
     '.otto-completion-icon': { width: '1rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--p-text-muted-color)' },
     'li[aria-selected] .otto-completion-icon': { color: 'inherit' },
     '.cm-tooltip.cm-completionInfo': { padding: '0.5rem 0.75rem', maxWidth: '22rem', whiteSpace: 'pre-line', lineHeight: '1.4' }
