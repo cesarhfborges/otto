@@ -59,14 +59,15 @@ function statusClass(status: number): string {
                                     <span class="font-mono font-semibold tabular-nums" [class]="statusClass(example.status)">{{ example.status }}</span>
                                     <span class="truncate font-medium">{{ example.name || 'Untitled' }}</span>
                                     <!-- Segunda linha sempre presente: todos os itens com a mesma altura e alinhamento. -->
-                                    <span class="col-start-2 flex items-center gap-3 text-xs leading-4 text-muted-color">
+                                    <span class="col-start-2 flex min-w-0 items-center gap-1.5 whitespace-nowrap text-xs leading-4 text-muted-color">
                                         @if ($first) {
-                                            <span class="flex items-center gap-1"><i class="pi pi-star-fill text-[0.625rem]" aria-hidden="true"></i>Default</span>
+                                            <span class="flex shrink-0 items-center gap-1"><i class="pi pi-star-fill !text-[0.625rem]" aria-hidden="true"></i>Default</span>
                                         } @else {
-                                            <span>Alternative</span>
+                                            <span class="shrink-0">Alternative</span>
                                         }
                                         @if (example.delayMs) {
-                                            <span class="flex items-center gap-1"><i class="pi pi-clock text-[0.625rem]" aria-hidden="true"></i>{{ example.delayMs }} ms</span>
+                                            <span aria-hidden="true">·</span>
+                                            <span class="flex min-w-0 items-center gap-1"><i class="pi pi-clock shrink-0 !text-[0.625rem]" aria-hidden="true"></i><span class="truncate">{{ example.delayMs }} ms</span></span>
                                         }
                                     </span>
                                 </button>
