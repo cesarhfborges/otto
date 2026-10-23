@@ -48,26 +48,36 @@ function statusClass(status: number): string {
                 <nav class="flex w-56 shrink-0 flex-col gap-1 overflow-auto" aria-label="Response examples">
                     <ul class="m-0 flex list-none flex-col gap-1 p-0">
                         @for (example of examples(); track $index) {
-                            <li>
+                            <li class="group relative">
                                 <button
                                     type="button"
-                                    class="flex w-full cursor-pointer flex-col gap-0.5 rounded-md border px-3 py-2 text-left text-sm transition-colors"
+                                    class="grid h-14 w-full cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] content-center items-center gap-x-2 gap-y-0.5 rounded-md border pl-3 pr-9 text-left text-sm leading-5 transition-colors"
                                     [class]="$index === selected() ? 'border-primary bg-primary-50 dark:bg-primary-950' : 'border-transparent hover:bg-surface-100 dark:hover:bg-surface-800'"
                                     [attr.aria-current]="$index === selected() ? 'true' : null"
                                     (click)="selected.set($index)"
                                 >
-                                    <span class="flex items-center gap-2">
-                                        <span class="font-mono font-semibold tabular-nums" [class]="statusClass(example.status)">{{ example.status }}</span>
-                                        <span class="min-w-0 flex-1 truncate font-medium">{{ example.name || 'Untitled' }}</span>
-                                    </span>
-                                    <span class="flex gap-2 text-xs text-muted-color">
+                                    <span class="font-mono font-semibold tabular-nums" [class]="statusClass(example.status)">{{ example.status }}</span>
+                                    <span class="truncate font-medium">{{ example.name || 'Untitled' }}</span>
+                                    <!-- Segunda linha sempre presente: todos os itens com a mesma altura e alinhamento. -->
+                                    <span class="col-start-2 flex items-center gap-3 text-xs leading-4 text-muted-color">
                                         @if ($first) {
-                                            <span><i class="pi pi-star-fill mr-1 text-[0.625rem]" aria-hidden="true"></i>Default</span>
+                                            <span class="flex items-center gap-1"><i class="pi pi-star-fill text-[0.625rem]" aria-hidden="true"></i>Default</span>
+                                        } @else {
+                                            <span>Alternative</span>
                                         }
                                         @if (example.delayMs) {
-                                            <span><i class="pi pi-clock mr-1 text-[0.625rem]" aria-hidden="true"></i>{{ example.delayMs }} ms</span>
+                                            <span class="flex items-center gap-1"><i class="pi pi-clock text-[0.625rem]" aria-hidden="true"></i>{{ example.delayMs }} ms</span>
                                         }
                                     </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="otto-icon-button absolute right-1.5 top-1/2 -translate-y-1/2 !h-6 !w-6 opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
+                                    [attr.aria-label]="'Remove example ' + (example.name || 'Untitled')"
+                                    pTooltip="Remove example"
+                                    (click)="remove($index)"
+                                >
+                                    <i class="pi pi-trash text-xs text-red-700 dark:text-red-400" aria-hidden="true"></i>
                                 </button>
                             </li>
                         }
@@ -102,7 +112,6 @@ function statusClass(status: number): string {
                             @if (selected() !== 0) {
                                 <p-button label="Make default" icon="pi pi-star" size="small" severity="secondary" [text]="true" (onClick)="makeDefault()" />
                             }
-                            <p-button icon="pi pi-trash" size="small" severity="danger" [text]="true" ariaLabel="Remove this example" pTooltip="Remove example" (onClick)="remove()" />
                         </div>
 
                         @if (pane() === 'body') {
@@ -226,13 +235,17 @@ export class ExamplesEditor {
         this.selected.set(0);
     }
 
-    protected async remove(): Promise<void> {
-        const example = this.current();
+    protected async remove(index: number): Promise<void> {
+        const example = this.examples()[index];
 
         if (example && (await this.confirm.askDelete({ header: 'Remove Example', message: `Remove the example "${example.name}"?`, acceptLabel: 'Remove' }))) {
-            const index = this.selected();
+            const selected = this.selected();
 
             this.examples.update((examples) => examples.filter((_, i) => i !== index));
+            // Mantém o mesmo exemplo aberto quando outro, acima dele, é removido.
+            if (index < selected) {
+                this.selected.set(selected - 1);
+            }
         }
     }
 

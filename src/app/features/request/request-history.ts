@@ -28,7 +28,8 @@ const headersText = (headers: ReadonlyArray<[string, string]> | undefined): stri
     template: `
         <div class="mb-2 flex flex-wrap items-center gap-2">
             <p id="history-help" class="m-0 text-xs text-muted-color">Stored only on this machine. Secret variables and credential headers are masked. Select two runs to compare them.</p>
-            <p-button class="ms-auto" label="Compare" icon="pi pi-arrow-right-arrow-left" size="small" [disabled]="selected().length !== 2" (onClick)="compare(selected()[0]!, selected()[1]!)" />
+            <p-button class="ms-auto" label="Clear history" icon="pi pi-trash" size="small" severity="danger" [text]="true" [disabled]="!entries().length" (onClick)="clearAll()" />
+            <p-button label="Compare" icon="pi pi-arrow-right-arrow-left" size="small" [disabled]="selected().length !== 2" (onClick)="compare(selected()[0]!, selected()[1]!)" />
         </div>
 
         @if (error(); as message) {
@@ -299,6 +300,14 @@ export class RequestHistory {
         if (await this.confirm.askDelete({ header: 'Delete Run', message: `Delete the run of ${this.when(entry.executedAt)} from the history?`, acceptLabel: 'Delete' })) {
             await this.history.delete(entry.id).catch((error: unknown) => this.error.set(ipcErrorMessage(error)));
             this.selected.update((ids) => ids.filter((id) => id !== entry.id));
+            await this.load(this.collectionId(), this.path());
+        }
+    }
+
+    protected async clearAll(): Promise<void> {
+        if (await this.confirm.askDelete({ header: 'Clear History', message: 'Delete every stored run of this request? This cannot be undone.', acceptLabel: 'Clear' })) {
+            await this.history.clear({ collectionId: this.collectionId(), requestPath: this.path() }).catch((error: unknown) => this.error.set(ipcErrorMessage(error)));
+            this.selected.set([]);
             await this.load(this.collectionId(), this.path());
         }
     }

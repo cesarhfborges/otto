@@ -1,5 +1,5 @@
 import type { IHistoryRepository, IIpcModule, IIpcRegistrar } from '../core/contracts';
-import { parseEntityId, parseHistoryQuery } from '../core/validation';
+import { parseEntityId, parseHistoryQuery, parseHistoryScope } from '../core/validation';
 
 export class HistoryIpcModule implements IIpcModule {
     constructor(private readonly history: IHistoryRepository) {}
@@ -11,6 +11,6 @@ export class HistoryIpcModule implements IIpcModule {
 
         ipc.handle('history:delete', (_event, id) => this.history.delete(parseEntityId(id)));
 
-        ipc.handle('history:clear', () => this.history.clear());
+        ipc.handle('history:clear', (_event, scope) => this.history.clear(parseHistoryScope(scope)));
     }
 }

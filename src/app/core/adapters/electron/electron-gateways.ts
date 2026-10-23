@@ -13,6 +13,7 @@ import type {
     HistoryEntryWithDetail,
     MockServerStatus,
     HistoryQuery,
+    HistoryScope,
     HttpRequest,
     HttpResult,
     CommandId,
@@ -240,8 +241,8 @@ export class ElectronHistoryGateway extends HistoryGateway {
         return requireOttoApi(this.api).history.delete(id);
     }
 
-    clear(): Promise<number> {
-        return requireOttoApi(this.api).history.clear();
+    clear(scope?: HistoryScope): Promise<number> {
+        return requireOttoApi(this.api).history.clear(scope);
     }
 
     onChanged(listener: () => void): () => void {

@@ -18,6 +18,7 @@ import type {
     HistoryEntry,
     HistoryEntryWithDetail,
     HistoryQuery,
+    HistoryScope,
     HttpRequest,
     HttpResult,
     CommandId,
@@ -71,7 +72,7 @@ export interface IpcInvokeContract {
     'history:list': { args: [query?: HistoryQuery]; result: HistoryEntry[] };
     'history:get': { args: [id: EntityId]; result: HistoryEntryWithDetail | null };
     'history:delete': { args: [id: EntityId]; result: boolean };
-    'history:clear': { args: []; result: number };
+    'history:clear': { args: [scope?: HistoryScope]; result: number };
     'tabs:list': { args: [workspaceId: EntityId]; result: TabState[] };
     'tabs:save': { args: [workspaceId: EntityId, tabs: TabState[]]; result: void };
     'workspaces:list': { args: []; result: WorkspaceSummary[] };

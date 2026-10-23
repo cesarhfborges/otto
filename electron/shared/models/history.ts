@@ -54,5 +54,8 @@ export interface HistoryQuery {
     requestPath?: string;
 }
 
+/** Escopo de `history.clear`: sem campos apaga tudo. */
+export type HistoryScope = Pick<HistoryQuery, 'collectionId' | 'requestPath'>;
+
 /** Texto colocado no lugar de valores secretos (histórico, exportações). */
 export const SECRET_MASK = '••••••';

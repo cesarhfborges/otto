@@ -15,6 +15,7 @@ import type {
     HistoryEntry,
     HistoryEntryWithDetail,
     HistoryQuery,
+    HistoryScope,
     HttpRequest,
     HttpResult,
     CommandId,
@@ -113,8 +114,8 @@ export interface HistoryApi {
     /** Registro com a requisição e a resposta gravadas. */
     get(id: EntityId): Promise<HistoryEntryWithDetail | null>;
     delete(id: EntityId): Promise<boolean>;
-    /** Retorna quantos registros foram removidos. */
-    clear(): Promise<number>;
+    /** Apaga o histórico (todo, ou só o do escopo); retorna quantos registros foram removidos. */
+    clear(scope?: HistoryScope): Promise<number>;
     /** Avisa quando uma execução é registrada (para atualizar listas abertas). */
     onChanged(listener: () => void): () => void;
 }

@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
-import type { EntityId, HistoryDetail, HistoryEntry, HistoryEntryWithDetail, HistoryQuery, HttpMethod, NewHistoryEntry } from '../../../shared/models';
+import type { EntityId, HistoryDetail, HistoryEntry, HistoryEntryWithDetail, HistoryQuery, HistoryScope, HttpMethod, NewHistoryEntry } from '../../../shared/models';
 import type { IClock, IHistoryRepository, IIdGenerator } from '../../core/contracts';
 import { fromSqlJson, toSqlNullable } from '../database/sqlite';
 
@@ -101,8 +101,16 @@ export class SqliteHistoryRepository implements IHistoryRepository {
         return Number(this.db.prepare('DELETE FROM history WHERE id = ?').run(id).changes) > 0;
     }
 
-    clear(): number {
-        return Number(this.db.prepare('DELETE FROM history').run().changes);
+    clear(scope: HistoryScope = {}): number {
+        if (!scope.collectionId) {
+            return Number(this.db.prepare('DELETE FROM history').run().changes);
+        }
+
+        if (scope.requestPath === undefined) {
+            return Number(this.db.prepare('DELETE FROM history WHERE collection_id = ?').run(scope.collectionId).changes);
+        }
+
+        return Number(this.db.prepare('DELETE FROM history WHERE collection_id = ? AND request_path = ?').run(scope.collectionId, scope.requestPath).changes);
     }
 
     prune(keep: number): number {

@@ -18,6 +18,7 @@ import type {
     HistoryEntryWithDetail,
     MockServerStatus,
     HistoryQuery,
+    HistoryScope,
     HttpRequest,
     HttpResult,
     CommandId,
@@ -99,7 +100,7 @@ export abstract class HistoryGateway implements HistoryApi {
     abstract list(query?: HistoryQuery): Promise<HistoryEntry[]>;
     abstract get(id: EntityId): Promise<HistoryEntryWithDetail | null>;
     abstract delete(id: EntityId): Promise<boolean>;
-    abstract clear(): Promise<number>;
+    abstract clear(scope?: HistoryScope): Promise<number>;
     abstract onChanged(listener: () => void): () => void;
 }
 

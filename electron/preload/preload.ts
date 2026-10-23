@@ -72,7 +72,7 @@ const api: OttoApi = {
         list: (query) => invoke('history:list', query),
         get: (id) => invoke('history:get', id),
         delete: (id) => invoke('history:delete', id),
-        clear: () => invoke('history:clear'),
+        clear: (scope) => invoke('history:clear', scope),
         onChanged: (listener) => subscribe('history:changed', () => listener())
     },
     tabs: {

@@ -1,5 +1,11 @@
-import type { HistoryQuery } from '../../../shared/models';
+import type { HistoryQuery, HistoryScope } from '../../../shared/models';
 import { parseEntityId, pickDefined, requireInteger, requireRecord, requireString } from './guards';
+
+export function parseHistoryScope(raw: unknown): HistoryScope {
+    const { collectionId, requestPath } = parseHistoryQuery(raw);
+
+    return { ...(collectionId && { collectionId }), ...(requestPath !== undefined && { requestPath }) };
+}
 
 export function parseHistoryQuery(raw: unknown): HistoryQuery {
     if (raw === undefined || raw === null) {
