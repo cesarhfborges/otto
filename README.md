@@ -4,6 +4,9 @@
 
 <h1 align="center">Otto</h1>
 
+[![Release](https://github.com/cesarhfborges/otto/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/cesarhfborges/otto/actions/workflows/release.yml)
+
+
 <p align="center">
   Cliente de API <strong>open-source</strong>, <strong>offline-first</strong> e <strong>Git-friendly</strong> para desktop.<br/>
   Inspirado no <a href="https://www.usebruno.com/">Bruno</a>, com a experiência de uso do Postman e do Insomnia.
