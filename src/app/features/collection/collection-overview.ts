@@ -14,8 +14,10 @@ import { MethodBadge } from '../../shared/method-badge';
 import { OpenApiPanel } from '../openapi/openapi-panel';
 import { CollectionCookies } from './collection-cookies';
 import { CollectionKeyValues } from './collection-key-values';
+import { MockServerPanel } from './mock-server-panel';
+import { MockState } from '../../core/state/mock.state';
 
-type Section = 'overview' | 'headers' | 'variables' | 'cookies' | 'openapi';
+type Section = 'overview' | 'headers' | 'variables' | 'cookies' | 'openapi' | 'mock';
 
 interface TreeStats {
     requests: number;
@@ -43,7 +45,7 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
 /** Página da coleção: visão geral, headers base e sincronização OpenAPI. */
 @Component({
     selector: 'app-collection-overview',
-    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, CollectionCookies, OpenApiPanel],
+    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, CollectionCookies, OpenApiPanel, MockServerPanel],
     template: `
         @if (collection(); as current) {
             <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="px-4 pt-2">
@@ -71,6 +73,12 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
                         >OpenAPI
                         @if (pendingUpdates()) {
                             <span class="ml-1 rounded-full bg-amber-100 px-1.5 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-300">{{ pendingUpdates() }}</span>
+                        }
+                    </p-tab>
+                    <p-tab value="mock"
+                        >Mock Server
+                        @if (mockRunning()) {
+                            <span class="ml-1 rounded-full bg-green-100 px-1.5 text-xs text-green-900 dark:bg-green-950 dark:text-green-300">on</span>
                         }
                     </p-tab>
                 </p-tablist>
@@ -160,12 +168,14 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
                     <p-tabpanel value="headers">
                         <app-collection-key-values [collectionId]="current.metadata.id" field="headers" label="Collection headers" addLabel="Add Header">
                             Sent with every request in this collection. A request that defines the same header (case-insensitive) overrides it — for example, set <code>Content-Type: application/json</code> here and use another type in an upload
-                            request. Values accept variables and commands, like <code>{{ variableExample }}</code>.
+                            request. Values accept variables and commands, like <code>{{ variableExample }}</code
+                            >.
                         </app-collection-key-values>
                     </p-tabpanel>
                     <p-tabpanel value="variables">
                         <app-collection-key-values [collectionId]="current.metadata.id" field="variables" label="Collection variables" addLabel="Add Variable">
-                            Saved in <code>otto.yaml</code> (versioned with the collection) and used as <code>{{ variableExample }}</code>. The selected environment overrides a variable with the same name. Keep secrets in an environment, not here.
+                            Saved in <code>otto.yaml</code> (versioned with the collection) and used as <code>{{ variableExample }}</code
+                            >. The selected environment overrides a variable with the same name. Keep secrets in an environment, not here.
                         </app-collection-key-values>
                     </p-tabpanel>
                     <p-tabpanel value="cookies">
@@ -173,6 +183,9 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
                     </p-tabpanel>
                     <p-tabpanel value="openapi">
                         <app-openapi-panel [collectionId]="current.metadata.id" />
+                    </p-tabpanel>
+                    <p-tabpanel value="mock">
+                        <app-mock-server-panel [collectionId]="current.metadata.id" />
                     </p-tabpanel>
                 </p-tabpanels>
             </p-tabs>
@@ -189,6 +202,7 @@ export class CollectionOverview {
     private readonly collections = inject(CollectionsState);
     private readonly environments = inject(EnvironmentsState);
     private readonly openapi = inject(OpenApiState);
+    private readonly mocks = inject(MockState);
     private readonly tabs = inject(TabsState);
     private readonly messages = inject(MessageService);
 
@@ -197,6 +211,7 @@ export class CollectionOverview {
     protected readonly collection = computed(() => this.collections.find(this.collectionId()));
     protected readonly treeStats = computed(() => stats(this.collection()?.tree.children ?? []));
     protected readonly methods = computed(() => [...this.treeStats().methods].map(([method, count]) => ({ method, count })));
+    protected readonly mockRunning = computed(() => !!this.mocks.find(this.collectionId()));
     protected readonly pendingUpdates = computed(() => this.openapi.pendingUpdates(this.collectionId()));
     protected readonly description = linkedSignal(() => this.collection()?.manifest.description ?? '');
     protected readonly descriptionDirty = computed(() => this.description() !== (this.collection()?.manifest.description ?? ''));

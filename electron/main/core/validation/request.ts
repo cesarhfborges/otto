@@ -10,7 +10,8 @@ import {
     type MultipartField,
     type RequestAuth,
     type RequestBody,
-    type RequestDefinition
+    type RequestDefinition,
+    type ResponseExample
 } from '../../../shared/models';
 import { requireArray, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
@@ -165,6 +166,29 @@ function parseRequestScripts(raw: unknown): Pick<RequestDefinition, 'scripts'> {
     return preRequest || postResponse ? { scripts: { ...(preRequest && { preRequest }), ...(postResponse && { postResponse }) } } : {};
 }
 
+const MAX_EXAMPLES = 50;
+
+/** `examples` é opcional; lista vazia não é guardada. */
+function parseResponseExamples(raw: unknown): Pick<RequestDefinition, 'examples'> {
+    if (raw === undefined || raw === null) {
+        return {};
+    }
+
+    const examples = requireArray(raw, 'request.examples', MAX_EXAMPLES).map((item, i): ResponseExample => {
+        const example = requireRecord(item, `request.examples[${i}]`);
+
+        return {
+            name: text(example['name'], `request.examples[${i}].name`, 200).trim() || `Example ${i + 1}`,
+            status: example['status'] === undefined ? 200 : requireInteger(example['status'], `request.examples[${i}].status`, 100, 599),
+            headers: parseKeyValues(example['headers'], `request.examples[${i}].headers`),
+            body: text(example['body'], `request.examples[${i}].body`, MAX_BODY_LENGTH),
+            delayMs: example['delayMs'] === undefined ? 0 : requireInteger(example['delayMs'], `request.examples[${i}].delayMs`, 0, 60_000)
+        };
+    });
+
+    return examples.length ? { examples } : {};
+}
+
 /**
  * Valida uma requisição vinda do renderer ou de um arquivo da coleção.
  * Campos opcionais ausentes recebem valores padrão (arquivos editados à mão costumam omiti-los).
@@ -187,6 +211,7 @@ export function parseRequestDefinition(raw: unknown): RequestDefinition {
         body: parseRequestBody(request['body']),
         docs: text(request['docs'], 'request.docs', 1_000_000),
         ...parseRequestScripts(request['scripts']),
+        ...parseResponseExamples(request['examples']),
         ...(typeof request['operation'] === 'string' && request['operation'].trim() && { operation: request['operation'].trim().slice(0, 2_000) })
     };
 }

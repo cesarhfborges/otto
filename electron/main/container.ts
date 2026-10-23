@@ -12,6 +12,8 @@ import { MIGRATIONS } from './infra/database/migrations';
 import { openDatabase } from './infra/database/sqlite';
 import { SqliteCollectionMetadataRepository } from './infra/repositories/sqlite-collection-metadata.repository';
 import { SqliteEnvironmentRepository } from './infra/repositories/sqlite-environment.repository';
+import { EncryptedEnvironmentRepository } from './infra/repositories/encrypted-environment.repository';
+import { createSafeStorageCipher } from './infra/system/safe-storage-cipher';
 import { SqliteKeybindingStore } from './infra/repositories/sqlite-keybinding.store';
 import { SqliteHistoryRepository } from './infra/repositories/sqlite-history.repository';
 import { SqliteSettingsStore } from './infra/repositories/sqlite-settings.store';
@@ -37,6 +39,8 @@ import { WindowIpcModule } from './ipc/window.ipc';
 import { WorkspacesIpcModule } from './ipc/workspaces.ipc';
 import { OpenApiIpcModule } from './ipc/openapi.ipc';
 import { UpdatesIpcModule } from './ipc/updates.ipc';
+import { MockIpcModule } from './ipc/mock.ipc';
+import { MockServerService } from './services/mock/mock-server.service';
 import { createOAuth2Authorizer } from './ui/oauth2-window';
 import { OpenApiService } from './services/openapi/openapi.service';
 import { CollectionService } from './services/collections/collection.service';
@@ -113,7 +117,16 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
 
     const history = new SqliteHistoryRepository(db, systemClock, uuidGenerator);
     const tabs = new SqliteTabRepository(db);
-    const environments = new SqliteEnvironmentRepository(db, systemClock, uuidGenerator);
+    // Cofre: valores de variáveis secretas cifrados no banco com o chaveiro do sistema.
+    const secretCipher = createSafeStorageCipher();
+    const environments = new EncryptedEnvironmentRepository(new SqliteEnvironmentRepository(db, systemClock, uuidGenerator), secretCipher);
+
+    try {
+        environments.encryptPlainSecrets();
+    } catch (error) {
+        console.error('[otto] could not encrypt stored secrets:', error);
+    }
+
     const collections = new SqliteCollectionMetadataRepository(db, systemClock, uuidGenerator);
     const store = new FsCollectionStore(electronTrash);
     const collectionService = new CollectionService(store, new YamlCollectionFormat(), collections, new FsCollectionWatcher(), systemClock);
@@ -167,6 +180,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
     const dialogs = new DialogService(() => window.current);
     const commands = new AppCommands(window, dialogs);
     const updates = new UpdateService(settings);
+    const mocks = new MockServerService(collectionService, (servers) => window.notify('mock:changed', servers));
     const tray = new TrayManager(window, settings, commands);
 
     return {
@@ -186,7 +200,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
         tray,
         updates,
         ipcModules: [
-            new AppIpcModule(dialogs, hardwareAcceleration, window),
+            new AppIpcModule(dialogs, hardwareAcceleration, window, secretCipher.storage),
             new WindowIpcModule(window),
             new SettingsIpcModule(settings, window),
             new ThemeIpcModule(theme),
@@ -199,10 +213,12 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
             new CollectionsIpcModule(collections, collectionService, workspaceService, openapi, window),
             new OpenApiIpcModule(openapi),
             new CollectionFilesIpcModule(collectionService, (file) => shell.showItemInFolder(file)),
-            new UpdatesIpcModule(updates, window)
+            new UpdatesIpcModule(updates, window),
+            new MockIpcModule(mocks)
         ],
         dispose: () => {
             updates.stop();
+            void mocks.dispose();
             collectionService.closeAll();
             void httpBase.dispose();
             if (db.isOpen) {

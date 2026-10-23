@@ -9,6 +9,11 @@ export interface AppInfo {
     defaultBaseDirectory: string;
     /** Se a GPU foi habilitada nesta execução (a preferência só é aplicada ao iniciar). */
     hardwareAcceleration: boolean;
+    /**
+     * Onde os valores secretos dos ambientes são cifrados: chaveiro do sistema (`os`),
+     * chave fixa do Electron quando não há chaveiro (`basic`, só ofusca) ou indisponível.
+     */
+    secretStorage: 'os' | 'basic' | 'unavailable';
 }
 
 /** Ações disparadas pelo menu da aplicação ou pelo tray e encaminhadas ao renderer. */

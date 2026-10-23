@@ -1,4 +1,4 @@
-import { Component, computed, input, linkedSignal } from '@angular/core';
+import { Component, computed, input, linkedSignal, output } from '@angular/core';
 import type { HttpResponse } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
@@ -56,32 +56,47 @@ function prettyBody(response: HttpResponse): PrettyBody {
             @case ('done') {
                 <div class="flex h-full min-h-0 flex-col">
                     <!-- Cada item é uma "tag" com a mesma caixa (altura, borda, raio, espaçamento); só a de status troca o fundo pela cor da faixa. -->
-                    <dl class="m-0 flex shrink-0 flex-wrap items-center gap-2 border-b border-surface-200 px-3 py-2 text-xs dark:border-surface-700" aria-label="Response summary">
-                        <div class="flex items-center gap-1.5 rounded-md border border-transparent px-2 py-1 font-semibold text-surface-0 dark:text-surface-950" [style.background-color]="statusColor()">
-                            <dt class="sr-only">Status</dt>
-                            <dd class="m-0">
-                                @if (response(); as res) {
-                                    {{ res.status }} {{ res.statusText }}
-                                } @else {
-                                    Error
-                                }
-                            </dd>
-                        </div>
-                        <div class="flex items-center gap-1.5 rounded-md border border-surface-200 bg-surface-50 px-2 py-1 dark:border-surface-700 dark:bg-surface-900">
-                            <dt class="text-muted-color">Time</dt>
-                            <dd class="m-0 font-medium tabular-nums">{{ duration(timeMs()) }}</dd>
-                        </div>
-                        <div class="flex items-center gap-1.5 rounded-md border border-surface-200 bg-surface-50 px-2 py-1 dark:border-surface-700 dark:bg-surface-900">
-                            <dt class="text-muted-color">Size</dt>
-                            <dd class="m-0 font-medium tabular-nums">{{ bytes(response()?.size ?? 0) }}</dd>
-                        </div>
-                        @if (response()?.redirected) {
-                            <div class="flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-surface-200 bg-surface-50 px-2 py-1 dark:border-surface-700 dark:bg-surface-900">
-                                <dt class="shrink-0 text-muted-color">Redirected to</dt>
-                                <dd class="m-0 truncate font-mono font-medium" [title]="response()!.url">{{ response()!.url }}</dd>
+                    <div class="flex shrink-0 items-center gap-2 border-b border-surface-200 px-3 py-2 dark:border-surface-700">
+                        <dl class="m-0 flex min-w-0 flex-1 flex-wrap items-center gap-2 text-xs" aria-label="Response summary">
+                            <div class="flex items-center gap-1.5 rounded-md border border-transparent px-2 py-1 font-semibold text-surface-0 dark:text-surface-950" [style.background-color]="statusColor()">
+                                <dt class="sr-only">Status</dt>
+                                <dd class="m-0">
+                                    @if (response(); as res) {
+                                        {{ res.status }} {{ res.statusText }}
+                                    } @else {
+                                        Error
+                                    }
+                                </dd>
                             </div>
+                            <div class="flex items-center gap-1.5 rounded-md border border-surface-200 bg-surface-50 px-2 py-1 dark:border-surface-700 dark:bg-surface-900">
+                                <dt class="text-muted-color">Time</dt>
+                                <dd class="m-0 font-medium tabular-nums">{{ duration(timeMs()) }}</dd>
+                            </div>
+                            <div class="flex items-center gap-1.5 rounded-md border border-surface-200 bg-surface-50 px-2 py-1 dark:border-surface-700 dark:bg-surface-900">
+                                <dt class="text-muted-color">Size</dt>
+                                <dd class="m-0 font-medium tabular-nums">{{ bytes(response()?.size ?? 0) }}</dd>
+                            </div>
+                            @if (response()?.redirected) {
+                                <div class="flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-surface-200 bg-surface-50 px-2 py-1 dark:border-surface-700 dark:bg-surface-900">
+                                    <dt class="shrink-0 text-muted-color">Redirected to</dt>
+                                    <dd class="m-0 truncate font-mono font-medium" [title]="response()!.url">{{ response()!.url }}</dd>
+                                </div>
+                            }
+                        </dl>
+                        @if (response(); as res) {
+                            <p-button
+                                class="shrink-0"
+                                label="Save as example"
+                                icon="pi pi-bookmark"
+                                size="small"
+                                severity="secondary"
+                                [text]="true"
+                                ariaLabel="Save this response as a mock server example"
+                                [disabled]="res.bodyEncoding !== 'utf8' || res.truncated"
+                                (onClick)="saveExample.emit({ status: res.status, headers: res.headers, body: res.body, name: (res.status + ' ' + res.statusText).trim() })"
+                            />
                         }
-                    </dl>
+                    </div>
 
                     @if (response()?.truncated) {
                         <p-message severity="warn" styleClass="mx-3 mt-2" size="small">The response is larger than {{ bytes(response()!.size) }} and was cut off.</p-message>
@@ -202,6 +217,8 @@ function prettyBody(response: HttpResponse): PrettyBody {
 })
 export class ResponsePanel {
     readonly entry = input.required<ResponseEntry>();
+    /** Pedido para guardar a resposta como exemplo do mock server. */
+    readonly saveExample = output<{ status: number; headers: Array<[string, string]>; body: string; name: string }>();
     protected readonly timeMs = computed(() => this.response()?.timeMs ?? this.failure()?.timeMs ?? 0);
     protected readonly help = computed(() => errorHelp(this.failure()?.code));
     protected readonly bytes = formatBytes;

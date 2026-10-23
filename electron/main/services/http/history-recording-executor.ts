@@ -1,4 +1,4 @@
-import type { HttpRequest, HttpResult, NewHistoryEntry } from '../../../shared/models';
+import { MAX_HISTORY_BODY_CHARS, SECRET_MASK, type HistoryDetail, type HttpRequest, type HttpResult, type NewHistoryEntry } from '../../../shared/models';
 import type { IHistoryRepository, IHttpExecutor } from '../../core/contracts';
 
 export interface HistoryRecordingOptions {
@@ -26,6 +26,41 @@ function redactUrl(raw: string): string {
     } catch {
         return raw;
     }
+}
+
+/** Troca cada valor secreto (os mais longos primeiro, para não sobrar pedaço) pela máscara. */
+export function redactSecrets(text: string, secrets: readonly string[]): string {
+    return secrets.reduce((result, secret) => (secret ? result.split(secret).join(SECRET_MASK) : result), text);
+}
+
+/** Headers de credencial são sempre mascarados (ex.: Basic em base64, que não casa com o valor da variável). */
+const CREDENTIAL_HEADERS = new Set(['authorization', 'proxy-authorization', 'cookie']);
+
+const bodyText = (text: string | undefined, secrets: readonly string[]): string | null => (text === undefined || text.length > MAX_HISTORY_BODY_CHARS ? null : redactSecrets(text, secrets));
+
+/** Requisição e resposta guardadas no histórico, sem os valores secretos. */
+function historyDetail(request: HttpRequest, result: HttpResult): HistoryDetail {
+    // Valores curtos demais mascarariam trechos comuns do texto (ex.: "1", "a").
+    const secrets = [...new Set(request.redact ?? [])].filter((secret) => secret.length >= 3).sort((a, b) => b.length - a.length);
+    const redact = (text: string): string => redactSecrets(text, secrets);
+
+    return {
+        request: {
+            method: request.method,
+            url: redact(redactUrl(request.url)),
+            headers: Object.entries(request.headers ?? {}).map(([name, value]) => [name, CREDENTIAL_HEADERS.has(name.toLowerCase()) ? SECRET_MASK : redact(value)]),
+            body: bodyText(request.body, secrets)
+        },
+        response: result.ok
+            ? {
+                  status: result.response.status,
+                  statusText: result.response.statusText,
+                  headers: result.response.headers.map(([name, value]) => [name, redact(value)]),
+                  contentType: result.response.contentType,
+                  body: result.response.bodyEncoding === 'utf8' ? bodyText(result.response.body, secrets) : null
+              }
+            : null
+    };
 }
 
 /**
@@ -59,11 +94,12 @@ export class HistoryRecordingExecutor implements IHttpExecutor {
             collectionId: request.source?.collectionId ?? null,
             requestPath: request.source?.requestPath ?? null,
             method: request.method,
-            url: redactUrl(request.url),
+            url: redactSecrets(redactUrl(request.url), request.redact?.filter((secret) => secret.length >= 3) ?? []),
             status: result.ok ? result.response.status : null,
             error: result.ok ? null : result.error,
             timeMs: result.ok ? result.response.timeMs : result.timeMs,
-            sizeBytes: result.ok ? result.response.size : 0
+            sizeBytes: result.ok ? result.response.size : 0,
+            detail: historyDetail(request, result)
         };
 
         try {

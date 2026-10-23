@@ -3,7 +3,7 @@
 > Fonte da verdade sobre o estado atual do software. Atualizado a cada entrega.
 > Plano original: [PLANO_IMPLEMENTACAO.md](PLANO_IMPLEMENTACAO.md).
 
-**Última atualização:** 2026-10-20 — Atalhos de teclado configuráveis (Preferences → Keyboard Shortcuts).
+**Última atualização:** 2026-10-23 — Mock server local, cofre de segredos, gerar código/importar cURL e histórico com comparação.
 
 ## Visão geral
 
@@ -275,6 +275,16 @@ Plano: [PLANO_ATALHOS.md](PLANO_ATALHOS.md).
 - [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (94), no app real via CDP (perfil isolado): `Ctrl+N` + `Ctrl+Enter` no diálogo, `Ctrl+F4` fecha / não faz nada sem aba, `Ctrl+Shift+T`, `Ctrl+/` → Customize, gravação com `Ctrl+W` (não fecha a aba; conflito com Close tab), Escape cancela sem fechar Preferences, `Ctrl+C` recusado, `Ctrl+Alt+W` gravado e funcionando após reiniciar, remover/Reset All, `Ctrl+B`, F2 na árvore, `Ctrl+Enter` envia a requisição ✅, **axe sem violações** na seção, no gravador, no conflito e no diálogo de ajuda ✅
 - [x] Ajuste: `Ctrl+,` (Preferences), `Ctrl+/` (ajuda de atalhos) e `Escape` (cancelar envio) viraram **reservados do sistema** (fixos, listados em "Reserved by the system", recusados no main e na gravação); "Cycle theme" ficou sem atalho padrão. Verificado no app real, axe ✅
 - [ ] Paleta de comandos (fase 6 do plano)
+
+## Mock server, cofre, código/cURL e histórico comparável (pedido do usuário)
+
+- [x] **Mock server local** (`electron/main/services/mock/`): por coleção, escuta só em `127.0.0.1` (porta escolhida, padrão 4010). Cada requisição com `examples` (novo campo no YAML: nome, status, headers, corpo, atraso) vira rota `MÉTODO /caminho` (`{{$.id}}`, `:id` e `{id}` são parâmetros; base URL e host são ignorados). Corpo/headers aceitam `{{$params.x}}`, `{{$query.x}}`, `{{$header.x}}`, `{{$body.a.b}}`, `{{$uuid}}`, `{{$now}}`, `{{$timestamp}}`, `{{$randomInt}}`; outro exemplo por `X-Otto-Example`/`?__example=`; CORS liberado e preflight automático; rotas recarregadas quando a coleção muda no disco. UI: aba **Mock Server** na página da coleção (iniciar/parar, URL, últimas chamadas), aba **Examples** na requisição, **Save as example** na resposta e no histórico, indicador na barra de status. IPC `mock:list/start/stop` + evento `mock:changed`
+- [x] **Cofre de segredos**: `EncryptedEnvironmentRepository` (decorator) cifra os valores das variáveis `secret` com o `safeStorage` do Electron (chaveiro do SO) — prefixo `otto-enc:v1:`; segredos antigos em texto puro são cifrados na inicialização. Backups/exportações levam a variável **sem o valor**. `AppInfo.secretStorage` (`os`/`basic`/`unavailable`) exibido em Environments. O histórico mascara os valores secretos enviados (`HttpRequest.redact`) e os headers `Authorization`/`Proxy-Authorization`/`Cookie`
+- [x] **Gerar código** (`electron/shared/http/codegen.ts`): cURL, HTTPie, fetch, axios, Python requests, Go e PowerShell, com ou sem resolver variáveis (segredos voltam a `{{$.nome}}`; scripts não rodam e requisições referenciadas não são enviadas). Botão `</>` na linha da URL
+- [x] **Importar cURL** (`electron/shared/http/curl-import.ts`): colar um `curl …` (ex.: "Copy as cURL" do DevTools) na URL preenche método, URL, params, headers, Basic/Bearer, corpo JSON/form/texto/multipart (`-d`, `--data-*`, `--json`, `-F`, `-u`, `-b`, `-G`, `-I`)
+- [x] **Histórico navegável e comparação**: migração 004 (`history.detail` JSON com requisição/resposta; corpos até 512 KB) e índice por requisição; IPC `history:get`; filtro `requestPath`. Aba **History** na requisição: ver uma execução, comparar duas (ou com a anterior) — diff por linhas de corpo (JSON com chaves ordenadas), headers e requisição, além de status/tempo/tamanho
+- [x] Verificação: `typecheck` ✅, `npm run build` ✅, `test:electron` ✅ (94; expectativa de migrações atualizada para incluir a 004); mock server testado com HTTP real (rotas, parâmetros, exemplo por header, corpo JSON, 404 com lista de rotas, preflight CORS)
+- [ ] Verificação no app real (CDP) e axe nas telas novas
 
 ## Pendências e débitos conhecidos
 

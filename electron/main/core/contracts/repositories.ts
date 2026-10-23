@@ -1,10 +1,12 @@
-import type { CollectionMetadata, EntityId, Environment, HistoryEntry, HistoryQuery, NewCollectionMetadata, NewEnvironment, NewHistoryEntry, TabState, Workspace } from '../../../shared/models';
+import type { CollectionMetadata, EntityId, Environment, HistoryEntry, HistoryEntryWithDetail, HistoryQuery, NewCollectionMetadata, NewEnvironment, NewHistoryEntry, TabState, Workspace } from '../../../shared/models';
 import type { IRepository } from './repository';
 
 /** Histórico é append-only: não há `update`. */
 export interface IHistoryRepository {
     add(entry: NewHistoryEntry): HistoryEntry;
     list(query?: HistoryQuery): HistoryEntry[];
+    /** Registro com a requisição e a resposta gravadas; `null` se não existir. */
+    get(id: EntityId): HistoryEntryWithDetail | null;
     delete(id: EntityId): boolean;
     /** Remove todo o histórico e retorna quantos registros foram apagados. */
     clear(): number;

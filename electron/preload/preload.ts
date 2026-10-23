@@ -70,6 +70,7 @@ const api: OttoApi = {
     },
     history: {
         list: (query) => invoke('history:list', query),
+        get: (id) => invoke('history:get', id),
         delete: (id) => invoke('history:delete', id),
         clear: () => invoke('history:clear'),
         onChanged: (listener) => subscribe('history:changed', () => listener())
@@ -145,6 +146,12 @@ const api: OttoApi = {
         openRelease: () => invoke('updates:open-release'),
         onStateChanged: (listener) => subscribe('updates:state-changed', listener),
         onOpenRequested: (listener) => subscribe('updates:open-dialog', () => listener())
+    },
+    mock: {
+        list: () => invoke('mock:list'),
+        start: (collectionId, port) => invoke('mock:start', collectionId, port),
+        stop: (collectionId) => invoke('mock:stop', collectionId),
+        onChanged: (listener) => subscribe('mock:changed', listener)
     },
     onMenuAction: (listener) => subscribe('menu:action', listener)
 };

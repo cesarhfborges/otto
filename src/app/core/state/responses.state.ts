@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { buildHttpRequest } from '@shared/http/build-request';
 import { applySetCookies, cookieHeaderFor } from '@shared/http/cookie-jar';
-import type { EntityId, HttpResult, HttpTimelineEntry, RequestDefinition } from '@shared/models';
+import type { EntityId, HttpRequest, HttpResult, HttpTimelineEntry, RequestDefinition } from '@shared/models';
 import { responseSnapshot, TemplateError, type MessageSnapshot } from '@shared/templating';
 import { ipcErrorMessage } from '../bridge/ipc-error';
 import { HttpGateway } from '../ports';
@@ -19,8 +19,7 @@ export const responseKey = (collectionId: EntityId, path: string): string => `${
 const failure = (error: string, code?: string, timeline: HttpTimelineEntry[] = []): HttpResult => ({ ok: false, error, ...(code && { code }), timeMs: 0, timeline });
 
 /** Mensagens dos scripts entram no console antes (pre-request) e depois (post-response) das da execução. */
-const withLogs = (result: HttpResult, before: HttpTimelineEntry[], after: HttpTimelineEntry[] = []): HttpResult =>
-    before.length || after.length ? { ...result, timeline: [...before, ...result.timeline, ...after] } : result;
+const withLogs = (result: HttpResult, before: HttpTimelineEntry[], after: HttpTimelineEntry[] = []): HttpResult => (before.length || after.length ? { ...result, timeline: [...before, ...result.timeline, ...after] } : result);
 
 /**
  * Execuções das requisições abertas, por arquivo da coleção. Fica fora do
@@ -98,7 +97,7 @@ export class ResponsesState implements ResponseAccess {
             return;
         }
 
-        let request = buildHttpRequest(resolved, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } });
+        let request: HttpRequest = { ...buildHttpRequest(resolved, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } }), redact: this.secretValues(collectionId) };
 
         if (!request.url) {
             this.set(key, { status: 'done', result: failure('Enter a URL to send this request.', 'MISSING_URL', preLogs), receivedAt: Date.now() });
@@ -160,6 +159,57 @@ export class ResponsesState implements ResponseAccess {
         if (JSON.stringify(cookies) !== JSON.stringify(current)) {
             await this.collections.updateManifest(collectionId, { cookies }).catch(() => undefined);
         }
+    }
+
+    /**
+     * Requisição montada para gerar código. `resolve` interpola as variáveis; valores
+     * secretos voltam a aparecer como `{{$.nome}}`. Não executa scripts nem envia
+     * requisições referenciadas (usa só a última resposta delas).
+     */
+    async preview(collectionId: EntityId, path: string, definition: RequestDefinition, resolve: boolean): Promise<{ request: HttpRequest; problems: string[] }> {
+        if (!resolve) {
+            const collectionHeaders = this.collections.find(collectionId)?.manifest.headers ?? [];
+            const request = buildHttpRequest({ ...definition, headers: [...collectionHeaders, ...definition.headers] }, { id: 'preview' });
+
+            // Sem interpolar, `{{$.baseUrl}}/x` não ganha o `http://` padrão.
+            return { request: /^\s*\{\{/.test(definition.url) ? { ...request, url: request.url.replace(/^http:\/\//, '') } : request, problems: [] };
+        }
+
+        const access: ResponseAccess = {
+            lastResponse: (id, referenced) => this.lastResponse(id, referenced),
+            sendReferenced: (id, referenced) => {
+                const snapshot = this.lastResponse(id, referenced);
+
+                return snapshot ? Promise.resolve(snapshot) : Promise.reject(new TemplateError(`${referenced} has no response yet: send it first`));
+            }
+        };
+        const { definition: resolved, unresolved, errors } = await this.templates.prepare(collectionId, path, definition, access, [path]);
+        const secrets = this.templates
+            .scopes(collectionId)
+            .entries()
+            .filter((entry) => entry.secret && !entry.shadowed && entry.value.length >= 3)
+            .sort((a, b) => b.value.length - a.value.length);
+        const mask = (text: string): string => secrets.reduce((result, entry) => result.split(entry.value).join(`{{$.${entry.name}}}`), text);
+        const request = buildHttpRequest(resolved, { id: 'preview' });
+
+        return {
+            request: {
+                ...request,
+                url: mask(request.url),
+                headers: Object.fromEntries(Object.entries(request.headers ?? {}).map(([name, value]) => [name, mask(value)])),
+                ...(request.body !== undefined && { body: mask(request.body) })
+            },
+            problems: [...unresolved.map((name) => `{{$.${name}}} is not defined`), ...errors]
+        };
+    }
+
+    /** Valores das variáveis secretas visíveis para a coleção (mascarados no histórico). */
+    private secretValues(collectionId: EntityId): string[] {
+        return this.templates
+            .scopes(collectionId)
+            .entries()
+            .filter((entry) => entry.secret && entry.value)
+            .map((entry) => entry.value);
     }
 
     cancel(key: string): void {

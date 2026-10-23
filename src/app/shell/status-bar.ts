@@ -9,6 +9,10 @@ import { MenuItem, TooltipOptions } from 'primeng/api';
 import { SettingsDialog } from '../features/settings/settings-dialog.service';
 import { UpdateDialog } from '../features/updates/update-dialog';
 import { UpdatesState } from '../core/state/updates.state';
+import { MockState } from '../core/state/mock.state';
+import { TabsState } from '../core/state/tabs.state';
+import { UiState } from '../core/state/ui.state';
+import type { EntityId } from '@shared/models';
 
 const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[] = [
     { mode: 'dark', label: 'Dark', icon: 'pi pi-moon' },
@@ -39,6 +43,17 @@ const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[]
                 </a>
             </ng-template>
         </p-tiered-menu>
+        @for (server of mocks.servers(); track server.collectionId) {
+            <button
+                type="button"
+                class="ml-1 flex h-6 items-center gap-1.5 rounded px-2 text-xs hover:bg-surface-200 dark:hover:bg-surface-800"
+                [attr.aria-label]="'Mock server running at ' + server.url + '. Open mock server panel'"
+                (click)="openMock(server.collectionId)"
+            >
+                <i class="pi pi-circle-fill !text-[0.5rem] text-green-700 dark:text-green-400" aria-hidden="true"></i>
+                Mock :{{ server.port }}
+            </button>
+        }
         <span class="ml-auto" aria-live="polite">
             @if (updates.pending()) {
                 <button type="button" class="flex h-6 items-center gap-1.5 rounded px-2 text-xs font-medium text-primary hover:bg-surface-200 dark:hover:bg-surface-800" [attr.aria-label]="updateLabel()" (click)="updates.open()">
@@ -63,6 +78,9 @@ export class StatusBar {
     protected readonly theme = inject(ThemeService);
     protected readonly version = signal('');
     protected readonly updates = inject(UpdatesState);
+    protected readonly mocks = inject(MockState);
+    private readonly tabs = inject(TabsState);
+    private readonly ui = inject(UiState);
     protected readonly updateText = computed(() => {
         const state = this.updates.state();
 
@@ -112,6 +130,11 @@ export class StatusBar {
             command: () => void this.theme.setMode(mode)
         }))
     );
+
+    protected openMock(collectionId: EntityId): void {
+        this.ui.collectionSection.set({ collectionId, section: 'mock' });
+        this.tabs.open({ kind: 'collection', title: 'Overview', collectionId });
+    }
 
     constructor() {
         inject(AppInfoGateway)

@@ -9,3 +9,4 @@ export type * from './repositories';
 export type * from './repository';
 export type * from './settings-store';
 export type * from './system';
+export type * from './secret-cipher';

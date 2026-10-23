@@ -37,7 +37,7 @@ export class UiState {
     /** Pedido para focar a árvore de coleções (`filter` = abrir e focar o filtro); consumido pela barra lateral. */
     readonly sidebarFocusRequest = signal<{ filter: boolean } | null>(null);
     /** Pedido para abrir a página da coleção numa aba específica (ex.: botão de sync → OpenAPI). */
-    readonly collectionSection = signal<{ collectionId: EntityId; section: 'overview' | 'headers' | 'openapi' } | null>(null);
+    readonly collectionSection = signal<{ collectionId: EntityId; section: 'overview' | 'headers' | 'openapi' | 'mock' } | null>(null);
 
     constructor() {
         effect(() => {

@@ -15,7 +15,11 @@ interface EnvironmentsBackup {
 }
 
 export function serializeEnvironments(environments: Environment[]): Uint8Array {
-    const backup: EnvironmentsBackup = { version: 1, environments: environments.map(({ name, variables }) => ({ name, variables })) };
+    // Cofre: segredos não saem da máquina; a variável vai vazia para ser preenchida no destino.
+    const backup: EnvironmentsBackup = {
+        version: 1,
+        environments: environments.map(({ name, variables }) => ({ name, variables: variables.map((variable) => (variable.secret ? { ...variable, value: '' } : variable)) }))
+    };
 
     return new TextEncoder().encode(`${JSON.stringify(backup, null, 2)}\n`);
 }

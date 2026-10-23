@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, resource, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, type FormControl, type FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import type { EntityId, Environment, EnvironmentVariable } from '@shared/models';
@@ -11,6 +11,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { map } from 'rxjs';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { CollectionsState } from '../../core/state/collections.state';
+import { AppInfoGateway } from '../../core/ports';
 import { ConfirmState } from '../../core/state/confirm.state';
 import { EnvironmentsState } from '../../core/state/environments.state';
 
@@ -116,6 +117,10 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
                         Use variables in URLs, headers and bodies as <code>{{ example }}</code
                         >. Disabled variables are kept but not used. Secret values are hidden on screen.
                     </p>
+                    <p class="m-0 flex items-start gap-2 text-xs text-muted-color" role="note">
+                        <i class="pi pi-lock mt-0.5 text-xs" aria-hidden="true"></i>
+                        <span>{{ vaultNote() }}</span>
+                    </p>
 
                     @if (error(); as message) {
                         <p-message severity="error"
@@ -154,6 +159,23 @@ export class EnvironmentsPage {
     private readonly collections = inject(CollectionsState);
     private readonly confirm = inject(ConfirmState);
     private readonly messages = inject(MessageService);
+    private readonly appInfoGateway = inject(AppInfoGateway);
+    private readonly appInfo = resource({ loader: () => this.appInfoGateway.info() });
+    /** Onde os segredos ficam guardados (cofre local). */
+    protected readonly vaultNote = computed(() => {
+        const exportNote = 'They are masked in the history and left out of exported backups.';
+
+        switch (this.appInfo.value()?.secretStorage) {
+            case 'os':
+                return `Secret values are encrypted on this machine with the system keychain. ${exportNote}`;
+            case 'basic':
+                return `No system keychain was found (install gnome-keyring or KWallet): secret values are only obfuscated on disk. ${exportNote}`;
+            case 'unavailable':
+                return `Encryption is unavailable on this system: secret values are stored as plain text in the local database. ${exportNote}`;
+            default:
+                return exportNote;
+        }
+    });
     private readonly fb = inject(FormBuilder).nonNullable;
     protected readonly form = this.fb.group({
         name: this.fb.control('', [Validators.required, Validators.maxLength(200)]),

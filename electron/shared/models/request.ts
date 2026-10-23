@@ -97,6 +97,19 @@ export interface RequestScripts {
     postResponse?: string;
 }
 
+/**
+ * Resposta de exemplo da requisição, servida pelo mock server local. O corpo aceita
+ * `{{$params.x}}`, `{{$query.x}}`, `{{$header.x}}`, `{{$body.campo}}`, `{{$uuid}}`, `{{$now}}`, `{{$timestamp}}` e `{{$randomInt}}`.
+ */
+export interface ResponseExample {
+    name: string;
+    status: number;
+    headers: KeyValue[];
+    body: string;
+    /** Atraso antes de responder (simula latência). */
+    delayMs: number;
+}
+
 /** Conteúdo de um arquivo de requisição da coleção (antes da interpolação de variáveis). */
 export interface RequestDefinition {
     /** Identificador estável (`rq_…`), usado por `otto.request(id)`; gerado na primeira gravação. */
@@ -116,7 +129,11 @@ export interface RequestDefinition {
     scripts?: RequestScripts;
     /** Operação do spec OpenAPI que gerou a requisição (`MÉTODO /caminho`), usada na sincronização. */
     operation?: string;
+    /** Respostas de exemplo (mock server); a primeira é a padrão. */
+    examples?: ResponseExample[];
 }
+
+export const emptyExample = (name: string): ResponseExample => ({ name, status: 200, headers: [{ key: 'Content-Type', value: 'application/json', enabled: true }], body: '', delayMs: 0 });
 
 /** `rq_` + 10 caracteres base36. */
 export const newRequestId = (): string => `rq_${Array.from(crypto.getRandomValues(new Uint8Array(10)), (byte) => (byte % 36).toString(36)).join('')}`;

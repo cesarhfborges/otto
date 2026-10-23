@@ -3,7 +3,7 @@
  * abstratas, usadas como tokens de DI. As implementações concretas (adapters)
  * são registradas em `provideOttoCore()`.
  */
-import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, KeybindingsApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi, UpdatesApi } from '@shared/api';
+import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, KeybindingsApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi, UpdatesApi, MockApi } from '@shared/api';
 import type {
     AppInfo,
     CollectionExportFormat,
@@ -15,6 +15,8 @@ import type {
     EntityId,
     Environment,
     HistoryEntry,
+    HistoryEntryWithDetail,
+    MockServerStatus,
     HistoryQuery,
     HttpRequest,
     HttpResult,
@@ -95,6 +97,7 @@ export abstract class MenuEventsGateway implements EventsApi {
 
 export abstract class HistoryGateway implements HistoryApi {
     abstract list(query?: HistoryQuery): Promise<HistoryEntry[]>;
+    abstract get(id: EntityId): Promise<HistoryEntryWithDetail | null>;
     abstract delete(id: EntityId): Promise<boolean>;
     abstract clear(): Promise<number>;
     abstract onChanged(listener: () => void): () => void;
@@ -177,4 +180,11 @@ export abstract class UpdatesGateway implements UpdatesApi {
     abstract openRelease(): Promise<void>;
     abstract onStateChanged(listener: (state: UpdateState) => void): () => void;
     abstract onOpenRequested(listener: () => void): () => void;
+}
+
+export abstract class MockGateway implements MockApi {
+    abstract list(): Promise<MockServerStatus[]>;
+    abstract start(collectionId: EntityId, port: number): Promise<MockServerStatus>;
+    abstract stop(collectionId: EntityId): Promise<void>;
+    abstract onChanged(listener: (servers: MockServerStatus[]) => void): () => void;
 }

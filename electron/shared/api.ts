@@ -13,6 +13,7 @@ import type {
     EntityId,
     Environment,
     HistoryEntry,
+    HistoryEntryWithDetail,
     HistoryQuery,
     HttpRequest,
     HttpResult,
@@ -33,7 +34,8 @@ import type {
     CollectionManifestPatch,
     OpenApiConfig,
     OpenApiStatus,
-    UpdateState
+    UpdateState,
+    MockServerStatus
 } from './models';
 
 export interface AppApi {
@@ -108,6 +110,8 @@ export interface DialogApi {
 
 export interface HistoryApi {
     list(query?: HistoryQuery): Promise<HistoryEntry[]>;
+    /** Registro com a requisição e a resposta gravadas. */
+    get(id: EntityId): Promise<HistoryEntryWithDetail | null>;
     delete(id: EntityId): Promise<boolean>;
     /** Retorna quantos registros foram removidos. */
     clear(): Promise<number>;
@@ -207,6 +211,15 @@ export interface CollectionFilesApi {
     reveal(collectionId: EntityId, path: string): Promise<void>;
 }
 
+/** Mock servers locais das coleções (respostas de exemplo das requisições). */
+export interface MockApi {
+    list(): Promise<MockServerStatus[]>;
+    /** Inicia (ou reinicia, se a porta mudou) o mock da coleção em `http://127.0.0.1:<port>`. */
+    start(collectionId: EntityId, port: number): Promise<MockServerStatus>;
+    stop(collectionId: EntityId): Promise<void>;
+    onChanged(listener: (servers: MockServerStatus[]) => void): () => void;
+}
+
 export interface EventsApi {
     /** Registra um listener para ações do menu/tray. Retorna a função para remover o listener. */
     onMenuAction(listener: (action: MenuAction) => void): () => void;
@@ -246,4 +259,5 @@ export interface OttoApi extends EventsApi {
     readonly collectionFiles: CollectionFilesApi;
     readonly openapi: OpenApiApi;
     readonly updates: UpdatesApi;
+    readonly mock: MockApi;
 }

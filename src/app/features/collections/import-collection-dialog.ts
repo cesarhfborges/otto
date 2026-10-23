@@ -37,7 +37,7 @@ type SpecSource = 'url' | 'file';
                         <p class="m-0 text-muted-color">The most complete option, everything ready to use:</p>
                         <ul class="m-0 flex list-disc flex-col gap-1 pl-5">
                             <li>Requests, folders, collection headers and docs</li>
-                            <li>Environments and variables, <strong>secrets included</strong></li>
+                            <li>Environments and variables (secret values stay in the source machine's vault and come empty)</li>
                             <li>The linked OpenAPI spec</li>
                         </ul>
                         <p class="m-0 mt-auto text-muted-color">Create the file with <em>Export Collection → Otto Backup (ZIP)</em>.</p>

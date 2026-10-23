@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
-import type { EntityId, HistoryEntry, HistoryQuery, HttpMethod, NewHistoryEntry } from '../../../shared/models';
+import type { EntityId, HistoryDetail, HistoryEntry, HistoryEntryWithDetail, HistoryQuery, HttpMethod, NewHistoryEntry } from '../../../shared/models';
 import type { IClock, IHistoryRepository, IIdGenerator } from '../../core/contracts';
-import { toSqlNullable } from '../database/sqlite';
+import { fromSqlJson, toSqlNullable } from '../database/sqlite';
 
 export const HISTORY_DEFAULT_LIMIT = 100;
 export const HISTORY_MAX_LIMIT = 1000;
@@ -17,6 +17,7 @@ interface HistoryRow {
     time_ms: number;
     size_bytes: number;
     executed_at: string;
+    detail: string | null;
 }
 
 const toEntry = (row: HistoryRow): HistoryEntry => ({
@@ -39,15 +40,27 @@ export class SqliteHistoryRepository implements IHistoryRepository {
         private readonly ids: IIdGenerator
     ) {}
 
-    add(entry: NewHistoryEntry): HistoryEntry {
+    add({ detail, ...entry }: NewHistoryEntry): HistoryEntry {
         const created: HistoryEntry = { ...entry, id: this.ids.next(), executedAt: this.clock.now() };
 
         this.db
             .prepare(
-                `INSERT INTO history (id, collection_id, request_path, method, url, status, error, time_ms, size_bytes, executed_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                `INSERT INTO history (id, collection_id, request_path, method, url, status, error, time_ms, size_bytes, executed_at, detail)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             )
-            .run(created.id, toSqlNullable(created.collectionId), toSqlNullable(created.requestPath), created.method, created.url, toSqlNullable(created.status), toSqlNullable(created.error), created.timeMs, created.sizeBytes, created.executedAt);
+            .run(
+                created.id,
+                toSqlNullable(created.collectionId),
+                toSqlNullable(created.requestPath),
+                created.method,
+                created.url,
+                toSqlNullable(created.status),
+                toSqlNullable(created.error),
+                created.timeMs,
+                created.sizeBytes,
+                created.executedAt,
+                detail ? JSON.stringify(detail) : null
+            );
 
         return created;
     }
@@ -55,11 +68,33 @@ export class SqliteHistoryRepository implements IHistoryRepository {
     list(query: HistoryQuery = {}): HistoryEntry[] {
         const limit = Math.min(Math.max(1, query.limit ?? HISTORY_DEFAULT_LIMIT), HISTORY_MAX_LIMIT);
         const offset = Math.max(0, query.offset ?? 0);
-        const where = query.collectionId ? 'WHERE collection_id = ?' : '';
-        const params = query.collectionId ? [query.collectionId, limit, offset] : [limit, offset];
-        const rows = this.db.prepare(`SELECT * FROM history ${where} ORDER BY executed_at DESC, rowid DESC LIMIT ? OFFSET ?`).all(...params) as unknown as HistoryRow[];
+        const conditions: string[] = [];
+        const params: Array<string | number> = [];
+
+        if (query.collectionId) {
+            conditions.push('collection_id = ?');
+            params.push(query.collectionId);
+
+            if (query.requestPath !== undefined) {
+                conditions.push('request_path = ?');
+                params.push(query.requestPath);
+            }
+        }
+
+        params.push(limit, offset);
+        const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+        // O detalhe (corpos) só é lido em `get`.
+        const rows = this.db
+            .prepare(`SELECT id, collection_id, request_path, method, url, status, error, time_ms, size_bytes, executed_at, NULL AS detail FROM history ${where} ORDER BY executed_at DESC, rowid DESC LIMIT ? OFFSET ?`)
+            .all(...params) as unknown as HistoryRow[];
 
         return rows.map(toEntry);
+    }
+
+    get(id: EntityId): HistoryEntryWithDetail | null {
+        const row = this.db.prepare('SELECT * FROM history WHERE id = ?').get(id) as HistoryRow | undefined;
+
+        return row ? { ...toEntry(row), detail: row.detail ? fromSqlJson<HistoryDetail | null>(row.detail, null) : null } : null;
     }
 
     delete(id: EntityId): boolean {

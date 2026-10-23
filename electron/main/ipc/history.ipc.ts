@@ -7,6 +7,8 @@ export class HistoryIpcModule implements IIpcModule {
     register(ipc: IIpcRegistrar): void {
         ipc.handle('history:list', (_event, query) => this.history.list(parseHistoryQuery(query)));
 
+        ipc.handle('history:get', (_event, id) => this.history.get(parseEntityId(id)));
+
         ipc.handle('history:delete', (_event, id) => this.history.delete(parseEntityId(id)));
 
         ipc.handle('history:clear', () => this.history.clear());

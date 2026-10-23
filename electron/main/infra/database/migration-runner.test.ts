@@ -15,11 +15,11 @@ describe('MigrationRunner', () => {
 
         assert.deepEqual(
             runner.migrate().map((m) => m.version),
-            [1, 2, 3]
+            [1, 2, 3, 4]
         );
         assert.deepEqual(tables(db), ['collections_metadata', 'environments', 'history', 'schema_migrations', 'settings', 'tabs', 'workspace_collections', 'workspaces']);
         assert.deepEqual(runner.migrate(), []);
-        assert.equal(runner.applied().length, 3);
+        assert.equal(runner.applied().length, 4);
     });
 
     it('003 leva coleções abertas, abas e ambientes globais para o workspace padrão', () => {

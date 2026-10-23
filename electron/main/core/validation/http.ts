@@ -51,7 +51,7 @@ function parseSource(raw: unknown): HttpRequestSource | undefined {
 }
 
 export function parseHttpRequest(raw: unknown): HttpRequest {
-    const { id, method, url, body, bodyFile, multipart, auth, timeoutMs, source, headers: rawHeaders } = requireRecord(raw, 'request');
+    const { id, method, url, body, bodyFile, multipart, auth, timeoutMs, source, redact, headers: rawHeaders } = requireRecord(raw, 'request');
     const headers: Record<string, string> = {};
     const parsedSource = parseSource(source);
 
@@ -73,7 +73,8 @@ export function parseHttpRequest(raw: unknown): HttpRequest {
         ...(multipart !== undefined && multipart !== null && { multipart: parseMultipart(multipart) }),
         ...(auth !== undefined && auth !== null && { auth: parseSendTimeAuth(auth) }),
         timeoutMs: typeof timeoutMs === 'number' && timeoutMs > 0 ? timeoutMs : undefined,
-        ...(parsedSource && { source: parsedSource })
+        ...(parsedSource && { source: parsedSource }),
+        ...(Array.isArray(redact) && { redact: redact.filter((value): value is string => typeof value === 'string' && value.length <= 100_000).slice(0, 500) })
     };
 }
 

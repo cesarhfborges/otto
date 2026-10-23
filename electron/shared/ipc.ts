@@ -16,6 +16,7 @@ import type {
     EntityId,
     Environment,
     HistoryEntry,
+    HistoryEntryWithDetail,
     HistoryQuery,
     HttpRequest,
     HttpResult,
@@ -36,7 +37,8 @@ import type {
     CollectionManifestPatch,
     OpenApiConfig,
     OpenApiStatus,
-    UpdateState
+    UpdateState,
+    MockServerStatus
 } from './models';
 
 export interface IpcInvokeContract {
@@ -67,6 +69,7 @@ export interface IpcInvokeContract {
     'dialog:save-workspace-archive': { args: [defaultName: string]; result: string | null };
     'dialog:choose-base-directory': { args: [current?: string]; result: string | null };
     'history:list': { args: [query?: HistoryQuery]; result: HistoryEntry[] };
+    'history:get': { args: [id: EntityId]; result: HistoryEntryWithDetail | null };
     'history:delete': { args: [id: EntityId]; result: boolean };
     'history:clear': { args: []; result: number };
     'tabs:list': { args: [workspaceId: EntityId]; result: TabState[] };
@@ -115,6 +118,9 @@ export interface IpcInvokeContract {
     'collection-files:reorder': { args: [collectionId: EntityId, entries: string[]]; result: void };
     'collection-files:remove': { args: [collectionId: EntityId, path: string]; result: void };
     'collection-files:reveal': { args: [collectionId: EntityId, path: string]; result: void };
+    'mock:list': { args: []; result: MockServerStatus[] };
+    'mock:start': { args: [collectionId: EntityId, port: number]; result: MockServerStatus };
+    'mock:stop': { args: [collectionId: EntityId]; result: void };
     'updates:state': { args: []; result: UpdateState };
     'updates:check': { args: []; result: UpdateState };
     'updates:download': { args: []; result: void };
@@ -149,6 +155,8 @@ export interface IpcEventContract {
     /** Lista de workspaces, ativo ou coleções de um workspace mudaram. */
     'workspaces:changed': null;
     'updates:state-changed': UpdateState;
+    /** Um mock server iniciou, parou ou recebeu uma chamada. */
+    'mock:changed': MockServerStatus[];
     /** "Check for Updates…" no menu ou na bandeja: o renderer abre a janela de atualização. */
     'updates:open-dialog': null;
 }

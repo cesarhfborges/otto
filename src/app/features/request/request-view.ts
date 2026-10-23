@@ -1,13 +1,18 @@
 import { Component, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { commandMeta, type CommandId, type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition } from '@shared/models';
+import { commandMeta, type CommandId, type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type KeyValue, type RequestDefinition, type ResponseExample } from '@shared/models';
+import { looksLikeCurl, parseCurl } from '@shared/http/curl-import';
+import { MessageService } from 'primeng/api';
+import { isMockRelevantHeader } from '@shared/http/mock-headers';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { SelectModule } from 'primeng/select';
 import { SplitterModule } from 'primeng/splitter';
 import { TabsModule } from 'primeng/tabs';
+import { ToastModule } from 'primeng/toast';
+import { TooltipModule } from 'primeng/tooltip';
 import type { SplitterPassThrough, SplitterResizeEndEvent } from 'primeng/types/splitter';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { registerCommand } from '../../core/keyboard/command-registry';
@@ -24,10 +29,16 @@ import { KeyValueEditor } from './key-value-editor';
 import { ResponsePanel } from './response-panel';
 import { EditorModule } from 'primeng/editor';
 import { ScriptEditor } from '../../shared/script-editor/script-editor';
+import { CodeDialog } from './code-dialog';
+import { ExamplesEditor } from './examples-editor';
+import { RequestHistory } from './request-history';
 
 const REQUEST_SPLITTER_KEY = 'otto.splitter.request';
 
-type Section = 'params' | 'body' | 'headers' | 'auth' | 'docs' | 'preRequest' | 'postResponse';
+type Section = 'params' | 'body' | 'headers' | 'auth' | 'docs' | 'preRequest' | 'postResponse' | 'examples' | 'history';
+
+/** Toast do "Save as example", com a ação de manter todos os headers da resposta. */
+const EXAMPLE_TOAST = 'example-headers';
 
 /** Primeiro tamanho (%) salvo pelo `stateKey` do splitter; `localStorage` pode estar indisponível. */
 function savedSplitterSize(key: string, fallback: number): number {
@@ -69,8 +80,44 @@ import { OttoInput } from '../../shared/template-editor';
 @Component({
     selector: 'app-request-view',
     providers: [TemplateScope],
-    imports: [ReactiveFormsModule, FormsModule, TabsModule, ButtonModule, InputTextModule, MessageModule, SelectModule, SplitterModule, MethodBadge, OttoInput, KeyValueEditor, BodyEditor, AuthEditor, ResponsePanel, EditorModule, ScriptEditor],
+    imports: [
+        ToastModule,
+        ReactiveFormsModule,
+        FormsModule,
+        TabsModule,
+        ButtonModule,
+        InputTextModule,
+        MessageModule,
+        SelectModule,
+        SplitterModule,
+        MethodBadge,
+        OttoInput,
+        KeyValueEditor,
+        BodyEditor,
+        AuthEditor,
+        ResponsePanel,
+        EditorModule,
+        ScriptEditor,
+        CodeDialog,
+        ExamplesEditor,
+        RequestHistory,
+        TooltipModule
+    ],
     template: `
+        <p-toast [key]="exampleToast" position="top-right">
+            <ng-template let-message #message>
+                <div class="flex flex-1 items-start gap-3">
+                    <i class="pi pi-check-circle mt-0.5" aria-hidden="true"></i>
+                    <div class="flex flex-1 flex-col gap-1">
+                        <span class="font-semibold">{{ message.summary }}</span>
+                        <span class="text-sm">{{ message.detail }}</span>
+                        @if (message.data; as data) {
+                            <p-button label="Keep all headers" icon="pi pi-list" size="small" severity="secondary" [outlined]="true" styleClass="mt-1 self-start" (onClick)="keepAllHeaders(data)" />
+                        }
+                    </div>
+                </div>
+            </ng-template>
+        </p-toast>
         @if (error(); as message) {
             <p-message severity="error" styleClass="m-4"
                 ><span role="alert">Could not read this request: {{ message }}</span></p-message
@@ -92,10 +139,11 @@ import { OttoInput } from '../../shared/template-editor';
                         [value]="req.url"
                         [placeholder]="'https://api.example.com/users or ' + urlExample"
                         ariaLabel="Request URL"
-                        (valueChange)="update({ url: $event })"
+                        (valueChange)="changeUrl($event)"
                         (enter)="send()"
                     />
                 </div>
+                <p-button icon="pi pi-code" size="small" severity="secondary" [text]="true" ariaLabel="Generate code" pTooltip="Generate code (cURL, fetch, Python…)" tooltipPosition="bottom" (onClick)="codeOpen.set(true)" />
                 <p-button label="Save" icon="pi pi-save" size="small" severity="secondary" [outlined]="true" [disabled]="!dirty()" [loading]="saving()" [ariaLabel]="withShortcut('Save request', 'request.save')" (onClick)="save()" />
                 @if (sending()) {
                     <p-button label="Cancel" icon="pi pi-times" size="small" severity="secondary" [ariaLabel]="withShortcut('Cancel request', 'request.cancel')" (onClick)="cancel()" />
@@ -169,6 +217,13 @@ import { OttoInput } from '../../shared/template-editor';
                                             <span class="text-xs text-muted-color">•</span>
                                         }
                                     </p-tab>
+                                    <p-tab value="examples"
+                                        >Examples
+                                        @if (req.examples?.length) {
+                                            <span class="text-xs text-muted-color">({{ req.examples!.length }})</span>
+                                        }
+                                    </p-tab>
+                                    <p-tab value="history">History</p-tab>
                                 </p-tablist>
                                 <p-tabpanels class="flex min-h-0 flex-1 flex-col">
                                     <p-tabpanel value="params">
@@ -201,7 +256,8 @@ import { OttoInput } from '../../shared/template-editor';
                                     <p-tabpanel value="preRequest" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
                                         <div class="mb-2 flex items-start gap-2">
                                             <p id="pre-request-help" class="m-0 text-xs text-muted-color">
-                                                JavaScript run before sending: change the request with <code>otto.request.setHeader(…)</code> and others, and variables with <code>otto.environment.set(…)</code>; every <code>{{ '{{' }} otto.… {{ '}}' }}</code> command works here too. Errors stop the request. Press Esc then Tab to leave the editor.
+                                                JavaScript run before sending: change the request with <code>otto.request.setHeader(…)</code> and others, and variables with <code>otto.environment.set(…)</code>; every
+                                                <code>{{ '{{' }} otto.… {{ '}}' }}</code> command works here too. Errors stop the request. Press Esc then Tab to leave the editor.
                                             </p>
                                             <p-button class="ms-auto shrink-0" label="Format" icon="pi pi-align-left" size="small" severity="secondary" [text]="true" (onClick)="preScript.format()" />
                                         </div>
@@ -219,7 +275,8 @@ import { OttoInput } from '../../shared/template-editor';
                                     <p-tabpanel value="postResponse" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
                                         <div class="mb-2 flex items-start gap-2">
                                             <p id="post-response-help" class="m-0 text-xs text-muted-color">
-                                                JavaScript run after the response: read it with <code>otto.response.json('$.path')</code>, <code>.header(…)</code>, <code>.status</code>… and save values with <code>otto.environment.set(…)</code>. Output goes to the Console tab. Press Esc then Tab to leave the editor.
+                                                JavaScript run after the response: read it with <code>otto.response.json('$.path')</code>, <code>.header(…)</code>, <code>.status</code>… and save values with <code>otto.environment.set(…)</code>.
+                                                Output goes to the Console tab. Press Esc then Tab to leave the editor.
                                             </p>
                                             <p-button class="ms-auto shrink-0" label="Format" icon="pi pi-align-left" size="small" severity="secondary" [text]="true" (onClick)="postScript.format()" />
                                         </div>
@@ -234,6 +291,14 @@ import { OttoInput } from '../../shared/template-editor';
                                             (valueChange)="updateScripts({ postResponse: $event })"
                                         />
                                     </p-tabpanel>
+                                    <p-tabpanel value="examples" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
+                                        <app-examples-editor [examples]="req.examples ?? []" (examplesChange)="updateExamples($event)" [route]="req.method + ' ' + mockRoute()" [path]="mockRoute()" [collectionId]="collectionId()" />
+                                    </p-tabpanel>
+                                    <p-tabpanel value="history">
+                                        @if (section() === 'history') {
+                                            <app-request-history [collectionId]="collectionId()" [path]="path()" (saveExample)="addExample($event)" />
+                                        }
+                                    </p-tabpanel>
                                 </p-tabpanels>
                             </p-tabs>
                         </div>
@@ -242,7 +307,7 @@ import { OttoInput } from '../../shared/template-editor';
                     <ng-template #panel>
                         <section aria-label="Response" class="h-full w-full overflow-auto">
                             @if (response(); as entry) {
-                                <app-response-panel [entry]="entry" />
+                                <app-response-panel [entry]="entry" (saveExample)="addExample($event)" />
                             } @else {
                                 <div class="flex h-full w-full flex-col items-center justify-center gap-6 p-6 text-center">
                                     <i class="pi pi-send !text-6xl text-surface-300 dark:text-surface-600" aria-hidden="true"></i>
@@ -260,6 +325,7 @@ import { OttoInput } from '../../shared/template-editor';
                     </ng-template>
                 </p-splitter>
             }
+            <app-code-dialog [(visible)]="codeOpen" [collectionId]="collectionId()" [path]="path()" [request]="req" />
         } @else {
             <p class="m-0 p-4 text-sm text-muted-color" role="status">Loading…</p>
         }
@@ -289,6 +355,8 @@ export class RequestView {
         }
     }));
     protected readonly error = signal<string | null>(null);
+    protected readonly codeOpen = signal(false);
+    private readonly messages = inject(MessageService);
     protected readonly saveError = signal<string | null>(null);
     protected readonly saving = signal(false);
     protected readonly methods = [...HTTP_METHODS];
@@ -296,9 +364,7 @@ export class RequestView {
     protected readonly urlExample = '{{$.baseUrl}}/users';
     private readonly keyboard = inject(KeybindingService);
     /** Reflete os atalhos configurados em Preferences; comandos sem atalho não aparecem. */
-    protected readonly shortcuts = computed(() =>
-        HINT_COMMANDS.map((id) => ({ label: commandMeta(id).label, keys: this.keyboard.text(id) })).filter((shortcut) => shortcut.keys)
-    );
+    protected readonly shortcuts = computed(() => HINT_COMMANDS.map((id) => ({ label: commandMeta(id).label, keys: this.keyboard.text(id) })).filter((shortcut) => shortcut.keys));
     private readonly urlInput = viewChild<OttoInput>('urlInput');
     /** GET, HEAD, TRACE e CONNECT não levam corpo: a aba Body some. */
     protected readonly bodyAllowed = computed(() => hasBody(this.request()?.method ?? 'GET'));
@@ -374,6 +440,82 @@ export class RequestView {
 
     protected update(changes: Partial<RequestDefinition>): void {
         this.drafts.update(this.key(), (draft) => ({ ...draft, ...changes }));
+    }
+
+    /** Colar um comando cURL na URL preenche método, URL, params, headers, auth e corpo. */
+    protected changeUrl(url: string): void {
+        if (!looksLikeCurl(url)) {
+            this.update({ url });
+
+            return;
+        }
+
+        try {
+            this.update(parseCurl(url));
+            this.messages.add({ severity: 'success', summary: 'Imported from cURL', detail: 'Method, URL, params, headers, auth and body were filled in.', life: 4000 });
+        } catch (error) {
+            this.update({ url });
+            this.messages.add({ severity: 'warn', summary: 'Could not import the cURL command', detail: error instanceof Error ? error.message : String(error), life: 6000 });
+        }
+    }
+
+    /** Caminho atendido pelo mock server (mesma regra do main, para a ajuda da aba Examples). */
+    protected readonly mockRoute = computed(() => {
+        const url = this.request()?.url ?? '';
+        const path =
+            url
+                .replace(/^\s*\{\{[^}]*\}\}/, '')
+                .replace(/^[a-z][a-z\d+.-]*:\/\/[^/]*/i, '')
+                .split(/[?#]/)[0] ?? '';
+
+        return (path.startsWith('/') ? path : `/${path}`).replace(/\{\{[^}]*?([A-Za-z_][\w-]*)\s*\}\}/g, ':$1');
+    });
+
+    protected updateExamples(examples: ResponseExample[]): void {
+        this.update({ examples: examples.length ? examples : undefined });
+    }
+
+    /** Resposta recebida (ou do histórico) vira um exemplo do mock server. */
+    protected addExample(source: { status: number; headers: ReadonlyArray<[string, string]>; body: string; name: string }): void {
+        const examples = this.request()?.examples ?? [];
+        const all = source.headers.map(([key, value]) => ({ key, value, enabled: true }));
+        const headers = all.filter((header) => isMockRelevantHeader(header.key));
+        let body = source.body;
+
+        try {
+            body = JSON.stringify(JSON.parse(body), null, 2);
+        } catch {
+            // Não é JSON: guarda como veio.
+        }
+
+        const taken = new Set(examples.map((example) => example.name));
+        let name = source.name || `Example ${examples.length + 1}`;
+
+        for (let i = 2; taken.has(name); i++) {
+            name = `${source.name} (${i})`;
+        }
+
+        this.update({ examples: [...examples, { name, status: source.status, headers, body, delayMs: 0 }] });
+        this.section.set('examples');
+        this.messages.clear(EXAMPLE_TOAST);
+        this.messages.add({
+            key: EXAMPLE_TOAST,
+            severity: 'success',
+            summary: 'Example added',
+            detail: `Saved with ${headers.length} header(s)${all.length > headers.length ? ` (${all.length - headers.length} ignored)` : ''}. Save the request to serve it from the mock server.`,
+            life: 8000,
+            data: all.length > headers.length ? { name, headers: all } : null
+        });
+    }
+
+    /** Ação "Keep all" do toast: regrava o exemplo com todos os headers da resposta original. */
+    protected readonly exampleToast = EXAMPLE_TOAST;
+
+    protected keepAllHeaders(data: { name: string; headers: KeyValue[] }): void {
+        const examples = this.request()?.examples ?? [];
+
+        this.messages.clear(EXAMPLE_TOAST);
+        this.update({ examples: examples.map((example) => (example.name === data.name ? { ...example, headers: data.headers } : example)) });
     }
 
     protected updateScripts(changes: { preRequest?: string; postResponse?: string }): void {

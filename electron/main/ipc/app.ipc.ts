@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import type { AppInfo } from '../../shared/models';
 import { APP_NAME, defaultBaseDirectory } from '../config';
 import type { IIpcModule, IIpcRegistrar } from '../core/contracts';
 import { parseCollectionPath, parseEntryName } from '../core/validation';
@@ -9,7 +10,8 @@ export class AppIpcModule implements IIpcModule {
     constructor(
         private readonly dialogs: DialogService,
         private readonly hardwareAcceleration: boolean,
-        private readonly window: WindowManager
+        private readonly window: WindowManager,
+        private readonly secretStorage: AppInfo['secretStorage']
     ) {}
 
     register(ipc: IIpcRegistrar): void {
@@ -23,7 +25,8 @@ export class AppIpcModule implements IIpcModule {
                 node: process.versions.node
             },
             defaultBaseDirectory: defaultBaseDirectory(),
-            hardwareAcceleration: this.hardwareAcceleration
+            hardwareAcceleration: this.hardwareAcceleration,
+            secretStorage: this.secretStorage
         }));
 
         // `before-quit` marca a saída: a janela fecha de verdade em vez de ir para a bandeja.

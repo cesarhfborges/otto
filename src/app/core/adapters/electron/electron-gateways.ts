@@ -10,6 +10,8 @@ import type {
     EntityId,
     Environment,
     HistoryEntry,
+    HistoryEntryWithDetail,
+    MockServerStatus,
     HistoryQuery,
     HttpRequest,
     HttpResult,
@@ -49,7 +51,8 @@ import {
     WindowGateway,
     WorkspacesGateway,
     OpenApiGateway,
-    UpdatesGateway
+    UpdatesGateway,
+    MockGateway
 } from '../../ports';
 
 /*
@@ -227,6 +230,10 @@ export class ElectronHistoryGateway extends HistoryGateway {
 
     list(query?: HistoryQuery): Promise<HistoryEntry[]> {
         return requireOttoApi(this.api).history.list(query);
+    }
+
+    get(id: EntityId): Promise<HistoryEntryWithDetail | null> {
+        return requireOttoApi(this.api).history.get(id);
     }
 
     delete(id: EntityId): Promise<boolean> {
@@ -506,5 +513,26 @@ export class ElectronUpdatesGateway extends UpdatesGateway {
 
     onOpenRequested(listener: () => void): () => void {
         return this.api?.updates.onOpenRequested(listener) ?? (() => undefined);
+    }
+}
+
+@Injectable()
+export class ElectronMockGateway extends MockGateway {
+    private readonly api = inject(OTTO_API);
+
+    list(): Promise<MockServerStatus[]> {
+        return requireOttoApi(this.api).mock.list();
+    }
+
+    start(collectionId: EntityId, port: number): Promise<MockServerStatus> {
+        return requireOttoApi(this.api).mock.start(collectionId, port);
+    }
+
+    stop(collectionId: EntityId): Promise<void> {
+        return requireOttoApi(this.api).mock.stop(collectionId);
+    }
+
+    onChanged(listener: (servers: MockServerStatus[]) => void): () => void {
+        return this.api?.mock.onChanged(listener) ?? (() => undefined);
     }
 }

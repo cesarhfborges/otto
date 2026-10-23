@@ -117,6 +117,16 @@ export class YamlCollectionFormat implements ICollectionFormat {
             document['scripts'] = { ...(preRequest && { preRequest }), ...(postResponse && { postResponse }) };
         }
 
+        if (request.examples?.length) {
+            document['examples'] = request.examples.map(({ name, status, headers, body, delayMs }) => ({
+                name,
+                status,
+                ...(headers.length && { headers: compactKeyValues(headers) }),
+                ...(delayMs > 0 && { delayMs }),
+                ...(body && { body })
+            }));
+        }
+
         return toYaml(document);
     }
 }
