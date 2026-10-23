@@ -2,7 +2,6 @@ export * from './app';
 export * from './collection';
 export * from './common';
 export * from './environment';
-export * from './history';
 export * from './http';
 export * from './keybindings';
 export * from './request';

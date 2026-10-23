@@ -9,11 +9,7 @@ import type {
     RequestDefinition,
     EntityId,
     Environment,
-    HistoryEntry,
-    HistoryEntryWithDetail,
     MockServerStatus,
-    HistoryQuery,
-    HistoryScope,
     HttpRequest,
     HttpResult,
     CommandId,
@@ -42,7 +38,6 @@ import {
     CollectionsGateway,
     DialogGateway,
     EnvironmentsGateway,
-    HistoryGateway,
     HttpGateway,
     KeybindingsGateway,
     MenuEventsGateway,
@@ -222,31 +217,6 @@ export class ElectronMenuEventsGateway extends MenuEventsGateway {
 
     onMenuAction(listener: (action: MenuAction) => void): () => void {
         return this.api?.onMenuAction(listener) ?? (() => undefined);
-    }
-}
-
-@Injectable()
-export class ElectronHistoryGateway extends HistoryGateway {
-    private readonly api = inject(OTTO_API);
-
-    list(query?: HistoryQuery): Promise<HistoryEntry[]> {
-        return requireOttoApi(this.api).history.list(query);
-    }
-
-    get(id: EntityId): Promise<HistoryEntryWithDetail | null> {
-        return requireOttoApi(this.api).history.get(id);
-    }
-
-    delete(id: EntityId): Promise<boolean> {
-        return requireOttoApi(this.api).history.delete(id);
-    }
-
-    clear(scope?: HistoryScope): Promise<number> {
-        return requireOttoApi(this.api).history.clear(scope);
-    }
-
-    onChanged(listener: () => void): () => void {
-        return this.api?.history.onChanged(listener) ?? (() => undefined);
     }
 }
 

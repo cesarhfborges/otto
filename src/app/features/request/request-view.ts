@@ -400,7 +400,7 @@ export class RequestView {
         });
         this.methodControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((method) => this.update({ method }));
 
-        // Só existe uma RequestView (a da aba ativa): os comandos de requisição valem para ela.
+        // Cada aba de requisição aberta tem sua RequestView viva; os comandos só valem na aba ativa (`registerCommand`).
         registerCommand('request.send', { when: () => !!this.request() && !this.sending(), run: () => this.send() });
         registerCommand('request.cancel', { when: ({ overlayOpen }) => this.sending() && !overlayOpen, run: () => this.cancel() });
         registerCommand('request.focusUrl', {

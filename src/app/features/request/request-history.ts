@@ -1,19 +1,15 @@
-import { Component, computed, DestroyRef, effect, inject, input, output, signal, untracked } from '@angular/core';
-import type { EntityId, HistoryEntry, HistoryEntryWithDetail } from '@shared/models';
+import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import type { EntityId } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
-import { MessageModule } from 'primeng/message';
 import { TabsModule } from 'primeng/tabs';
-import { ipcErrorMessage } from '../../core/bridge/ipc-error';
-import { HistoryGateway } from '../../core/ports';
 import { ConfirmState } from '../../core/state/confirm.state';
+import { type HistoryRun, RequestHistoryState } from '../../core/state/request-history.state';
 import { CodeEditor } from '../../shared/code-editor';
 import { DiffView } from '../../shared/diff-view';
 import { LARGE_DIALOG_CONTENT, LARGE_DIALOG_STYLE } from '../../shared/dialog-size';
 import { formatBytes, formatDuration } from '../../shared/format';
 import { diffLines, normalizeForDiff } from '../../shared/text-diff';
-
-const PAGE_SIZE = 50;
 
 const headersText = (headers: ReadonlyArray<[string, string]> | undefined): string =>
     (headers ?? [])
@@ -21,22 +17,16 @@ const headersText = (headers: ReadonlyArray<[string, string]> | undefined): stri
         .sort()
         .join('\n');
 
-/** Execuções anteriores desta requisição (histórico local): rever, comparar duas e apagar. */
+/** Execuções desta requisição enquanto a aba está aberta (só em memória): rever, comparar duas e apagar. */
 @Component({
     selector: 'app-request-history',
-    imports: [ButtonModule, DialogModule, MessageModule, TabsModule, CodeEditor, DiffView],
+    imports: [ButtonModule, DialogModule, TabsModule, CodeEditor, DiffView],
     template: `
         <div class="mb-2 flex flex-wrap items-center gap-2">
-            <p id="history-help" class="m-0 text-xs text-muted-color">Stored only on this machine. Secret variables and credential headers are masked. Select two runs to compare them.</p>
+            <p id="history-help" class="m-0 text-xs text-muted-color">Kept in memory only and cleared when this tab or Otto closes. Select two runs to compare them.</p>
             <p-button class="ms-auto" label="Clear history" icon="pi pi-trash" size="small" severity="danger" [text]="true" [disabled]="!entries().length" (onClick)="clearAll()" />
             <p-button label="Compare" icon="pi pi-arrow-right-arrow-left" size="small" [disabled]="selected().length !== 2" (onClick)="compare(selected()[0]!, selected()[1]!)" />
         </div>
-
-        @if (error(); as message) {
-            <p-message severity="error" size="small"
-                ><span role="alert">{{ message }}</span></p-message
-            >
-        }
 
         @if (entries().length) {
             <table class="w-full table-fixed border-collapse text-sm" aria-describedby="history-help">
@@ -87,8 +77,8 @@ const headersText = (headers: ReadonlyArray<[string, string]> | undefined): stri
                     }
                 </tbody>
             </table>
-        } @else if (!error()) {
-            <p class="m-0 text-sm text-muted-color">No runs recorded yet. Send the request to start its history (Preferences → History sets how many runs are kept).</p>
+        } @else {
+            <p class="m-0 text-sm text-muted-color">No runs yet. Send the request to see its runs here while this tab stays open.</p>
         }
 
         <p-dialog
@@ -105,17 +95,14 @@ const headersText = (headers: ReadonlyArray<[string, string]> | undefined): stri
             appendTo="body"
         >
             @if (viewed(); as run) {
-                @if (!run.detail) {
-                    <p class="m-0 text-sm text-muted-color">This run was recorded before Otto kept request and response details.</p>
-                } @else {
-                    <p-tabs value="response" class="flex min-h-0 flex-1 flex-col">
+                <p-tabs value="response" class="flex min-h-0 flex-1 flex-col">
                         <p-tablist class="shrink-0">
                             <p-tab value="response">Response</p-tab>
                             <p-tab value="request">Request</p-tab>
                         </p-tablist>
                         <p-tabpanels class="flex min-h-0 flex-1 flex-col !px-0">
                             <p-tabpanel value="response" class="min-h-0 flex-1 flex-col gap-2 data-[p-active=true]:flex">
-                                @if (run.detail.response; as response) {
+                                @if (run.response; as response) {
                                     <p class="m-0 shrink-0 text-sm font-medium">{{ response.status }} {{ response.statusText }} · {{ duration(run.timeMs) }} · {{ bytes(run.sizeBytes) }}</p>
                                     <div class="grid min-h-0 flex-1 grid-rows-[minmax(5rem,2fr)_minmax(7rem,3fr)] gap-2">
                                         <app-code-editor class="!min-h-0" inputId="history-response-headers" [value]="headers(response.headers)" readonly />
@@ -126,18 +113,17 @@ const headersText = (headers: ReadonlyArray<[string, string]> | undefined): stri
                                 }
                             </p-tabpanel>
                             <p-tabpanel value="request" class="min-h-0 flex-1 flex-col gap-2 data-[p-active=true]:flex">
-                                <p class="m-0 line-clamp-2 shrink-0 break-all font-mono text-sm" [title]="run.detail.request.url">{{ run.detail.request.method }} {{ run.detail.request.url }}</p>
+                                <p class="m-0 line-clamp-2 shrink-0 break-all font-mono text-sm" [title]="run.request.url">{{ run.request.method }} {{ run.request.url }}</p>
                                 <div class="grid min-h-0 flex-1 grid-rows-[minmax(5rem,2fr)_minmax(7rem,3fr)] gap-2">
-                                    <app-code-editor class="!min-h-0" inputId="history-request-headers" [value]="headers(run.detail.request.headers)" readonly />
-                                    <app-code-editor class="!min-h-0" inputId="history-request-body" [value]="body(run.detail.request.body)" language="json" readonly />
+                                    <app-code-editor class="!min-h-0" inputId="history-request-headers" [value]="headers(run.request.headers)" readonly />
+                                    <app-code-editor class="!min-h-0" inputId="history-request-body" [value]="body(run.request.body)" language="json" readonly />
                                 </div>
                             </p-tabpanel>
                         </p-tabpanels>
                     </p-tabs>
-                }
             }
             <ng-template #footer>
-                @if (viewed()?.detail?.response) {
+                @if (viewed()?.response) {
                     <p-button label="Save response as example" icon="pi pi-bookmark" severity="secondary" [text]="true" (onClick)="saveViewedAsExample()" />
                 }
                 <p-button label="Close" (onClick)="viewed.set(null)" />
@@ -202,17 +188,16 @@ const headersText = (headers: ReadonlyArray<[string, string]> | undefined): stri
 export class RequestHistory {
     readonly collectionId = input.required<EntityId>();
     readonly path = input.required<string>();
-    /** Resposta de uma execução antiga escolhida para virar exemplo do mock. */
+    /** Resposta de uma execução anterior escolhida para virar exemplo do mock. */
     readonly saveExample = output<{ status: number; headers: Array<[string, string]>; body: string; name: string }>();
 
-    private readonly history = inject(HistoryGateway);
+    private readonly history = inject(RequestHistoryState);
     private readonly confirm = inject(ConfirmState);
 
-    protected readonly entries = signal<HistoryEntry[]>([]);
-    protected readonly error = signal<string | null>(null);
-    protected readonly selected = signal<EntityId[]>([]);
-    protected readonly viewed = signal<HistoryEntryWithDetail | null>(null);
-    protected readonly comparison = signal<{ before: HistoryEntryWithDetail; after: HistoryEntryWithDetail } | null>(null);
+    protected readonly entries = computed(() => this.history.list(this.collectionId(), this.path()));
+    protected readonly selected = signal<string[]>([]);
+    protected readonly viewed = signal<HistoryRun | null>(null);
+    protected readonly comparison = signal<{ before: HistoryRun; after: HistoryRun } | null>(null);
     protected readonly dialogStyle = LARGE_DIALOG_STYLE;
     protected readonly dialogContent = LARGE_DIALOG_CONTENT;
     protected readonly bytes = formatBytes;
@@ -220,9 +205,9 @@ export class RequestHistory {
 
     protected readonly diff = computed(() => {
         const pair = this.comparison();
-        const before = pair?.before.detail;
-        const after = pair?.after.detail;
-        const requestText = (detail: typeof before): string => (detail ? `${detail.request.method} ${detail.request.url}\n\n${headersText(detail.request.headers)}\n\n${normalizeForDiff(detail.request.body)}` : '');
+        const before = pair?.before;
+        const after = pair?.after;
+        const requestText = (run: HistoryRun | undefined): string => (run ? `${run.request.method} ${run.request.url}\n\n${headersText(run.request.headers)}\n\n${normalizeForDiff(run.request.body)}` : '');
 
         return {
             body: diffLines(normalizeForDiff(before?.response?.body ?? null), normalizeForDiff(after?.response?.body ?? null)),
@@ -233,20 +218,14 @@ export class RequestHistory {
 
     constructor() {
         effect(() => {
-            const collectionId = this.collectionId();
-            const path = this.path();
-
-            untracked(() => {
-                this.selected.set([]);
-                void this.load(collectionId, path);
-            });
+            this.collectionId();
+            this.path();
+            untracked(() => this.selected.set([]));
         });
-
-        inject(DestroyRef).onDestroy(this.history.onChanged(() => void this.load(this.collectionId(), this.path())));
     }
 
-    protected when(iso: string): string {
-        return new Date(iso).toLocaleString();
+    protected when(timestamp: number): string {
+        return new Date(timestamp).toLocaleString();
     }
 
     protected delta(ms: number): string {
@@ -262,72 +241,57 @@ export class RequestHistory {
     }
 
     protected body(text: string | null): string {
-        return text === null ? '(not stored: binary or too large)' : normalizeForDiff(text);
+        return text === null ? '(not kept: binary or too large)' : normalizeForDiff(text);
     }
 
-    protected isSelected(id: EntityId): boolean {
+    protected isSelected(id: string): boolean {
         return this.selected().includes(id);
     }
 
-    protected toggle(id: EntityId): void {
+    protected toggle(id: string): void {
         this.selected.update((ids) => (ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id].slice(-2)));
     }
 
-    protected async view(id: EntityId): Promise<void> {
-        try {
-            this.viewed.set(await this.history.get(id));
-        } catch (error) {
-            this.error.set(ipcErrorMessage(error));
-        }
+    protected view(id: string): void {
+        this.viewed.set(this.find(id));
     }
 
     /** Compara na ordem cronológica (mais antiga como "antes"). */
-    protected async compare(first: EntityId, second: EntityId): Promise<void> {
-        try {
-            const [a, b] = await Promise.all([this.history.get(first), this.history.get(second)]);
+    protected compare(first: string, second: string): void {
+        const a = this.find(first);
+        const b = this.find(second);
 
-            if (a && b) {
-                const [before, after] = a.executedAt <= b.executedAt ? [a, b] : [b, a];
+        if (a && b) {
+            const [before, after] = a.executedAt <= b.executedAt ? [a, b] : [b, a];
 
-                this.comparison.set({ before, after });
-            }
-        } catch (error) {
-            this.error.set(ipcErrorMessage(error));
+            this.comparison.set({ before, after });
         }
     }
 
-    protected async remove(entry: HistoryEntry): Promise<void> {
+    protected async remove(entry: HistoryRun): Promise<void> {
         if (await this.confirm.askDelete({ header: 'Delete Run', message: `Delete the run of ${this.when(entry.executedAt)} from the history?`, acceptLabel: 'Delete' })) {
-            await this.history.delete(entry.id).catch((error: unknown) => this.error.set(ipcErrorMessage(error)));
+            this.history.remove(this.collectionId(), this.path(), entry.id);
             this.selected.update((ids) => ids.filter((id) => id !== entry.id));
-            await this.load(this.collectionId(), this.path());
         }
     }
 
     protected async clearAll(): Promise<void> {
-        if (await this.confirm.askDelete({ header: 'Clear History', message: 'Delete every stored run of this request? This cannot be undone.', acceptLabel: 'Clear' })) {
-            await this.history.clear({ collectionId: this.collectionId(), requestPath: this.path() }).catch((error: unknown) => this.error.set(ipcErrorMessage(error)));
+        if (await this.confirm.askDelete({ header: 'Clear History', message: 'Delete every run of this request from the history?', acceptLabel: 'Clear' })) {
+            this.history.clear(this.collectionId(), this.path());
             this.selected.set([]);
-            await this.load(this.collectionId(), this.path());
         }
     }
 
     protected saveViewedAsExample(): void {
-        const run = this.viewed();
-        const response = run?.detail?.response;
+        const response = this.viewed()?.response;
 
-        if (run && response) {
+        if (response) {
             this.saveExample.emit({ status: response.status, headers: response.headers, body: response.body ?? '', name: `${response.status} ${response.statusText}`.trim() });
             this.viewed.set(null);
         }
     }
 
-    private async load(collectionId: EntityId, path: string): Promise<void> {
-        try {
-            this.entries.set(await this.history.list({ collectionId, requestPath: path, limit: PAGE_SIZE }));
-            this.error.set(null);
-        } catch (error) {
-            this.error.set(ipcErrorMessage(error));
-        }
+    private find(id: string): HistoryRun | null {
+        return this.entries().find((run) => run.id === id) ?? null;
     }
 }

@@ -68,13 +68,6 @@ const api: OttoApi = {
         saveWorkspaceArchive: (defaultName) => invoke('dialog:save-workspace-archive', defaultName),
         chooseBaseDirectory: (current) => invoke('dialog:choose-base-directory', current)
     },
-    history: {
-        list: (query) => invoke('history:list', query),
-        get: (id) => invoke('history:get', id),
-        delete: (id) => invoke('history:delete', id),
-        clear: (scope) => invoke('history:clear', scope),
-        onChanged: (listener) => subscribe('history:changed', () => listener())
-    },
     tabs: {
         list: (workspaceId) => invoke('tabs:list', workspaceId),
         save: (workspaceId, tabs) => invoke('tabs:save', workspaceId, tabs)

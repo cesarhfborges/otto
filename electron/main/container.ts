@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import type { OttoSettings } from '../shared/models';
-import type { ICollectionMetadataRepository, IEnvironmentRepository, IHistoryRepository, IHttpExecutor, IIpcModule, IKeybindingService, ISettingsService, ITabRepository } from './core/contracts';
+import type { ICollectionMetadataRepository, IEnvironmentRepository, IHttpExecutor, IIpcModule, IKeybindingService, ISettingsService, ITabRepository } from './core/contracts';
 import { FsCollectionStore } from './infra/collections/fs-collection-store';
 import { FsCollectionWatcher } from './infra/collections/fs-collection-watcher';
 import { YamlCollectionFormat } from './infra/collections/yaml-collection-format';
@@ -15,7 +15,6 @@ import { SqliteEnvironmentRepository } from './infra/repositories/sqlite-environ
 import { EncryptedEnvironmentRepository } from './infra/repositories/encrypted-environment.repository';
 import { createSafeStorageCipher } from './infra/system/safe-storage-cipher';
 import { SqliteKeybindingStore } from './infra/repositories/sqlite-keybinding.store';
-import { SqliteHistoryRepository } from './infra/repositories/sqlite-history.repository';
 import { SqliteSettingsStore } from './infra/repositories/sqlite-settings.store';
 import { SqliteTabRepository } from './infra/repositories/sqlite-tab.repository';
 import { SqliteWorkspaceRepository } from './infra/repositories/sqlite-workspace.repository';
@@ -29,7 +28,6 @@ import { AppIpcModule } from './ipc/app.ipc';
 import { CollectionFilesIpcModule } from './ipc/collection-files.ipc';
 import { CollectionsIpcModule } from './ipc/collections.ipc';
 import { EnvironmentsIpcModule } from './ipc/environments.ipc';
-import { HistoryIpcModule } from './ipc/history.ipc';
 import { HttpIpcModule } from './ipc/http.ipc';
 import { KeybindingsIpcModule } from './ipc/keybindings.ipc';
 import { SettingsIpcModule } from './ipc/settings.ipc';
@@ -45,7 +43,6 @@ import { createOAuth2Authorizer } from './ui/oauth2-window';
 import { OpenApiService } from './services/openapi/openapi.service';
 import { CollectionService } from './services/collections/collection.service';
 import { FetchHttpExecutor } from './services/http/fetch-http-executor';
-import { HistoryRecordingExecutor } from './services/http/history-recording-executor';
 import { ImporterRegistry } from './services/import/importer-registry';
 import { KeybindingService } from './services/keybindings/keybinding.service';
 import { SettingsService } from './services/settings/settings.service';
@@ -61,7 +58,6 @@ export interface Container {
     settings: ISettingsService;
     keybindings: IKeybindingService;
     theme: ThemeController;
-    history: IHistoryRepository;
     tabs: ITabRepository;
     environments: IEnvironmentRepository;
     collections: ICollectionMetadataRepository;
@@ -115,7 +111,6 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
     const settings = new SettingsService(settingsStore);
     const keybindings = new KeybindingService(new SqliteKeybindingStore(db, systemClock, isMac));
 
-    const history = new SqliteHistoryRepository(db, systemClock, uuidGenerator);
     const tabs = new SqliteTabRepository(db);
     // Cofre: valores de variáveis secretas cifrados no banco com o chaveiro do sistema.
     const secretCipher = createSafeStorageCipher();
@@ -153,16 +148,10 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
     );
     const importers = new ImporterRegistry();
     const window = new WindowManager(settings, settingsStore);
-    const httpBase = new FetchHttpExecutor({ settings: () => settings.get().http, userAgent: `Otto/${app.getVersion()}`, oauth2Authorizer: createOAuth2Authorizer(() => window.current) });
-    const http = new HistoryRecordingExecutor(httpBase, history, {
-        maxEntries: () => settings.get().history.maxEntries,
-        onRecorded: () => window.notify('history:changed', null),
-        onError: (error) => console.error('[otto] could not record history:', error)
-    });
-    // Busca de specs usa o executor base (proxy/SSL das preferências) sem gravar no histórico.
+    const http = new FetchHttpExecutor({ settings: () => settings.get().http, userAgent: `Otto/${app.getVersion()}`, oauth2Authorizer: createOAuth2Authorizer(() => window.current) });
     const openapi = new OpenApiService(
         collectionService,
-        httpBase,
+        http,
         {
             read: async (file) => {
                 if ((await fs.stat(file)).size > 20_000_000) {
@@ -187,7 +176,6 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
         settings,
         keybindings,
         theme,
-        history,
         tabs,
         environments,
         collections,
@@ -206,7 +194,6 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
             new ThemeIpcModule(theme),
             new KeybindingsIpcModule(keybindings, window, isMac),
             new HttpIpcModule(http),
-            new HistoryIpcModule(history),
             new TabsIpcModule(tabs),
             new WorkspacesIpcModule(workspaceService, window, (folder) => shell.showItemInFolder(path.join(folder, 'workspace.yaml'))),
             new EnvironmentsIpcModule(environments, () => workspaceService.active().id),
@@ -220,7 +207,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
             updates.stop();
             void mocks.dispose();
             collectionService.closeAll();
-            void httpBase.dispose();
+            void http.dispose();
             if (db.isOpen) {
                 db.close();
             }

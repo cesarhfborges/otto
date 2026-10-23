@@ -216,20 +216,6 @@
                                                         ariaDescribedBy="timeout-help" inputStyleClass="w-40" />
                                     </div>
                                 </ng-container>
-                                <div formGroupName="history"
-                                     class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-                                    <div class="min-w-0 flex-1">
-                                        <label for="history-max-entries" class="font-medium">Requests kept in
-                                            history</label>
-                                        <p id="history-help" class="m-0 mt-0.5 text-sm text-muted-color">Older entries
-                                            are removed automatically. Use 0 to stop recording history.
-                                            Maximum {{ maxHistoryEntries }}.</p>
-                                    </div>
-                                    <p-input-number formControlName="maxEntries" inputId="history-max-entries" [min]="0"
-                                                    [max]="maxHistoryEntries" [useGrouping]="false"
-                                                    [invalid]="controlInvalid('history.maxEntries')"
-                                                    ariaDescribedBy="history-help" inputStyleClass="w-40" />
-                                </div>
                             </div>
                         </section>
                     }

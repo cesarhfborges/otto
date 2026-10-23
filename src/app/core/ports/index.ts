@@ -3,7 +3,7 @@
  * abstratas, usadas como tokens de DI. As implementações concretas (adapters)
  * são registradas em `provideOttoCore()`.
  */
-import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, KeybindingsApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi, UpdatesApi, MockApi } from '@shared/api';
+import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HttpApi, KeybindingsApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi, UpdatesApi, MockApi } from '@shared/api';
 import type {
     AppInfo,
     CollectionExportFormat,
@@ -14,11 +14,7 @@ import type {
     RequestDefinition,
     EntityId,
     Environment,
-    HistoryEntry,
-    HistoryEntryWithDetail,
     MockServerStatus,
-    HistoryQuery,
-    HistoryScope,
     HttpRequest,
     HttpResult,
     CommandId,
@@ -94,14 +90,6 @@ export abstract class DialogGateway implements DialogApi {
 
 export abstract class MenuEventsGateway implements EventsApi {
     abstract onMenuAction(listener: (action: MenuAction) => void): () => void;
-}
-
-export abstract class HistoryGateway implements HistoryApi {
-    abstract list(query?: HistoryQuery): Promise<HistoryEntry[]>;
-    abstract get(id: EntityId): Promise<HistoryEntryWithDetail | null>;
-    abstract delete(id: EntityId): Promise<boolean>;
-    abstract clear(scope?: HistoryScope): Promise<number>;
-    abstract onChanged(listener: () => void): () => void;
 }
 
 export abstract class TabsGateway implements TabsApi {

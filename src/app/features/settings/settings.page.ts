@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, linkedSignal, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { type AbstractControl, FormBuilder, ReactiveFormsModule, type ValidationErrors, type ValidatorFn, Validators } from '@angular/forms';
-import { type AppInfo, type CodeTheme, MAX_CODE_FONT_SIZE, MAX_HISTORY_ENTRIES, MAX_TIMEOUT_MS, MIN_CODE_FONT_SIZE, type OttoSettings, PRIMARY_COLORS, type PrimaryColor, type RequestLayout, SURFACE_COLORS, type SurfaceColor, type ThemeMode, type ThemePreset } from '@shared/models';
+import { type AppInfo, type CodeTheme, MAX_CODE_FONT_SIZE, MAX_TIMEOUT_MS, MIN_CODE_FONT_SIZE, type OttoSettings, PRIMARY_COLORS, type PrimaryColor, type RequestLayout, SURFACE_COLORS, type SurfaceColor, type ThemeMode, type ThemePreset } from '@shared/models';
 import { Highlight } from 'ngx-highlightjs';
 import { HighlightLineNumbers } from 'ngx-highlightjs/line-numbers';
 import { ButtonModule } from 'primeng/button';
@@ -96,7 +96,6 @@ export class SettingsPage {
         }
     ]);
     protected readonly maxTimeoutMs = MAX_TIMEOUT_MS;
-    protected readonly maxHistoryEntries = MAX_HISTORY_ENTRIES;
     protected readonly status = signal<SaveStatus>('idle');
     private readonly keybindings = inject(KeybindingsState);
     protected readonly updates = inject(UpdatesState);
@@ -179,9 +178,6 @@ export class SettingsPage {
         }),
         workspaces: this.fb.group({
             baseDirectory: this.fb.control('')
-        }),
-        history: this.fb.group({
-            maxEntries: this.fb.control(0, { validators: [Validators.required, Validators.min(0), Validators.max(MAX_HISTORY_ENTRIES)], updateOn: 'blur' })
         }),
         updates: this.fb.group({
             autoCheck: this.fb.control(true),

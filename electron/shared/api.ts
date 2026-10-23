@@ -12,10 +12,6 @@ import type {
     RequestDefinition,
     EntityId,
     Environment,
-    HistoryEntry,
-    HistoryEntryWithDetail,
-    HistoryQuery,
-    HistoryScope,
     HttpRequest,
     HttpResult,
     CommandId,
@@ -107,17 +103,6 @@ export interface DialogApi {
     saveWorkspaceArchive(defaultName: string): Promise<string | null>;
     /** Pasta base dos workspaces (Preferences). */
     chooseBaseDirectory(current?: string): Promise<string | null>;
-}
-
-export interface HistoryApi {
-    list(query?: HistoryQuery): Promise<HistoryEntry[]>;
-    /** Registro com a requisição e a resposta gravadas. */
-    get(id: EntityId): Promise<HistoryEntryWithDetail | null>;
-    delete(id: EntityId): Promise<boolean>;
-    /** Apaga o histórico (todo, ou só o do escopo); retorna quantos registros foram removidos. */
-    clear(scope?: HistoryScope): Promise<number>;
-    /** Avisa quando uma execução é registrada (para atualizar listas abertas). */
-    onChanged(listener: () => void): () => void;
 }
 
 export interface TabsApi {
@@ -252,7 +237,6 @@ export interface OttoApi extends EventsApi {
     readonly keybindings: KeybindingsApi;
     readonly http: HttpApi;
     readonly dialog: DialogApi;
-    readonly history: HistoryApi;
     readonly tabs: TabsApi;
     readonly workspaces: WorkspacesApi;
     readonly environments: EnvironmentsApi;

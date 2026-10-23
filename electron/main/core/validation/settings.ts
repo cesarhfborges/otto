@@ -4,7 +4,6 @@ import {
     DEFAULT_SETTINGS,
     MAX_CODE_FONT_SIZE,
     MIN_CODE_FONT_SIZE,
-    MAX_HISTORY_ENTRIES,
     MAX_TIMEOUT_MS,
     PRIMARY_COLORS,
     REQUEST_LAYOUTS,
@@ -93,7 +92,6 @@ export const SETTING_LEAVES: readonly SettingLeaf[] = [
     leaf('http.ssl.verifyCertificates', requireBoolean),
     leaf('http.ssl.caCertificatePath', parseCertificatePath),
     leaf('workspaces.baseDirectory', (v, f) => parseCertificatePath(v, f) ?? ''),
-    leaf('history.maxEntries', (v, f) => requireInteger(v, f, 0, MAX_HISTORY_ENTRIES)),
     leaf('updates.autoCheck', requireBoolean),
     leaf('updates.autoDownload', requireBoolean)
 ];

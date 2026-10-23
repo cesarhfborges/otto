@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { DEFAULT_SETTINGS, type NewHistoryEntry, type TabState } from '../../../shared/models';
+import { DEFAULT_SETTINGS, type TabState } from '../../../shared/models';
 import { fakeClock, migratedMemoryDb, sequentialIds } from '../../testing/fixtures';
 import { SqliteCollectionMetadataRepository } from './sqlite-collection-metadata.repository';
 import { SqliteEnvironmentRepository } from './sqlite-environment.repository';
-import { SqliteHistoryRepository } from './sqlite-history.repository';
 import { SqliteSettingsStore } from './sqlite-settings.store';
 import { SqliteTabRepository } from './sqlite-tab.repository';
 
@@ -16,24 +15,11 @@ const setup = () => {
     return {
         db,
         settings: new SqliteSettingsStore(db, clock),
-        history: new SqliteHistoryRepository(db, clock, ids),
         tabs: new SqliteTabRepository(db),
         environments: new SqliteEnvironmentRepository(db, clock, ids),
         collections: new SqliteCollectionMetadataRepository(db, clock, ids)
     };
 };
-
-const historyEntry = (overrides: Partial<NewHistoryEntry> = {}): NewHistoryEntry => ({
-    collectionId: null,
-    requestPath: null,
-    method: 'GET',
-    url: 'https://example.com',
-    status: 200,
-    error: null,
-    timeMs: 12,
-    sizeBytes: 34,
-    ...overrides
-});
 
 describe('SqliteSettingsStore', () => {
     it('retorna padrões, persiste alterações aninhadas e ignora valores inválidos no banco', () => {
@@ -76,69 +62,6 @@ describe('SqliteSettingsStore', () => {
         settings.setBounds({ x: 10, y: 20, width: 800, height: 600 });
         assert.deepEqual(settings.getBounds(), { x: 10, y: 20, width: 800, height: 600 });
         assert.deepEqual(settings.get(), DEFAULT_SETTINGS);
-    });
-});
-
-describe('SqliteHistoryRepository', () => {
-    it('adiciona, lista do mais recente para o mais antigo e pagina', () => {
-        const { history } = setup();
-
-        history.add(historyEntry({ url: 'https://a' }));
-        history.add(historyEntry({ url: 'https://b', status: null, error: 'ECONNREFUSED' }));
-        history.add(historyEntry({ url: 'https://c' }));
-
-        assert.deepEqual(
-            history.list().map((e) => e.url),
-            ['https://c', 'https://b', 'https://a']
-        );
-        assert.deepEqual(
-            history.list({ limit: 1, offset: 1 }).map((e) => e.url),
-            ['https://b']
-        );
-        assert.equal(history.list({ limit: 1, offset: 1 })[0]!.error, 'ECONNREFUSED');
-    });
-
-    it('filtra por coleção, remove e limpa', () => {
-        const { history, collections } = setup();
-        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null });
-        const entry = history.add(historyEntry({ collectionId: collection.id }));
-
-        history.add(historyEntry());
-
-        assert.deepEqual(
-            history.list({ collectionId: collection.id }).map((e) => e.id),
-            [entry.id]
-        );
-        assert.equal(history.delete(entry.id), true);
-        assert.equal(history.delete(entry.id), false);
-        assert.equal(history.clear(), 1);
-        assert.deepEqual(history.list(), []);
-    });
-
-    it('apaga os registros mais antigos além da retenção', () => {
-        const { history } = setup();
-
-        for (const url of ['https://1', 'https://2', 'https://3', 'https://4']) {
-            history.add(historyEntry({ url }));
-        }
-
-        assert.equal(history.prune(2), 2);
-        assert.deepEqual(
-            history.list().map((e) => e.url),
-            ['https://4', 'https://3']
-        );
-        assert.equal(history.prune(2), 0);
-        assert.equal(history.prune(0), 2);
-    });
-
-    it('mantém o histórico ao remover a coleção (ON DELETE SET NULL)', () => {
-        const { history, collections } = setup();
-        const collection = collections.create({ name: 'API', path: '/tmp/api', source: null, lastOpenedAt: null });
-
-        history.add(historyEntry({ collectionId: collection.id }));
-        collections.delete(collection.id);
-
-        assert.equal(history.list()[0]!.collectionId, null);
     });
 });
 

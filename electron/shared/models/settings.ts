@@ -34,11 +34,6 @@ export interface HttpSettings {
     ssl: SslSettings;
 }
 
-export interface HistorySettings {
-    /** Quantas execuções manter no histórico (as mais antigas são apagadas); `0` desliga o registro. */
-    maxEntries: number;
-}
-
 export interface WorkspaceSettings {
     /**
      * Pasta base onde ficam os workspaces (`<base>/<workspace>/collections/<coleção>`).
@@ -102,7 +97,6 @@ export interface OttoSettings {
     hardwareAcceleration: boolean;
     theme: ThemeMode;
     http: HttpSettings;
-    history: HistorySettings;
     workspaces: WorkspaceSettings;
     appearance: AppearanceSettings;
     updates: UpdateSettings;
@@ -120,14 +114,12 @@ export interface SettingsPatch {
         proxy?: Partial<ProxySettings>;
         ssl?: Partial<SslSettings>;
     };
-    history?: Partial<HistorySettings>;
     workspaces?: Partial<WorkspaceSettings>;
     appearance?: Partial<AppearanceSettings>;
     updates?: Partial<UpdateSettings>;
 }
 
 export const MAX_TIMEOUT_MS = 3_600_000;
-export const MAX_HISTORY_ENTRIES = 10_000;
 
 export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
     showTrayIcon: false,
@@ -140,7 +132,6 @@ export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
         proxy: { enabled: false, url: '', bypass: 'localhost, 127.0.0.1' },
         ssl: { verifyCertificates: true, caCertificatePath: null }
     },
-    history: { maxEntries: 500 },
     workspaces: { baseDirectory: '' },
     appearance: { themePreset: 'aura', primaryColor: 'emerald', surfaceColor: null, requestLayout: 'horizontal', codeTheme: 'seneca', codeFontSize: 14 },
     updates: { autoCheck: true, autoDownload: false }

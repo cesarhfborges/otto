@@ -6,6 +6,7 @@ import { responseSnapshot, TemplateError, type MessageSnapshot } from '@shared/t
 import { ipcErrorMessage } from '../bridge/ipc-error';
 import { HttpGateway } from '../ports';
 import { CollectionsState } from './collections.state';
+import { RequestHistoryState } from './request-history.state';
 import { TemplateContextService, type ResponseAccess } from '../templating/template-context.service';
 import { ScriptRunner } from '../scripting/script-runner';
 
@@ -32,6 +33,7 @@ export class ResponsesState implements ResponseAccess {
     private readonly templates = inject(TemplateContextService);
     private readonly collections = inject(CollectionsState);
     private readonly scripts = inject(ScriptRunner);
+    private readonly history = inject(RequestHistoryState);
     private readonly entries = signal<ReadonlyMap<string, ResponseEntry>>(new Map());
 
     get(key: string): ResponseEntry | undefined {
@@ -97,7 +99,7 @@ export class ResponsesState implements ResponseAccess {
             return;
         }
 
-        let request: HttpRequest = { ...buildHttpRequest(resolved, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } }), redact: this.secretValues(collectionId) };
+        let request: HttpRequest = { ...buildHttpRequest(resolved, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } }) };
 
         if (!request.url) {
             this.set(key, { status: 'done', result: failure('Enter a URL to send this request.', 'MISSING_URL', preLogs), receivedAt: Date.now() });
@@ -136,6 +138,7 @@ export class ResponsesState implements ResponseAccess {
         }
 
         result = withLogs(result, preLogs, postLogs);
+        this.history.record(collectionId, path, request, result);
 
         // Ignora se, nesse meio-tempo, uma nova execução substituiu esta.
         const current = this.get(key);
@@ -201,15 +204,6 @@ export class ResponsesState implements ResponseAccess {
             },
             problems: [...unresolved.map((name) => `{{$.${name}}} is not defined`), ...errors]
         };
-    }
-
-    /** Valores das variáveis secretas visíveis para a coleção (mascarados no histórico). */
-    private secretValues(collectionId: EntityId): string[] {
-        return this.templates
-            .scopes(collectionId)
-            .entries()
-            .filter((entry) => entry.secret && entry.value)
-            .map((entry) => entry.value);
     }
 
     cancel(key: string): void {

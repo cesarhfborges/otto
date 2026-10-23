@@ -1,18 +1,5 @@
-import type { CollectionMetadata, EntityId, Environment, HistoryEntry, HistoryEntryWithDetail, HistoryQuery, HistoryScope, NewCollectionMetadata, NewEnvironment, NewHistoryEntry, TabState, Workspace } from '../../../shared/models';
+import type { CollectionMetadata, EntityId, Environment, NewCollectionMetadata, NewEnvironment, TabState, Workspace } from '../../../shared/models';
 import type { IRepository } from './repository';
-
-/** Histórico é append-only: não há `update`. */
-export interface IHistoryRepository {
-    add(entry: NewHistoryEntry): HistoryEntry;
-    list(query?: HistoryQuery): HistoryEntry[];
-    /** Registro com a requisição e a resposta gravadas; `null` se não existir. */
-    get(id: EntityId): HistoryEntryWithDetail | null;
-    delete(id: EntityId): boolean;
-    /** Remove o histórico (todo, ou só o do escopo) e retorna quantos registros foram apagados. */
-    clear(scope?: HistoryScope): number;
-    /** Mantém só os `keep` registros mais recentes; retorna quantos foram apagados. */
-    prune(keep: number): number;
-}
 
 /** Abas abertas, por workspace. */
 export interface ITabRepository {

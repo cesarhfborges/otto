@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { parseCollectionPatch, parseEnvironmentPatch, parseHistoryQuery, parseHttpRequest, parseNewCollection, parseNewEnvironment, parseRequestId, parseSettingsPatch, parseTabs, parseWindowBounds } from './index';
+import { parseCollectionPatch, parseEnvironmentPatch, parseHttpRequest, parseNewCollection, parseNewEnvironment, parseRequestId, parseSettingsPatch, parseTabs, parseWindowBounds } from './index';
 
 describe('parseHttpRequest', () => {
     it('normaliza uma requisição válida', () => {
@@ -59,8 +59,6 @@ describe('parseSettingsPatch / parseWindowBounds', () => {
         assert.throws(() => parseSettingsPatch({ http: { proxy: { url: 'socks5://p:1080' } } }), /only http/);
         assert.throws(() => parseSettingsPatch({ http: { proxy: { url: 'not a url' } } }), /valid URL/);
         assert.throws(() => parseSettingsPatch({ http: { ssl: { caCertificatePath: 'ca.pem' } } }), /absolute path/);
-        assert.throws(() => parseSettingsPatch({ history: { maxEntries: 10_001 } }), /settings.history.maxEntries.*at most/);
-        assert.throws(() => parseSettingsPatch({ history: { maxEntries: 1.5 } }), /settings.history.maxEntries/);
     });
 
     it('normaliza o caminho do certificado e aceita limpar', () => {
@@ -73,15 +71,6 @@ describe('parseSettingsPatch / parseWindowBounds', () => {
         assert.deepEqual(parseWindowBounds({ x: 1, y: 2, width: 3, height: 4, extra: 5 }), { x: 1, y: 2, width: 3, height: 4 });
         assert.equal(parseWindowBounds({ x: 1, y: 2, width: 3 }), null);
         assert.equal(parseWindowBounds({ x: 1, y: 2, width: 3, height: Number.NaN }), null);
-    });
-});
-
-describe('parseHistoryQuery', () => {
-    it('aceita filtros opcionais válidos', () => {
-        assert.deepEqual(parseHistoryQuery(undefined), {});
-        assert.deepEqual(parseHistoryQuery({ limit: 10, offset: 0, collectionId: 'c1', other: 1 }), { limit: 10, offset: 0, collectionId: 'c1' });
-        assert.throws(() => parseHistoryQuery({ limit: 0 }), /query.limit/);
-        assert.throws(() => parseHistoryQuery({ offset: 1.5 }), /query.offset/);
     });
 });
 

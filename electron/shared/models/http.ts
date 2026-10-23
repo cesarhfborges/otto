@@ -42,8 +42,6 @@ export interface HttpRequest {
     auth?: SendTimeAuth;
     timeoutMs?: number;
     source?: HttpRequestSource;
-    /** Valores secretos usados na requisição (variáveis `secret`): mascarados no histórico. */
-    redact?: string[];
 }
 
 /** Tempos em milissegundos, medidos no processo main. */

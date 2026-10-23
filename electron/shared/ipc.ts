@@ -15,10 +15,6 @@ import type {
     RequestDefinition,
     EntityId,
     Environment,
-    HistoryEntry,
-    HistoryEntryWithDetail,
-    HistoryQuery,
-    HistoryScope,
     HttpRequest,
     HttpResult,
     CommandId,
@@ -69,10 +65,6 @@ export interface IpcInvokeContract {
     'dialog:pick-workspace-archive': { args: []; result: string | null };
     'dialog:save-workspace-archive': { args: [defaultName: string]; result: string | null };
     'dialog:choose-base-directory': { args: [current?: string]; result: string | null };
-    'history:list': { args: [query?: HistoryQuery]; result: HistoryEntry[] };
-    'history:get': { args: [id: EntityId]; result: HistoryEntryWithDetail | null };
-    'history:delete': { args: [id: EntityId]; result: boolean };
-    'history:clear': { args: [scope?: HistoryScope]; result: number };
     'tabs:list': { args: [workspaceId: EntityId]; result: TabState[] };
     'tabs:save': { args: [workspaceId: EntityId, tabs: TabState[]]; result: void };
     'workspaces:list': { args: []; result: WorkspaceSummary[] };
@@ -152,7 +144,6 @@ export interface IpcEventContract {
     /** Conteúdo da coleção mudou no disco (pelo app ou externamente). */
     'collections:changed': { collectionId: EntityId };
     /** Uma execução foi registrada no histórico (ou registros antigos foram apagados). */
-    'history:changed': null;
     /** Lista de workspaces, ativo ou coleções de um workspace mudaram. */
     'workspaces:changed': null;
     'updates:state-changed': UpdateState;
