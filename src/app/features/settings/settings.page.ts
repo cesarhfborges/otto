@@ -13,17 +13,18 @@ import { SelectButtonModule } from 'primeng/selectbutton';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { AppInfoGateway, DialogGateway } from '../../core/ports';
 import { KeybindingsState } from '../../core/state/keybindings.state';
+import { UpdatesState } from '../../core/state/updates.state';
 import { SettingsState } from '../../core/state/settings.state';
 import { ThemeService } from '../../core/theme/theme.service';
 import { CODE_THEME_PALETTES } from '../../core/theme/code-themes';
 import { SURFACE_PALETTES } from '../../core/theme/otto-preset';
 import { KeyboardShortcutsSettings } from './keyboard-shortcuts';
 import { SettingsDialog } from './settings-dialog.service';
-import { NgOptimizedImage } from '@angular/common';
+import { DatePipe, NgOptimizedImage } from '@angular/common';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
-export type PreferencesSection = 'general' | 'themes' | 'appearance' | 'shortcuts' | 'proxy' | 'certificates' | 'about';
+export type PreferencesSection = 'general' | 'themes' | 'appearance' | 'shortcuts' | 'proxy' | 'certificates' | 'updates' | 'about';
 
 /** Aceita vazio (validado em conjunto com `enabled`) ou uma URL http(s). */
 const proxyUrlValidator: ValidatorFn = (control: AbstractControl<string>): ValidationErrors | null => {
@@ -58,7 +59,7 @@ const EXAMPLE = {
 
 @Component({
     selector: 'app-settings-page',
-    imports: [Highlight, HighlightLineNumbers, KeyboardShortcutsSettings, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule, NgOptimizedImage],
+    imports: [DatePipe, Highlight, HighlightLineNumbers, KeyboardShortcutsSettings, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, ButtonModule, MessageModule, NgOptimizedImage],
     templateUrl: './settings.page.html',
     styles: `
         ::ng-deep {
@@ -79,6 +80,7 @@ export class SettingsPage {
         { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: 'pi pi-key', description: 'View, change and reset the keyboard shortcuts of every command.' },
         { id: 'proxy', label: 'Proxy', icon: 'pi pi-server', description: 'Route outgoing requests through an HTTP or HTTPS proxy.' },
         { id: 'certificates', label: 'Certificates', icon: 'pi pi-shield', description: 'SSL/TLS verification and trusted certificate authorities.' },
+        { id: 'updates', label: 'Updates', icon: 'pi pi-sync', description: 'New versions published on GitHub Releases, always within this installation channel (stable or beta).' },
         { id: 'about', label: 'About', icon: 'pi pi-info-circle', description: 'Version and runtime information.' }
     ];
     /** Seção inicial vinda de `SettingsDialog.open(section)`; a navegação lateral troca livremente. */
@@ -97,6 +99,7 @@ export class SettingsPage {
     protected readonly maxHistoryEntries = MAX_HISTORY_ENTRIES;
     protected readonly status = signal<SaveStatus>('idle');
     private readonly keybindings = inject(KeybindingsState);
+    protected readonly updates = inject(UpdatesState);
     /** Atalhos têm gravação própria: o indicador do cabeçalho segue a seção exibida. */
     protected readonly headerStatus = computed(() => (this.section() === 'shortcuts' ? this.keybindings.status() : this.status()));
     protected readonly errorMessage = signal<string | null>(null);
@@ -179,6 +182,10 @@ export class SettingsPage {
         }),
         history: this.fb.group({
             maxEntries: this.fb.control(0, { validators: [Validators.required, Validators.min(0), Validators.max(MAX_HISTORY_ENTRIES)], updateOn: 'blur' })
+        }),
+        updates: this.fb.group({
+            autoCheck: this.fb.control(true),
+            autoDownload: this.fb.control(false)
         })
     });
 

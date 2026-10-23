@@ -29,7 +29,8 @@ import type {
     CollectionManifest,
     CollectionManifestPatch,
     OpenApiConfig,
-    OpenApiStatus
+    OpenApiStatus,
+    UpdateState
 } from '@shared/models';
 import { OTTO_API, requireOttoApi } from '../../bridge/otto-api.token';
 import {
@@ -47,7 +48,8 @@ import {
     ThemeGateway,
     WindowGateway,
     WorkspacesGateway,
-    OpenApiGateway
+    OpenApiGateway,
+    UpdatesGateway
 } from '../../ports';
 
 /*
@@ -459,5 +461,50 @@ export class ElectronOpenApiGateway extends OpenApiGateway {
 
     revert(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus> {
         return requireOttoApi(this.api).openapi.revert(collectionId, keys);
+    }
+}
+
+@Injectable()
+export class ElectronUpdatesGateway extends UpdatesGateway {
+    private readonly api = inject(OTTO_API);
+
+    state(): Promise<UpdateState> {
+        return requireOttoApi(this.api).updates.state();
+    }
+
+    check(): Promise<UpdateState> {
+        return requireOttoApi(this.api).updates.check();
+    }
+
+    download(): Promise<void> {
+        return requireOttoApi(this.api).updates.download();
+    }
+
+    install(): Promise<void> {
+        return requireOttoApi(this.api).updates.install();
+    }
+
+    skip(version: string): Promise<void> {
+        return requireOttoApi(this.api).updates.skip(version);
+    }
+
+    remindLater(): Promise<void> {
+        return requireOttoApi(this.api).updates.remindLater();
+    }
+
+    clearSkipped(): Promise<void> {
+        return requireOttoApi(this.api).updates.clearSkipped();
+    }
+
+    openRelease(): Promise<void> {
+        return requireOttoApi(this.api).updates.openRelease();
+    }
+
+    onStateChanged(listener: (state: UpdateState) => void): () => void {
+        return this.api?.updates.onStateChanged(listener) ?? (() => undefined);
+    }
+
+    onOpenRequested(listener: () => void): () => void {
+        return this.api?.updates.onOpenRequested(listener) ?? (() => undefined);
     }
 }

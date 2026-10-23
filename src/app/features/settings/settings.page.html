@@ -501,6 +501,59 @@
                             </fieldset>
                         </ng-container>
                     }
+                    @case ('updates') {
+                        <section aria-labelledby="group-updates" class="flex flex-col gap-2">
+                            <h3 id="group-updates" class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">Software Update</h3>
+                            <div class="flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                                @if (updates.state(); as state) {
+                                    <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 text-sm">
+                                        <dt class="text-muted-color">Installed version</dt>
+                                        <dd class="m-0">{{ state.currentVersion }}</dd>
+                                        <dt class="text-muted-color">Channel</dt>
+                                        <dd class="m-0">{{ state.channel === 'beta' ? 'Beta — receives only beta pre-releases' : 'Stable — receives only final releases' }}</dd>
+                                        <dt class="text-muted-color">Last checked</dt>
+                                        <dd class="m-0">{{ state.lastCheckedAt ? (state.lastCheckedAt | date: 'medium') : 'Never' }}</dd>
+                                        @if (state.skippedVersion) {
+                                            <dt class="text-muted-color">Skipped version</dt>
+                                            <dd class="m-0 flex items-center gap-2">
+                                                {{ state.skippedVersion }}
+                                                <p-button label="Clear" size="small" severity="secondary" [text]="true" (onClick)="updates.clearSkipped()" />
+                                            </dd>
+                                        }
+                                    </dl>
+                                    @if (state.mode === 'disabled') {
+                                        <p-message severity="info" text="Updates are disabled in development builds." />
+                                    } @else if (state.mode === 'notify-only') {
+                                        <p class="m-0 text-sm text-muted-color">This installation (deb package or macOS) cannot update itself: you will be notified and taken to the release page.</p>
+                                    }
+                                    <div>
+                                        <p-button label="Check Now" icon="pi pi-refresh" severity="secondary" [disabled]="state.mode === 'disabled' || state.phase === 'checking'" (onClick)="updates.openAndCheck()" />
+                                    </div>
+                                } @else {
+                                    <p class="m-0 text-sm text-muted-color">Updates are only available in the desktop app.</p>
+                                }
+                            </div>
+                        </section>
+                        <section aria-labelledby="group-update-behavior" class="flex flex-col gap-2" formGroupName="updates">
+                            <h3 id="group-update-behavior" class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">Behavior</h3>
+                            <div class="flex flex-col gap-4 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                                <div class="flex items-center justify-between gap-4">
+                                    <div>
+                                        <label for="updates-auto-check" class="font-medium">Check for updates automatically</label>
+                                        <p id="updates-auto-check-help" class="m-0 mt-0.5 text-sm text-muted-color">On startup and every 6 hours. When off, Otto never checks on its own.</p>
+                                    </div>
+                                    <p-toggleswitch inputId="updates-auto-check" formControlName="autoCheck" />
+                                </div>
+                                <div class="flex items-center justify-between gap-4">
+                                    <div>
+                                        <label for="updates-auto-download" class="font-medium">Download updates automatically</label>
+                                        <p id="updates-auto-download-help" class="m-0 mt-0.5 text-sm text-muted-color">Downloads in the background; the update is installed when you restart Otto.</p>
+                                    </div>
+                                    <p-toggleswitch inputId="updates-auto-download" formControlName="autoDownload" />
+                                </div>
+                            </div>
+                        </section>
+                    }
                     @case ('about') {
                         <div
                             class="flex flex-col gap-4 rounded-lg border border-surface-200 p-4 dark:border-surface-700">

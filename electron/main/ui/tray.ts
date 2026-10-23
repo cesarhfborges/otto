@@ -1,6 +1,7 @@
 import { app, Menu, nativeImage, Tray } from 'electron';
 import { APP_NAME, assetPath, isMac, isWindows } from '../config';
 import type { ISettingsService } from '../core/contracts';
+import type { AppCommands } from './commands';
 import type { WindowManager } from './window';
 
 const trayIconFile = (): string => {
@@ -19,7 +20,8 @@ export class TrayManager {
 
     constructor(
         private readonly window: WindowManager,
-        private readonly settings: ISettingsService
+        private readonly settings: ISettingsService,
+        private readonly commands: AppCommands
     ) {}
 
     /** Cria ou remove o ícone conforme a preferência `showTrayIcon`, acompanhando suas mudanças. */
@@ -84,6 +86,7 @@ export class TrayManager {
     private buildMenu(): Menu {
         return Menu.buildFromTemplate([
             { label: this.window.isVisible ? `Hide ${APP_NAME}` : `Show ${APP_NAME}`, click: () => this.window.toggle() },
+            { label: 'Check for Updates…', click: () => this.commands.checkForUpdates() },
             { type: 'separator' },
             { label: `Quit ${APP_NAME}`, click: () => app.quit() }
         ]);

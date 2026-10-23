@@ -3,7 +3,7 @@
  * abstratas, usadas como tokens de DI. As implementações concretas (adapters)
  * são registradas em `provideOttoCore()`.
  */
-import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, KeybindingsApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi } from '@shared/api';
+import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HistoryApi, HttpApi, KeybindingsApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi, UpdatesApi } from '@shared/api';
 import type {
     AppInfo,
     CollectionExportFormat,
@@ -34,7 +34,8 @@ import type {
     CollectionManifest,
     CollectionManifestPatch,
     OpenApiConfig,
-    OpenApiStatus
+    OpenApiStatus,
+    UpdateState
 } from '@shared/models';
 
 export abstract class AppInfoGateway implements AppApi {
@@ -163,4 +164,17 @@ export abstract class OpenApiGateway implements OpenApiApi {
     abstract spec(collectionId: EntityId): Promise<string>;
     abstract sync(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus>;
     abstract revert(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus>;
+}
+
+export abstract class UpdatesGateway implements UpdatesApi {
+    abstract state(): Promise<UpdateState>;
+    abstract check(): Promise<UpdateState>;
+    abstract download(): Promise<void>;
+    abstract install(): Promise<void>;
+    abstract skip(version: string): Promise<void>;
+    abstract remindLater(): Promise<void>;
+    abstract clearSkipped(): Promise<void>;
+    abstract openRelease(): Promise<void>;
+    abstract onStateChanged(listener: (state: UpdateState) => void): () => void;
+    abstract onOpenRequested(listener: () => void): () => void;
 }

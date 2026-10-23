@@ -93,7 +93,9 @@ export const SETTING_LEAVES: readonly SettingLeaf[] = [
     leaf('http.ssl.verifyCertificates', requireBoolean),
     leaf('http.ssl.caCertificatePath', parseCertificatePath),
     leaf('workspaces.baseDirectory', (v, f) => parseCertificatePath(v, f) ?? ''),
-    leaf('history.maxEntries', (v, f) => requireInteger(v, f, 0, MAX_HISTORY_ENTRIES))
+    leaf('history.maxEntries', (v, f) => requireInteger(v, f, 0, MAX_HISTORY_ENTRIES)),
+    leaf('updates.autoCheck', requireBoolean),
+    leaf('updates.autoDownload', requireBoolean)
 ];
 
 /** `undefined` quando algum nível do caminho não existe. Lança se um nível intermediário não for objeto. */

@@ -1,6 +1,6 @@
 // Empacota Linux (AppImage + deb) e Windows (NSIS) com a versão do package.json.
 // Pré-releases (`-beta.N`) saem como "Otto Beta": outro appId, nome e pacote, para
-// conviverem com a versão final na mesma máquina.
+// conviverem com a versão final na mesma máquina, e publicam no canal de update `beta`.
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
@@ -16,7 +16,9 @@ const overrides = beta
           '-c.linux.executableName=otto-beta',
           '-c.deb.packageName=otto-beta',
           '-c.nsis.shortcutName=Otto Beta',
-          '-c.nsis.uninstallDisplayName=Otto Beta'
+          '-c.nsis.uninstallDisplayName=Otto Beta',
+          // Gera `beta*.yml` (não `latest*.yml`): só instalações beta enxergam essas versões.
+          '-c.publish.channel=beta'
       ]
     : [];
 

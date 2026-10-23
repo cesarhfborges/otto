@@ -109,5 +109,6 @@ if (!app.requestSingleInstanceLock()) {
         keybindings.onChange(applyMenu);
         container.tray.start();
         container.window.create();
+        container.updates.start();
     });
 }

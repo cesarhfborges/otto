@@ -1,7 +1,7 @@
 // noinspection CssUnknownTarget
 
 import { NgOptimizedImage } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import type { WorkspaceSummary } from '@shared/models';
 import { MessageService, type MenuItem, TooltipOptions } from 'primeng/api';
 import { MenuModule } from 'primeng/menu';
@@ -11,6 +11,7 @@ import { TabsState } from '../core/state/tabs.state';
 import { UiState } from '../core/state/ui.state';
 import { WindowControlsState } from '../core/state/window-controls.state';
 import { WorkspacesState } from '../core/state/workspaces.state';
+import { AppInfoGateway } from '@/app/core/ports';
 
 /**
  * Barra de título própria (a janela não tem moldura nativa): menu da aplicação,
@@ -29,9 +30,12 @@ import { WorkspacesState } from '../core/state/workspaces.state';
             <!--            </button>-->
         </div>
 
-        <div class="pointer-events-none absolute inset-x-0 mx-auto flex w-fit items-center gap-2 text-sm font-semibold" aria-hidden="true">
+        <div class="pointer-events-none absolute inset-x-0 mx-auto flex w-fit items-center gap-2 text-sm pt-0.5 font-semibold" aria-hidden="true">
             <img ngSrc="favicon.png" width="16" height="16" alt="" />
             Otto
+            @if (beta()) {
+                <span class="rounded bg-orange-100 px-1.5 text-xs font-semibold text-orange-800 dark:bg-orange-900 dark:text-orange-100" title="Pre-release build for testing">BETA</span>
+            }
         </div>
 
         <div class="app-no-drag ml-auto flex items-center gap-0.5">
@@ -78,8 +82,10 @@ import { WorkspacesState } from '../core/state/workspaces.state';
             width: 1rem;
             height: 1rem;
             background-color: currentColor;
-            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52'%3E%3Cpath d='M50 48.5c0 .8-.7 1.5-1.5 1.5h-45C2.7 50 2 49.3 2 48.5v-3C2 44.7 2.7 44 3.5 44h45c.8 0 1.5.7 1.5 1.5z'/%3E%3C/svg%3E") no-repeat center / contain;
-            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52'%3E%3Cpath d='M50 48.5c0 .8-.7 1.5-1.5 1.5h-45C2.7 50 2 49.3 2 48.5v-3C2 44.7 2.7 44 3.5 44h45c.8 0 1.5.7 1.5 1.5z'/%3E%3C/svg%3E") no-repeat center / contain;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52'%3E%3Cpath d='M50 48.5c0 .8-.7 1.5-1.5 1.5h-45C2.7 50 2 49.3 2 48.5v-3C2 44.7 2.7 44 3.5 44h45c.8 0 1.5.7 1.5 1.5z'/%3E%3C/svg%3E")
+                no-repeat center / contain;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52'%3E%3Cpath d='M50 48.5c0 .8-.7 1.5-1.5 1.5h-45C2.7 50 2 49.3 2 48.5v-3C2 44.7 2.7 44 3.5 44h45c.8 0 1.5.7 1.5 1.5z'/%3E%3C/svg%3E") no-repeat
+                center / contain;
             vertical-align: middle;
         }
         .maximize-icon {
@@ -87,13 +93,16 @@ import { WorkspacesState } from '../core/state/workspaces.state';
             width: 1rem;
             height: 1rem;
             background-color: currentColor;
-            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg transform='rotate(180 8 8)'%3E%3Cpath d='M16 0H5v11h11z'/%3E%3Cpath d='M0 8h3v5h5v3H0z'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg transform='rotate(180 8 8)'%3E%3Cpath d='M16 0H5v11h11z'/%3E%3Cpath d='M0 8h3v5h5v3H0z'/%3E%3C/g%3E%3C/svg%3E") no-repeat center /
+                contain;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg transform='rotate(180 8 8)'%3E%3Cpath d='M16 0H5v11h11z'/%3E%3Cpath d='M0 8h3v5h5v3H0z'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
             vertical-align: middle;
         }
     `
 })
 export class TitleBar {
+    protected readonly version = signal('');
+    protected readonly beta = computed(() => this.version().includes('-beta'));
     protected readonly windowControls = inject(WindowControlsState);
     protected readonly ui = inject(UiState);
     protected readonly workspaces = inject(WorkspacesState);
@@ -129,6 +138,17 @@ export class TitleBar {
         { label: 'Import Workspace', icon: 'pi pi-download', command: () => this.ui.importWorkspaceDialog.set(true) },
         { label: 'Manage Workspaces', icon: 'pi pi-cog', command: () => this.tabs.open({ kind: 'workspaces', title: 'Workspaces', collectionId: null }) }
     ]);
+
+    constructor() {
+        inject(AppInfoGateway)
+            .info()
+            .then(
+                (info) => {
+                    this.version.set(`v${info.version}`);
+                },
+                () => undefined
+            );
+    }
 
     private async open(workspace: WorkspaceSummary): Promise<void> {
         try {

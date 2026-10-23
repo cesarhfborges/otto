@@ -36,6 +36,7 @@ import { TabsIpcModule } from './ipc/tabs.ipc';
 import { WindowIpcModule } from './ipc/window.ipc';
 import { WorkspacesIpcModule } from './ipc/workspaces.ipc';
 import { OpenApiIpcModule } from './ipc/openapi.ipc';
+import { UpdatesIpcModule } from './ipc/updates.ipc';
 import { createOAuth2Authorizer } from './ui/oauth2-window';
 import { OpenApiService } from './services/openapi/openapi.service';
 import { CollectionService } from './services/collections/collection.service';
@@ -44,6 +45,7 @@ import { HistoryRecordingExecutor } from './services/http/history-recording-exec
 import { ImporterRegistry } from './services/import/importer-registry';
 import { KeybindingService } from './services/keybindings/keybinding.service';
 import { SettingsService } from './services/settings/settings.service';
+import { UpdateService } from './services/updates/update.service';
 import { WorkspaceService, type ArchiveFiles } from './services/workspaces/workspace.service';
 import { AppCommands } from './ui/commands';
 import { DialogService } from './ui/dialogs';
@@ -66,6 +68,7 @@ export interface Container {
     window: WindowManager;
     commands: AppCommands;
     tray: TrayManager;
+    updates: UpdateService;
     ipcModules: IIpcModule[];
     /** Libera recursos (fecha o banco). Chamar ao encerrar o app. */
     dispose(): void;
@@ -163,7 +166,8 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
     const theme = new ThemeController(settings, window);
     const dialogs = new DialogService(() => window.current);
     const commands = new AppCommands(window, dialogs);
-    const tray = new TrayManager(window, settings);
+    const updates = new UpdateService(settings);
+    const tray = new TrayManager(window, settings, commands);
 
     return {
         settings,
@@ -180,6 +184,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
         window,
         commands,
         tray,
+        updates,
         ipcModules: [
             new AppIpcModule(dialogs, hardwareAcceleration, window),
             new WindowIpcModule(window),
@@ -193,9 +198,11 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
             new EnvironmentsIpcModule(environments, () => workspaceService.active().id),
             new CollectionsIpcModule(collections, collectionService, workspaceService, openapi, window),
             new OpenApiIpcModule(openapi),
-            new CollectionFilesIpcModule(collectionService, (file) => shell.showItemInFolder(file))
+            new CollectionFilesIpcModule(collectionService, (file) => shell.showItemInFolder(file)),
+            new UpdatesIpcModule(updates, window)
         ],
         dispose: () => {
+            updates.stop();
             collectionService.closeAll();
             void httpBase.dispose();
             if (db.isOpen) {

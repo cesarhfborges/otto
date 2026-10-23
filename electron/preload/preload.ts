@@ -134,6 +134,18 @@ const api: OttoApi = {
         sync: (collectionId, keys) => invoke('openapi:sync', collectionId, keys),
         revert: (collectionId, keys) => invoke('openapi:revert', collectionId, keys)
     },
+    updates: {
+        state: () => invoke('updates:state'),
+        check: () => invoke('updates:check'),
+        download: () => invoke('updates:download'),
+        install: () => invoke('updates:install'),
+        skip: (version) => invoke('updates:skip', version),
+        remindLater: () => invoke('updates:remind-later'),
+        clearSkipped: () => invoke('updates:clear-skipped'),
+        openRelease: () => invoke('updates:open-release'),
+        onStateChanged: (listener) => subscribe('updates:state-changed', listener),
+        onOpenRequested: (listener) => subscribe('updates:open-dialog', () => listener())
+    },
     onMenuAction: (listener) => subscribe('menu:action', listener)
 };
 

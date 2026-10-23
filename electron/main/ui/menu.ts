@@ -69,6 +69,7 @@ export function buildAppMenu(commands: AppCommands, overrides: KeybindingOverrid
             submenu: [
                 command('app.shortcuts', 'Keyboard Shortcuts'),
                 separator,
+                { label: 'Check for Updates…', click: () => commands.checkForUpdates() },
                 { label: 'Documentation', click: () => void shell.openExternal(`${REPOSITORY_URL}#readme`) },
                 { label: 'Report an Issue', click: () => void shell.openExternal(`${REPOSITORY_URL}/issues`) },
                 ...(isMac ? [] : [separator, { label: `About ${APP_NAME}`, click: () => commands.showAbout() } satisfies MenuItemConstructorOptions])

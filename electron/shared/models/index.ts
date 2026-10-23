@@ -10,3 +10,4 @@ export * from './settings';
 export * from './tab';
 export * from './workspace';
 export * from './openapi';
+export * from './update';

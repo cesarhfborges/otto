@@ -86,6 +86,13 @@ export interface AppearanceSettings {
     codeFontSize: number;
 }
 
+export interface UpdateSettings {
+    /** Verifica novas versões ao iniciar e a cada 6 h. Desligado = "Never update" (só "Check now"). */
+    autoCheck: boolean;
+    /** Baixa a nova versão em segundo plano assim que ela é encontrada. */
+    autoDownload: boolean;
+}
+
 export interface OttoSettings {
     /** Exibe o ícone do Otto na bandeja do sistema. */
     showTrayIcon: boolean;
@@ -98,6 +105,7 @@ export interface OttoSettings {
     history: HistorySettings;
     workspaces: WorkspaceSettings;
     appearance: AppearanceSettings;
+    updates: UpdateSettings;
 }
 
 /** Alteração parcial, em qualquer nível de profundidade. */
@@ -115,6 +123,7 @@ export interface SettingsPatch {
     history?: Partial<HistorySettings>;
     workspaces?: Partial<WorkspaceSettings>;
     appearance?: Partial<AppearanceSettings>;
+    updates?: Partial<UpdateSettings>;
 }
 
 export const MAX_TIMEOUT_MS = 3_600_000;
@@ -133,5 +142,6 @@ export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
     },
     history: { maxEntries: 500 },
     workspaces: { baseDirectory: '' },
-    appearance: { themePreset: 'aura', primaryColor: 'emerald', surfaceColor: null, requestLayout: 'horizontal', codeTheme: 'seneca', codeFontSize: 14 }
+    appearance: { themePreset: 'aura', primaryColor: 'emerald', surfaceColor: null, requestLayout: 'horizontal', codeTheme: 'seneca', codeFontSize: 14 },
+    updates: { autoCheck: true, autoDownload: false }
 };

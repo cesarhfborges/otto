@@ -35,7 +35,8 @@ import type {
     CollectionManifest,
     CollectionManifestPatch,
     OpenApiConfig,
-    OpenApiStatus
+    OpenApiStatus,
+    UpdateState
 } from './models';
 
 export interface IpcInvokeContract {
@@ -114,6 +115,14 @@ export interface IpcInvokeContract {
     'collection-files:reorder': { args: [collectionId: EntityId, entries: string[]]; result: void };
     'collection-files:remove': { args: [collectionId: EntityId, path: string]; result: void };
     'collection-files:reveal': { args: [collectionId: EntityId, path: string]; result: void };
+    'updates:state': { args: []; result: UpdateState };
+    'updates:check': { args: []; result: UpdateState };
+    'updates:download': { args: []; result: void };
+    'updates:install': { args: []; result: void };
+    'updates:skip': { args: [version: string]; result: void };
+    'updates:remind-later': { args: []; result: void };
+    'updates:clear-skipped': { args: []; result: void };
+    'updates:open-release': { args: []; result: void };
 }
 
 /** Canais acessados via `ipcRenderer.invoke` / `ipcMain.handle`. */
@@ -139,6 +148,9 @@ export interface IpcEventContract {
     'history:changed': null;
     /** Lista de workspaces, ativo ou coleções de um workspace mudaram. */
     'workspaces:changed': null;
+    'updates:state-changed': UpdateState;
+    /** "Check for Updates…" no menu ou na bandeja: o renderer abre a janela de atualização. */
+    'updates:open-dialog': null;
 }
 
 export type IpcEventChannel = keyof IpcEventContract;

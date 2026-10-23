@@ -15,7 +15,8 @@ import {
     ElectronThemeGateway,
     ElectronWindowGateway,
     ElectronWorkspacesGateway,
-    ElectronOpenApiGateway
+    ElectronOpenApiGateway,
+    ElectronUpdatesGateway
 } from './adapters/electron/electron-gateways';
 import {
     AppInfoGateway,
@@ -32,7 +33,8 @@ import {
     ThemeGateway,
     WindowGateway,
     WorkspacesGateway,
-    OpenApiGateway
+    OpenApiGateway,
+    UpdatesGateway
 } from './ports';
 import { KeybindingService } from './keyboard/keybinding.service';
 import { ThemeService } from './theme/theme.service';
@@ -55,6 +57,7 @@ export function provideOttoCore(): EnvironmentProviders {
         { provide: CollectionsGateway, useClass: ElectronCollectionsGateway },
         { provide: CollectionFilesGateway, useClass: ElectronCollectionFilesGateway },
         { provide: OpenApiGateway, useClass: ElectronOpenApiGateway },
+        { provide: UpdatesGateway, useClass: ElectronUpdatesGateway },
         // Aplica o tema antes da primeira renderização das rotas.
         provideAppInitializer(() => {
             inject(ThemeService);

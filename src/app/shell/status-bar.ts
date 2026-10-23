@@ -7,6 +7,8 @@ import { AppInfoGateway } from '../core/ports';
 import { ThemeService } from '../core/theme/theme.service';
 import { MenuItem, TooltipOptions } from 'primeng/api';
 import { SettingsDialog } from '../features/settings/settings-dialog.service';
+import { UpdateDialog } from '../features/updates/update-dialog';
+import { UpdatesState } from '../core/state/updates.state';
 
 const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[] = [
     { mode: 'dark', label: 'Dark', icon: 'pi pi-moon' },
@@ -17,7 +19,7 @@ const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[]
 /** Barra de status: atalhos para preferências e tema, versão do app. */
 @Component({
     selector: 'app-status-bar',
-    imports: [TooltipModule, TieredMenuModule],
+    imports: [TooltipModule, TieredMenuModule, UpdateDialog],
     template: `
         <button type="button" class="otto-icon-button !h-6 !w-7" aria-label="Preferences" pTooltip [tooltipOptions]="tooltipConfig" (click)="settingsDialog.open()">
             <i class="pi pi-cog text-xs" aria-hidden="true"></i>
@@ -37,10 +39,19 @@ const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[]
                 </a>
             </ng-template>
         </p-tiered-menu>
+        <span class="ml-auto" aria-live="polite">
+            @if (updates.pending()) {
+                <button type="button" class="flex h-6 items-center gap-1.5 rounded px-2 text-xs font-medium text-primary hover:bg-surface-200 dark:hover:bg-surface-800" [attr.aria-label]="updateLabel()" (click)="updates.open()">
+                    <i class="pi text-xs" [class]="updateIcon()" aria-hidden="true"></i>
+                    {{ updateText() }}
+                </button>
+            }
+        </span>
+        <app-update-dialog />
         @if (beta()) {
-            <span class="ml-auto rounded bg-orange-100 px-1.5 text-xs font-semibold text-orange-800 dark:bg-orange-900 dark:text-orange-100" title="Pre-release build for testing">BETA</span>
+            <span class="rounded bg-orange-100 px-1.5 text-xs font-semibold text-orange-800 dark:bg-orange-900 dark:text-orange-100" title="Pre-release build for testing">BETA</span>
         }
-        <span class="px-2 text-xs text-muted-color" [class.ml-auto]="!beta()">{{ version() }}</span>
+        <span class="px-2 text-xs text-muted-color">{{ version() }}</span>
     `,
     host: {
         role: 'contentinfo',
@@ -51,6 +62,21 @@ export class StatusBar {
     protected readonly settingsDialog = inject(SettingsDialog);
     protected readonly theme = inject(ThemeService);
     protected readonly version = signal('');
+    protected readonly updates = inject(UpdatesState);
+    protected readonly updateText = computed(() => {
+        const state = this.updates.state();
+
+        switch (state?.phase) {
+            case 'downloading':
+                return `Downloading ${Math.round(state.progress?.percent ?? 0)}%`;
+            case 'downloaded':
+                return 'Restart to update';
+            default:
+                return 'Update available';
+        }
+    });
+    protected readonly updateIcon = computed(() => (this.updates.state()?.phase === 'downloaded' ? 'pi pi-refresh' : 'pi pi-arrow-circle-down'));
+    protected readonly updateLabel = computed(() => `${this.updateText()}: version ${this.updates.state()?.info?.version ?? ''}. Open software update`);
     /** Pré-releases (`1.2.0-beta.3`) são sinalizadas na barra e no título da janela. */
     protected readonly beta = computed(() => this.version().includes('-beta'));
     private readonly title = inject(Title);

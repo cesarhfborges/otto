@@ -16,7 +16,10 @@
                 "assets": [
                     { "path": "release/*.AppImage" },
                     { "path": "release/*.deb" },
-                    { "path": "release/*.exe" }
+                    { "path": "release/*.exe" },
+                    { "path": "release/latest*.yml" },
+                    { "path": "release/beta*.yml" },
+                    { "path": "release/*.blockmap" }
                 ],
                 "successCommentCondition": false,
                 "failCommentCondition": false

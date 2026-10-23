@@ -32,7 +32,8 @@ import type {
     CollectionManifest,
     CollectionManifestPatch,
     OpenApiConfig,
-    OpenApiStatus
+    OpenApiStatus,
+    UpdateState
 } from './models';
 
 export interface AppApi {
@@ -211,6 +212,22 @@ export interface EventsApi {
     onMenuAction(listener: (action: MenuAction) => void): () => void;
 }
 
+/** Atualizações publicadas no GitHub Releases (sempre dentro do canal da instalação: beta ou final). */
+export interface UpdatesApi {
+    state(): Promise<UpdateState>;
+    /** Verificação manual: ignora "skip" e "remind later". */
+    check(): Promise<UpdateState>;
+    download(): Promise<void>;
+    /** Fecha o app (confirmando alterações pendentes), instala e reabre. */
+    install(): Promise<void>;
+    skip(version: string): Promise<void>;
+    remindLater(): Promise<void>;
+    clearSkipped(): Promise<void>;
+    openRelease(): Promise<void>;
+    onStateChanged(listener: (state: UpdateState) => void): () => void;
+    onOpenRequested(listener: () => void): () => void;
+}
+
 export interface OttoApi extends EventsApi {
     readonly isElectron: true;
     readonly platform: string;
@@ -228,4 +245,5 @@ export interface OttoApi extends EventsApi {
     readonly collections: CollectionsApi;
     readonly collectionFiles: CollectionFilesApi;
     readonly openapi: OpenApiApi;
+    readonly updates: UpdatesApi;
 }

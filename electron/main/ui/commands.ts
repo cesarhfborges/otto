@@ -14,6 +14,12 @@ export class AppCommands {
         this.window.sendMenuAction({ type: 'command', id });
     }
 
+    /** Mostra a janela de atualização; ela própria dispara a verificação. */
+    checkForUpdates(): void {
+        this.window.show();
+        this.window.notify('updates:open-dialog', null);
+    }
+
     showAbout(): void {
         void this.dialogs.showAbout();
     }
