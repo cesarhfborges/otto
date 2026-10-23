@@ -91,6 +91,85 @@ Releases são automáticas (GitHub Actions + semantic-release); veja `docs/PLANO
 - O PR `beta` → `master` publica a versão final `X.Y.Z`.
 - O título do PR (Squash and merge) define a versão: `fix:` → correção, `feat:` → recurso, `feat!:` → quebra. `chore:`/`docs:` não geram release.
 
+### Quem define a versão
+
+O campo `version` do `package.json` **não** define a versão publicada; ele só vale para builds locais. Quem define é o [semantic-release](https://semantic-release.gitbook.io/), a cada push na `master` ou na `beta` (`.github/workflows/release.yml`):
+
+1. Encontra a última tag `vX.Y.Z` (ex.: `v0.1.0`).
+2. Lê os commits feitos depois dela ([Conventional Commits](https://www.conventionalcommits.org/pt-br/)) e escolhe o salto:
+
+   | Commit | Exemplo | A partir de `v0.1.0` |
+   | --- | --- | --- |
+   | `fix:` | `fix: corrige ícone de minimizar no build` | `v0.1.1` |
+   | `feat:` | `feat: adiciona importação de coleções` | `v0.2.0` |
+   | `feat!:` ou rodapé `BREAKING CHANGE:` | `feat!: novo formato de coleção` | `v1.0.0` |
+   | `chore:`, `docs:`, `ci:`, `refactor:`, `style:`, `test:` | `docs: atualiza README` | nenhuma release |
+
+   Vale o maior salto entre os commits. Ex.: 3 `fix:` + 1 `feat:` → minor.
+3. Grava a nova versão no `package.json` (só no CI), empacota (`npm run dist:release`) e publica a tag e a GitHub Release com `.AppImage`, `.deb` e `.exe`.
+
+Na `beta`, a versão sai como pre-release (`0.2.0-beta.1`, `0.2.0-beta.2`, ...) e é empacotada como "Otto Beta".
+
+### Exemplo 1: fazer ajustes sem gerar versão
+
+Todo push na `master`/`beta` dispara o workflow, mas ele só publica release se houver `fix:`/`feat:`. Duas formas de evitar uma release:
+
+**a) Trabalhar em uma branch própria** (recomendado). Push em outras branches nunca gera release:
+
+```bash
+git checkout -b ajustes/titlebar
+git add .
+git commit -m "fix: corrige ícone de minimizar no build"
+git commit -m "refactor: simplifica estilos da title bar"
+git push -u origin ajustes/titlebar
+```
+
+Continue commitando e dando push à vontade. A release só sai quando a branch for integrada na `master`/`beta` (Exemplo 2).
+
+**b) Commitar direto na `master`** usando apenas tipos que não geram release:
+
+```bash
+git add README.md
+git commit -m "docs: explica fluxo de release"
+git push origin master   # o workflow roda, mas termina sem publicar
+```
+
+> Atenção: se algum commit pendente desde a última tag for `fix:`/`feat:`, **qualquer** push seguinte na `master` publicará a release, mesmo que o último commit seja `docs:`.
+
+### Exemplo 2: empacotar as alterações e publicar uma release
+
+Com os ajustes prontos na sua branch:
+
+```bash
+# 1. Atualize a branch com a master
+git checkout ajustes/titlebar
+git fetch origin
+git rebase origin/master
+git push --force-with-lease
+```
+
+2. Abra o PR para a **`beta`** (opcional, para testar a pre-release) ou direto para a **`master`**.
+3. Use **Squash and merge** com título no padrão, que vira o commit analisado:
+   - `fix: corrige ícones da barra de título no build` → `v0.1.1`
+   - `feat: adiciona importação de coleções` → `v0.2.0`
+4. Após o merge, acompanhe a aba **Actions**. Ao terminar, a versão aparece em **Releases** com os instaladores.
+
+Sem PR, o equivalente é fazer merge local e dar push:
+
+```bash
+git checkout master
+git pull
+git merge --squash ajustes/titlebar
+git commit -m "feat: adiciona importação de coleções"
+git push origin master   # publica v0.2.0
+```
+
+### Testar o pacote localmente
+
+```bash
+npm run dist:linux   # gera release/*.AppImage e *.deb com a versão do package.json
+```
+
 ## Estrutura do projeto
 
 ```

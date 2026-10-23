@@ -15,7 +15,12 @@ You are an expert in TypeScript, Angular, and scalable web application developme
 - Implement lazy loading for feature routes
 - Do NOT use the `@HostBinding` and `@HostListener` decorators. Put host bindings inside the `host` object of the `@Component` or `@Directive` decorator instead
 - Use `NgOptimizedImage` for all static images.
-  - `NgOptimizedImage` does not work for inline base64 images.
+- `NgOptimizedImage` does not work for inline base64 images.
+
+## PrimeNG
+- Always reference @llms.txt, @llms-full.txt, and @button.md for context and project conventions.
+- Use the Prime MCP server to ensure PrimeNG components are implemented according to best practices and official specifications.
+- This project uses PrimeNG v21; adhere strictly to the APIs, styling architecture, and patterns of this version.
 
 ## Accessibility Requirements
 

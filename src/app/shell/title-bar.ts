@@ -60,7 +60,6 @@ import { WorkspacesState } from '../core/state/workspaces.state';
                 </button>
                 <button type="button" class="otto-icon-button w-10!" [attr.aria-label]="windowControls.maximized() ? 'Restore' : 'Maximize'" (click)="windowControls.toggleMaximize()">
                     <i class="pi text-xs" [class.pi-clone]="windowControls.maximized()" [class.pi-stop]="!windowControls.maximized()" aria-hidden="true"></i>
-<!--                    <i class="pi maximize-icon" aria-hidden="true"></i>-->
                 </button>
                 <button type="button" class="otto-icon-button w-10! hover:bg-red-600! hover:text-white!" aria-label="Close" (click)="windowControls.close()">
                     <i class="pi pi-times text-xs" aria-hidden="true"></i>
@@ -79,8 +78,8 @@ import { WorkspacesState } from '../core/state/workspaces.state';
             width: 1rem;
             height: 1rem;
             background-color: currentColor;
-            -webkit-mask: url('/assets/icons/minimize.svg') no-repeat center / contain;
-            mask: url('/assets/icons/minimize.svg') no-repeat center / contain;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52'%3E%3Cpath d='M50 48.5c0 .8-.7 1.5-1.5 1.5h-45C2.7 50 2 49.3 2 48.5v-3C2 44.7 2.7 44 3.5 44h45c.8 0 1.5.7 1.5 1.5z'/%3E%3C/svg%3E") no-repeat center / contain;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52'%3E%3Cpath d='M50 48.5c0 .8-.7 1.5-1.5 1.5h-45C2.7 50 2 49.3 2 48.5v-3C2 44.7 2.7 44 3.5 44h45c.8 0 1.5.7 1.5 1.5z'/%3E%3C/svg%3E") no-repeat center / contain;
             vertical-align: middle;
         }
         .maximize-icon {
@@ -88,8 +87,8 @@ import { WorkspacesState } from '../core/state/workspaces.state';
             width: 1rem;
             height: 1rem;
             background-color: currentColor;
-            -webkit-mask: url('/assets/icons/maximize.svg') no-repeat center / contain;
-            mask: url('/assets/icons/maximize.svg') no-repeat center / contain;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg transform='rotate(180 8 8)'%3E%3Cpath d='M16 0H5v11h11z'/%3E%3Cpath d='M0 8h3v5h5v3H0z'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg transform='rotate(180 8 8)'%3E%3Cpath d='M16 0H5v11h11z'/%3E%3Cpath d='M0 8h3v5h5v3H0z'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
             vertical-align: middle;
         }
     `
