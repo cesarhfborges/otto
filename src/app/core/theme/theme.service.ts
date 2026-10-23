@@ -71,6 +71,13 @@ export class ThemeService {
 
         effect(() => this.document.documentElement.classList.toggle(DARK_CLASS, this.isDark()));
 
+        // Nora e a cor Noir destacam a seleção com fundo sólido: cores sobre ela precisam ceder ao contraste (styles.scss).
+        effect(() => {
+            const { themePreset, primaryColor } = this.themeConfig();
+
+            this.document.documentElement.classList.toggle('otto-solid-highlight', themePreset === 'nora' || primaryColor === 'noir');
+        });
+
         // Paleta e fonte do realce de sintaxe (highlight.js) como variáveis CSS globais.
         effect(() => {
             const { codeTheme, codeFontSize } = this.settings.settings().appearance;

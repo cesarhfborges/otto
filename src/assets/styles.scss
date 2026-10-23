@@ -134,6 +134,22 @@ body {
     background: var(--p-select-option-focus-background);
 }
 
+/*
+ * Seleção com fundo sólido (Nora, cor Noir — classe definida pelo ThemeService): as cores dos
+ * métodos somem sobre ele, então o rótulo assume a cor de contraste do destaque.
+ */
+.otto-solid-highlight {
+    .p-tree-node-selected,
+    .p-listbox-option-selected,
+    .p-select-option-selected:not(.otto-method-panel .p-select-option),
+    .p-highlight {
+        app-method-badge {
+            color: inherit !important;
+            opacity: 0.85;
+        }
+    }
+}
+
 /* <select> nativo com a aparência dos inputs do PrimeNG (usado dentro de tabelas, onde é mais leve que o p-select). */
 .otto-native-select {
     height: 2rem;
