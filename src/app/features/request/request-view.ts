@@ -104,7 +104,7 @@ import { OttoInput } from '../../shared/template-editor';
         TooltipModule
     ],
     template: `
-        <p-toast [key]="exampleToast" position="top-right">
+        <p-toast [key]="exampleToast" position="bottom-right" >
             <ng-template let-message #message>
                 <div class="flex flex-1 items-start gap-3">
                     <i class="pi pi-check-circle mt-0.5" aria-hidden="true"></i>
