@@ -61,6 +61,9 @@ const describeTag = (info: TagInfo): string => {
     return info.error ? `${what} ${info.label}: ${info.error}` : `${what} ${info.label}${value}`;
 };
 
+/** Intervalo para o segundo clique contar como duplo clique no chip. */
+const DOUBLE_CLICK_MS = 300;
+
 class ChipWidget extends WidgetType {
     constructor(
         readonly info: TagInfo,
@@ -91,23 +94,41 @@ class ChipWidget extends WidgetType {
         chip.append(icon, label);
         // Clique abre o texto bruto para edição (o cursor entra na tag); duplo clique numa
         // referência a resposta abre o construtor visual.
+        // Clique abre o texto bruto para edição (o cursor entra na tag). Numa referência a resposta,
+        // o primeiro clique espera o intervalo do duplo clique: se o segundo vier, abre o construtor
+        // (entrar na tag antes trocaria o chip pelo texto e o segundo clique não chegaria aqui).
+        let pending: ReturnType<typeof setTimeout> | null = null;
+        const enterTag = () => {
+            view.dispatch({ selection: { anchor: this.start + 2 } });
+            view.focus();
+        };
+
         chip.addEventListener('mousedown', (event) => {
             event.preventDefault();
 
-            if (event.detail >= 2 && this.editable(view)) {
+            if (event.button !== 0 || !this.editable(view)) {
+                enterTag();
+
                 return;
             }
 
-            view.dispatch({ selection: { anchor: this.start + 2 } });
-            view.focus();
-        });
-        chip.addEventListener('dblclick', (event) => {
-            const tag = tagAt(view.state, this.start + 1);
+            if (pending !== null) {
+                clearTimeout(pending);
+                pending = null;
 
-            if (tag && this.editable(view)) {
-                event.preventDefault();
-                void buildReference(view, tag.start, tag.end, tag.inner);
+                const tag = tagAt(view.state, this.start + 1);
+
+                if (tag) {
+                    void buildReference(view, tag.start, tag.end, tag.inner);
+                }
+
+                return;
             }
+
+            pending = setTimeout(() => {
+                pending = null;
+                enterTag();
+            }, DOUBLE_CLICK_MS);
         });
 
         return chip;
