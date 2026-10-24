@@ -1,0 +1,544 @@
+import { Component, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { commandMeta, type CommandId, type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition, type ResponseExample } from '@shared/models';
+import { looksLikeCurl, parseCurl } from '@shared/http/curl-import';
+import { querySuffix } from '@shared/http/url-query';
+import { parentFolder } from '@shared/http/inheritance';
+import { TemplateContextService } from '../../core/templating/template-context.service';
+import { MessageService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
+import { SplitterModule } from 'primeng/splitter';
+import { TabsModule } from 'primeng/tabs';
+import { TooltipModule } from 'primeng/tooltip';
+import type { SplitterPassThrough, SplitterResizeEndEvent } from 'primeng/types/splitter';
+import { ipcErrorMessage } from '../../core/bridge/ipc-error';
+import { registerCommand } from '../../core/keyboard/command-registry';
+import { KeybindingService } from '../../core/keyboard/keybinding.service';
+import { CollectionFilesGateway } from '../../core/ports';
+import { CollectionsState } from '../../core/state/collections.state';
+import { draftKey, RequestDraftsState } from '../../core/state/request-drafts.state';
+import { responseKey, ResponsesState } from '../../core/state/responses.state';
+import { SettingsState } from '../../core/state/settings.state';
+import { MethodBadge } from '../../shared/method-badge';
+import { AuthEditor } from './auth-editor';
+import { BodyEditor } from './body-editor';
+import { KeyValueEditor } from './key-value-editor';
+import { ResponsePanel } from './response-panel';
+import { EditorModule } from 'primeng/editor';
+import { ScriptEditor } from '../../shared/script-editor/script-editor';
+import { CodeDialog } from './code-dialog';
+import { ExamplesEditor } from './examples-editor';
+import { type ExampleSource, SaveExampleDialog } from './save-example-dialog';
+import { RequestHistory } from './request-history';
+
+const REQUEST_SPLITTER_KEY = 'otto.splitter.request';
+
+type Section = 'params' | 'body' | 'headers' | 'auth' | 'docs' | 'preRequest' | 'postResponse' | 'examples' | 'history';
+
+/** Primeiro tamanho (%) salvo pelo `stateKey` do splitter; `localStorage` pode estar indisponível. */
+function savedSplitterSize(key: string, fallback: number): number {
+    try {
+        const sizes: unknown = JSON.parse(localStorage.getItem(key) ?? 'null');
+
+        return Array.isArray(sizes) && typeof sizes[0] === 'number' ? sizes[0] : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+const SECTION_COMMANDS: ReadonlyArray<[CommandId, Section]> = [
+    ['request.section.params', 'params'],
+    ['request.section.body', 'body'],
+    ['request.section.headers', 'headers'],
+    ['request.section.auth', 'auth'],
+    ['request.section.docs', 'docs'],
+    ['request.section.preRequest', 'preRequest'],
+    ['request.section.postResponse', 'postResponse']
+];
+
+const PRE_REQUEST_PLACEHOLDER = ``;
+
+const POST_RESPONSE_PLACEHOLDER = ``;
+
+/** Atalhos exibidos no painel de resposta vazio. */
+const HINT_COMMANDS: readonly CommandId[] = ['request.send', 'request.save', 'collection.newRequest', 'app.preferences', 'app.shortcuts'];
+
+const enabledCount = (items: ReadonlyArray<{ enabled: boolean; key: string }>): number => items.filter((item) => item.enabled && item.key.trim()).length;
+
+/**
+ * Editor da requisição: método, URL, params, body, headers, auth e docs, com o painel
+ * de resposta ao lado. As edições ficam num rascunho (sobrevive à troca de abas) e são
+ * gravadas no arquivo da coleção com Save (atalho `request.save`). O envio usa o rascunho atual.
+ */
+import { TemplateScope } from '../../core/templating/template-scope';
+import { OttoInput } from '../../shared/template-editor';
+@Component({
+    selector: 'app-request-view',
+    providers: [TemplateScope],
+    imports: [
+        ReactiveFormsModule,
+        FormsModule,
+        TabsModule,
+        ButtonModule,
+        InputTextModule,
+        MessageModule,
+        SelectModule,
+        SplitterModule,
+        MethodBadge,
+        OttoInput,
+        KeyValueEditor,
+        BodyEditor,
+        AuthEditor,
+        ResponsePanel,
+        EditorModule,
+        ScriptEditor,
+        CodeDialog,
+        ExamplesEditor,
+        SaveExampleDialog,
+        RequestHistory,
+        TooltipModule
+    ],
+    template: `
+        <!-- Criado já visível: abrir uma instância existente exigia um segundo clique. -->
+        @if (pendingExample()) {
+            <app-save-example-dialog [(source)]="pendingExample" [taken]="exampleNames()" (saved)="appendExample($event)" />
+        }
+        @if (error(); as message) {
+            <p-message severity="error" styleClass="m-4"
+                ><span role="alert">Could not read this request: {{ message }}</span></p-message
+            >
+        } @else if (request(); as req) {
+            <div class="flex shrink-0 items-center gap-2 px-3 pt-3">
+                <div class="flex h-9 min-w-0 flex-1 items-center rounded-md border border-surface-200 dark:border-surface-700" role="group" aria-label="Request line">
+                    <p-select [formControl]="methodControl" [options]="methods" ariaLabel="HTTP method" scrollHeight="none" styleClass="otto-method-select" panelStyleClass="otto-method-panel" [style]="{ width: '7.5rem' }">
+                        <ng-template #selectedItem let-method>
+                            <app-method-badge [method]="method" />
+                        </ng-template>
+                        <ng-template #item let-method>
+                            <app-method-badge [method]="method" />
+                        </ng-template>
+                    </p-select>
+                    <app-otto-input
+                        #urlInput
+                        class="otto-request-url min-w-0 flex-1 self-stretch !rounded-none !border-0 !bg-transparent !px-3 !py-0 !text-sm !shadow-none"
+                        [value]="req.url"
+                        [suffix]="querySuffix()"
+                        suffixHint="Query from the Params tab — click to edit"
+                        (suffixClick)="section.set('params')"
+                        [placeholder]="'https://api.example.com/users or ' + urlExample"
+                        ariaLabel="Request URL"
+                        [ariaDescribedBy]="querySuffix() ? 'request-url-query' : null"
+                        (valueChange)="changeUrl($event)"
+                    />
+                </div>
+                @if (querySuffix(); as query) {
+                    <span id="request-url-query" class="sr-only">Query string from the Params tab: {{ query }}</span>
+                }
+                <p-button icon="pi pi-code" size="small" severity="secondary" [text]="true" ariaLabel="Generate code" pTooltip="Generate code (cURL, fetch, Python…)" tooltipPosition="bottom" (onClick)="codeOpen.set(true)" />
+                <p-button label="Save" icon="pi pi-save" size="small" severity="secondary" [outlined]="true" [disabled]="!dirty()" [loading]="saving()" [ariaLabel]="withShortcut('Save request', 'request.save')" (onClick)="save()" />
+                @if (sending()) {
+                    <p-button label="Cancel" icon="pi pi-times" size="small" severity="secondary" [ariaLabel]="withShortcut('Cancel request', 'request.cancel')" (onClick)="cancel()" />
+                } @else {
+                    <p-button label="Send" icon="pi pi-send" size="small" [ariaLabel]="withShortcut('Send request', 'request.send')" (onClick)="send()" />
+                }
+            </div>
+
+            @if (saveError(); as message) {
+                <p-message severity="error" size="small" styleClass="mx-3 mt-2"
+                    ><span role="alert">Could not save: {{ message }}</span></p-message
+                >
+            }
+
+            <!--
+                Requisição × resposta redimensionável; o tamanho fica salvo (localStorage), um por layout.
+                O PrimeNG calcula direção e tamanhos ao iniciar: o @for recria o splitter quando o layout muda.
+            -->
+            @for (layout of [panelSplitterDir()]; track layout) {
+                <p-splitter
+                    [pt]="splitterPt()"
+                    [panelSizes]="splitterSizes"
+                    [minSizes]="[25, 25]"
+                    [stateKey]="splitterStateKey()"
+                    stateStorage="local"
+                    (onResizeEnd)="requestSize.set(firstSize($event))"
+                    class="mt-2 min-h-0 flex-1"
+                    [layout]="layout"
+                    styleClass="h-full !rounded-none !border-0 !bg-transparent [&>.p-splitterpanel]:min-h-0 [&>.p-splitterpanel]:min-w-0 [&>.p-splitterpanel]:overflow-hidden"
+                >
+                    <ng-template #panel>
+                        <div class="flex h-full w-full flex-col overflow-auto">
+                            <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="flex min-h-0 w-full flex-1 flex-col px-3" scrollable>
+                                <p-tablist>
+                                    <p-tab value="params"
+                                        >Params
+                                        @if (counts().params) {
+                                            <span class="text-xs text-muted-color">({{ counts().params }})</span>
+                                        }
+                                    </p-tab>
+                                    @if (bodyAllowed()) {
+                                        <p-tab value="body"
+                                            >Body
+                                            @if (req.body.type !== 'none') {
+                                                <span class="text-xs text-muted-color">•</span>
+                                            }
+                                        </p-tab>
+                                    }
+                                    <p-tab value="headers"
+                                        >Headers
+                                        @if (counts().headers) {
+                                            <span class="text-xs text-muted-color">({{ counts().headers }})</span>
+                                        }
+                                    </p-tab>
+                                    <p-tab value="auth"
+                                        >Auth
+                                        @if (req.auth.type !== 'none') {
+                                            <span class="text-xs text-muted-color">•</span>
+                                        }
+                                    </p-tab>
+                                    <p-tab value="docs">Docs</p-tab>
+                                    <p-tab value="preRequest"
+                                        >Pre-request
+                                        @if (req.scripts?.preRequest?.trim()) {
+                                            <span class="text-xs text-muted-color">•</span>
+                                        }
+                                    </p-tab>
+                                    <p-tab value="postResponse"
+                                        >Post-response
+                                        @if (req.scripts?.postResponse?.trim()) {
+                                            <span class="text-xs text-muted-color">•</span>
+                                        }
+                                    </p-tab>
+                                    <p-tab value="examples"
+                                        >Examples
+                                        @if (req.examples?.length) {
+                                            <span class="text-xs text-muted-color">({{ req.examples!.length }})</span>
+                                        }
+                                    </p-tab>
+                                    <p-tab value="history">History</p-tab>
+                                </p-tablist>
+                                <p-tabpanels class="flex min-h-0 flex-1 flex-col">
+                                    <p-tabpanel value="params">
+                                        <app-key-value-editor [items]="req.params" (itemsChange)="update({ params: $event })" label="Query parameters" addLabel="Add Param" />
+                                        <p class="m-0 mt-2 text-xs text-muted-color">Enabled params are shown in gray after the URL and appended to the query string when the request is sent.</p>
+                                    </p-tabpanel>
+                                    @if (bodyAllowed()) {
+                                        <!-- Ativo vira flex para o editor ocupar a altura restante (inativo segue com [hidden]). -->
+                                        <p-tabpanel value="body" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
+                                            <app-body-editor [body]="req.body" (bodyChange)="update({ body: $event })" />
+                                        </p-tabpanel>
+                                    }
+                                    <p-tabpanel value="headers">
+                                        <app-key-value-editor [items]="req.headers" (itemsChange)="update({ headers: $event })" label="Headers" addLabel="Add Header" />
+                                    </p-tabpanel>
+                                    <p-tabpanel value="auth">
+                                        <app-auth-editor [auth]="req.auth" (authChange)="update({ auth: $event })" [inherited]="inheritedAuth()" />
+                                    </p-tabpanel>
+                                    <p-tabpanel value="docs" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
+                                        <label for="request-docs" class="mb-2 block text-sm font-medium">Documentation (Markdown)</label>
+                                        <textarea
+                                            id="request-docs"
+                                            class="block min-h-0 w-full flex-1 resize-none bg-surface-0 dark:border-surface-700 dark:bg-surface-950 caret-(--p-text-color) placeholder:text-muted-color rounded-md border border-surface-300 p-3 text-sm text-color outline-0!"
+                                            [value]="req.docs"
+                                            placeholder="Describe what this request does, its parameters and expected responses."
+                                            (input)="update({ docs: $any($event.target).value })"
+                                        ></textarea>
+                                        <!-- <p-editor [(ngModel)]="req.docs" [style]="{ height: '320px' }" (ngModelChange)="update({ docs: $event }); teste($event)" [formats]="quillFormats" [modules]="quillModules" />-->
+                                    </p-tabpanel>
+                                    <p-tabpanel value="preRequest" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
+                                        <div class="mb-2 flex items-start gap-2">
+                                            <p id="pre-request-help" class="m-0 text-xs text-muted-color">
+                                                JavaScript run before sending: change the request with <code>otto.request.setHeader(…)</code> and others, and variables with <code>otto.environment.set(…)</code>; every
+                                                <code>{{ '{{' }} otto.… {{ '}}' }}</code> command works here too. Errors stop the request. Press Esc then Tab to leave the editor.
+                                            </p>
+                                            <p-button class="ms-auto shrink-0" label="Format" icon="pi pi-align-left" size="small" severity="secondary" [text]="true" (onClick)="preScript.format()" />
+                                        </div>
+                                        <app-script-editor
+                                            #preScript
+                                            class="min-h-0 flex-1"
+                                            phase="preRequest"
+                                            ariaLabel="Pre-request script"
+                                            ariaDescribedBy="pre-request-help"
+                                            [placeholder]="preRequestPlaceholder"
+                                            [value]="req.scripts?.preRequest ?? ''"
+                                            (valueChange)="updateScripts({ preRequest: $event })"
+                                        />
+                                    </p-tabpanel>
+                                    <p-tabpanel value="postResponse" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
+                                        <div class="mb-2 flex items-start gap-2">
+                                            <p id="post-response-help" class="m-0 text-xs text-muted-color">
+                                                JavaScript run after the response: read it with <code>otto.response.json('$.path')</code>, <code>.header(…)</code>, <code>.status</code>… and save values with <code>otto.environment.set(…)</code>.
+                                                Output goes to the Console tab. Press Esc then Tab to leave the editor.
+                                            </p>
+                                            <p-button class="ms-auto shrink-0" label="Format" icon="pi pi-align-left" size="small" severity="secondary" [text]="true" (onClick)="postScript.format()" />
+                                        </div>
+                                        <app-script-editor
+                                            #postScript
+                                            class="min-h-0 flex-1"
+                                            phase="postResponse"
+                                            ariaLabel="Post-response script"
+                                            ariaDescribedBy="post-response-help"
+                                            [placeholder]="postResponsePlaceholder"
+                                            [value]="req.scripts?.postResponse ?? ''"
+                                            (valueChange)="updateScripts({ postResponse: $event })"
+                                        />
+                                    </p-tabpanel>
+                                    <p-tabpanel value="examples" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
+                                        <app-examples-editor [examples]="req.examples ?? []" (examplesChange)="updateExamples($event)" [route]="req.method + ' ' + mockRoute()" [path]="mockRoute()" [collectionId]="collectionId()" />
+                                    </p-tabpanel>
+                                    <p-tabpanel value="history">
+                                        @if (section() === 'history') {
+                                            <app-request-history [collectionId]="collectionId()" [path]="path()" (saveExample)="addExample($event)" />
+                                        }
+                                    </p-tabpanel>
+                                </p-tabpanels>
+                            </p-tabs>
+                        </div>
+                    </ng-template>
+
+                    <ng-template #panel>
+                        <section aria-label="Response" class="h-full w-full overflow-auto">
+                            @if (response(); as entry) {
+                                <app-response-panel [entry]="entry" (saveExample)="addExample($event)" />
+                            } @else {
+                                <div class="flex h-full w-full flex-col items-center justify-center gap-6 p-6 text-center">
+                                    <i class="pi pi-send !text-6xl text-surface-300 dark:text-surface-600" aria-hidden="true"></i>
+                                    <dl class="m-0 grid grid-cols-[auto_auto] gap-x-6 gap-y-2 text-sm">
+                                        @for (shortcut of shortcuts(); track shortcut.label) {
+                                            <dt class="text-right text-muted-color">{{ shortcut.label }}</dt>
+                                            <dd class="m-0 text-left">
+                                                <kbd class="font-sans">{{ shortcut.keys }}</kbd>
+                                            </dd>
+                                        }
+                                    </dl>
+                                </div>
+                            }
+                        </section>
+                    </ng-template>
+                </p-splitter>
+            }
+            <app-code-dialog [(visible)]="codeOpen" [collectionId]="collectionId()" [path]="path()" [request]="req" />
+        } @else {
+            <p class="m-0 p-4 text-sm text-muted-color" role="status">Loading…</p>
+        }
+    `,
+    host: {
+        class: 'flex h-full min-h-0 flex-col'
+    }
+})
+export class RequestView {
+    readonly collectionId = input.required<EntityId>();
+    readonly path = input.required<string>();
+    protected readonly splitterStateKey = computed(() => `${REQUEST_SPLITTER_KEY}.${this.panelSplitterDir()}`);
+    protected readonly splitterSizes = [50, 50];
+    /** Largura do painel da requisição (%), para o `aria-valuenow` do divisor. */
+    protected readonly requestSize = linkedSignal(() => savedSplitterSize(this.splitterStateKey(), this.splitterSizes[0]!));
+    /** O puxador (focável, responde às setas) é o separador acessível; ver `Shell`. */
+    protected readonly splitterPt = computed<SplitterPassThrough>(() => ({
+        panel: {},
+        gutter: { role: 'none' },
+        gutterHandle: {
+            role: 'separator',
+            'aria-label': 'Resize request and response panels',
+            'aria-orientation': this.panelSplitterDir() === 'horizontal' ? 'vertical' : 'horizontal',
+            'aria-valuemin': 0,
+            'aria-valuemax': 100,
+            'aria-valuenow': Math.round(this.requestSize())
+        }
+    }));
+    protected readonly error = signal<string | null>(null);
+    protected readonly codeOpen = signal(false);
+    private readonly messages = inject(MessageService);
+    protected readonly saveError = signal<string | null>(null);
+    protected readonly saving = signal(false);
+    protected readonly methods = [...HTTP_METHODS];
+    protected readonly methodControl = new FormControl<HttpMethod>('GET', { nonNullable: true });
+    protected readonly urlExample = '{{$.baseUrl}}/users';
+    private readonly keyboard = inject(KeybindingService);
+    /** Reflete os atalhos configurados em Preferences; comandos sem atalho não aparecem. */
+    protected readonly shortcuts = computed(() => HINT_COMMANDS.map((id) => ({ label: commandMeta(id).label, keys: this.keyboard.text(id) })).filter((shortcut) => shortcut.keys));
+    private readonly urlInput = viewChild<OttoInput>('urlInput');
+    /** GET, HEAD, TRACE e CONNECT não levam corpo: a aba Body some. */
+    protected readonly bodyAllowed = computed(() => hasBody(this.request()?.method ?? 'GET'));
+    protected readonly counts = computed(() => {
+        const request = this.request();
+
+        return { params: request ? enabledCount(request.params) : 0, headers: request ? enabledCount(request.headers) : 0 };
+    });
+    protected readonly preRequestPlaceholder = PRE_REQUEST_PLACEHOLDER;
+    protected readonly postResponsePlaceholder = POST_RESPONSE_PLACEHOLDER;
+    protected readonly sending = computed(() => this.response()?.status === 'sending');
+    private readonly settings = inject(SettingsState);
+    /** Layout escolhido em Preferences → Appearance. */
+    protected readonly panelSplitterDir = computed(() => this.settings.settings().appearance.requestLayout);
+    private readonly files = inject(CollectionFilesGateway);
+    private readonly collections = inject(CollectionsState);
+    private readonly responses = inject(ResponsesState);
+    protected readonly response = computed(() => this.responses.get(responseKey(this.collectionId(), this.path())));
+    private readonly drafts = inject(RequestDraftsState);
+    private readonly key = computed(() => draftKey(this.collectionId(), this.path()));
+    protected readonly request = computed(() => this.drafts.draft(this.key()));
+    protected readonly inheritedAuth = computed(() => this.templateContext.inheritedAuth(this.collectionId(), parentFolder(this.path())));
+    private readonly templateContext = inject(TemplateContextService);
+    protected readonly dirty = computed(() => this.drafts.isDirty(this.key()));
+    /** Aba inicial: Body quando o metodo aceita corpo, senão Params; volta ao padrão ao trocar de request ou de método com/sem corpo. */
+    protected readonly section = linkedSignal<{ key: string; bodyAllowed: boolean }, Section>({
+        source: () => ({ key: this.key(), bodyAllowed: this.bodyAllowed() }),
+        computation: ({ bodyAllowed }) => (bodyAllowed ? 'body' : 'params')
+    });
+
+    constructor() {
+        inject(TemplateScope).connect(this.collectionId, this.path);
+        // Lê o arquivo ao abrir e quando a árvore da coleção muda (edição externa, git pull);
+        // alterações locais não salvas são mantidas.
+        effect(() => {
+            const collectionId = this.collectionId();
+            const path = this.path();
+
+            this.collections.find(collectionId)?.tree;
+            untracked(() => void this.load(collectionId, path));
+        });
+
+        effect(() => {
+            const method = this.request()?.method;
+
+            if (method && method !== this.methodControl.value) {
+                this.methodControl.setValue(method, { emitEvent: false });
+            }
+        });
+        this.methodControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((method) => this.update({ method }));
+
+        // Cada aba de requisição aberta tem sua RequestView viva; os comandos só valem na aba ativa (`registerCommand`).
+        registerCommand('request.send', { when: () => !!this.request() && !this.sending(), run: () => this.send() });
+        registerCommand('request.cancel', { when: ({ overlayOpen }) => this.sending() && !overlayOpen, run: () => this.cancel() });
+        registerCommand('request.focusUrl', {
+            when: () => !!this.urlInput(),
+            run: () => {
+                this.urlInput()?.select();
+            }
+        });
+
+        for (const [id, section] of SECTION_COMMANDS) {
+            registerCommand(id, { when: () => !!this.request() && (section !== 'body' || this.bodyAllowed()), run: () => this.section.set(section) });
+        }
+    }
+
+    /** Rótulo acessível com o atalho atual, ex.: "Send request (Ctrl + Enter)". */
+    protected withShortcut(label: string, id: CommandId): string {
+        const keys = this.keyboard.text(id);
+
+        return keys ? `${label} (${keys})` : label;
+    }
+
+    protected readonly firstSize = (event: SplitterResizeEndEvent): number => Number(event.sizes[0]);
+
+    protected update(changes: Partial<RequestDefinition>): void {
+        this.drafts.update(this.key(), (draft) => ({ ...draft, ...changes }));
+    }
+
+    /** Query dos params habilitados, exibida (somente leitura) depois da URL; edita-se na aba Params. */
+    protected readonly querySuffix = computed(() => {
+        const request = this.request();
+
+        return request && this.settings.settings().appearance.showQueryInUrl ? querySuffix(request.url, request.params) : '';
+    });
+
+    /** Colar um comando cURL na URL preenche método, URL, params, headers, auth e corpo. */
+    protected changeUrl(url: string): void {
+        if (!looksLikeCurl(url)) {
+            this.update({ url });
+
+            return;
+        }
+
+        try {
+            this.update(parseCurl(url));
+            this.messages.add({ severity: 'success', summary: 'Imported from cURL', detail: 'Method, URL, params, headers, auth and body were filled in.', life: 4000 });
+        } catch (error) {
+            this.update({ url });
+            this.messages.add({ severity: 'warn', summary: 'Could not import the cURL command', detail: error instanceof Error ? error.message : String(error), life: 6000 });
+        }
+    }
+
+    /** Caminho atendido pelo mock server (mesma regra do main, para a ajuda da aba Examples). */
+    protected readonly mockRoute = computed(() => {
+        const url = this.request()?.url ?? '';
+        const path =
+            url
+                .replace(/^\s*\{\{[^}]*\}\}/, '')
+                .replace(/^[a-z][a-z\d+.-]*:\/\/[^/]*/i, '')
+                .split(/[?#]/)[0] ?? '';
+
+        return (path.startsWith('/') ? path : `/${path}`).replace(/\{\{[^}]*?([A-Za-z_][\w-]*)\s*\}\}/g, ':$1');
+    });
+
+    protected updateExamples(examples: ResponseExample[]): void {
+        this.update({ examples: examples.length ? examples : undefined });
+    }
+
+    /** Resposta recebida (ou do histórico) vira um exemplo do mock server. */
+    protected addExample(source: ExampleSource): void {
+        this.pendingExample.set(source);
+    }
+
+    protected appendExample(example: ResponseExample): void {
+        this.update({ examples: [...(this.request()?.examples ?? []), example] });
+        this.section.set('examples');
+        this.messages.add({ severity: 'success', summary: 'Example added', detail: 'Save the request to serve it from the mock server.', life: 4000 });
+    }
+
+    /** Resposta aguardando confirmação no diálogo "Save as example". */
+    protected readonly pendingExample = signal<ExampleSource | null>(null);
+    protected readonly exampleNames = computed(() => (this.request()?.examples ?? []).map((example) => example.name));
+
+    protected updateScripts(changes: { preRequest?: string; postResponse?: string }): void {
+        // Scripts vazios somem, para o rascunho voltar a ficar igual ao arquivo.
+        const { preRequest, postResponse } = { ...this.request()?.scripts, ...changes };
+        const scripts = preRequest || postResponse ? { ...(preRequest && { preRequest }), ...(postResponse && { postResponse }) } : undefined;
+
+        this.update({ scripts });
+    }
+
+    protected async save(): Promise<void> {
+        this.saving.set(true);
+        this.saveError.set(null);
+
+        try {
+            await this.drafts.save(this.collectionId(), this.path());
+        } catch (error) {
+            this.saveError.set(ipcErrorMessage(error));
+        } finally {
+            this.saving.set(false);
+        }
+    }
+
+    protected send(): void {
+        const request = this.request();
+
+        if (request) {
+            void this.responses.send(this.collectionId(), this.path(), request);
+        }
+    }
+
+    protected cancel(): void {
+        this.responses.cancel(responseKey(this.collectionId(), this.path()));
+    }
+
+    protected teste(event: any): void {
+        console.log(event);
+    }
+
+    private async load(collectionId: EntityId, path: string): Promise<void> {
+        try {
+            const request = await this.files.readRequest(collectionId, path);
+
+            this.drafts.loaded(draftKey(collectionId, path), request);
+            this.error.set(null);
+        } catch (error) {
+            this.error.set(ipcErrorMessage(error));
+        }
+    }
+}

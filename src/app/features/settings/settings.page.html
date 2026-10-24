@@ -1,0 +1,642 @@
+<nav aria-label="Preferences sections"
+     class="flex w-56 shrink-0 flex-col border-r border-surface-200 p-3 dark:border-surface-700 select-none">
+    <ul class="m-0 flex list-none flex-col gap-0.5 p-0">
+        @for (item of sections; track item.id) {
+            <li>
+                <button
+                    type="button"
+                    class="flex w-full cursor-pointer items-center gap-2.5 rounded-md border-0 px-3 py-2 text-left text-sm"
+                    [class]="section() === item.id ? 'bg-surface-200 font-medium text-primary dark:bg-surface-800' : 'bg-transparent text-muted-color hover:bg-surface-100 hover:text-color dark:hover:bg-surface-800'"
+                    [attr.aria-current]="section() === item.id ? 'page' : null"
+                    (click)="section.set(item.id)"
+                >
+                    <i [class]="item.icon" aria-hidden="true"></i>
+                    {{ item.label }}
+                </button>
+            </li>
+        }
+    </ul>
+    @if (appInfo(); as info) {
+        <p class="m-0 mt-auto px-3 text-xs text-muted-color">{{ info.name }} {{ info.version }}</p>
+    }
+</nav>
+
+<div class="flex min-w-0 flex-1 flex-col select-none">
+    <header
+        class="flex shrink-0 items-start justify-between gap-4 border-b border-surface-200 px-8 py-5 dark:border-surface-700">
+        <div class="min-w-0">
+            <h2 class="m-0 text-lg font-semibold">{{ current().label }}</h2>
+            <p class="m-0 mt-1 text-sm text-muted-color">{{ current().description }}</p>
+        </div>
+        <p class="m-0 shrink-0 text-sm text-(--p-emerald-600) dark:text-(--p-emerald-500)" role="status"
+           aria-live="polite">
+            @switch (headerStatus()) {
+                @case ('saving') {
+                    Saving…
+                }
+                @case ('saved') {
+                    <i class="pi pi-check mr-1" aria-hidden="true"></i>All changes saved
+                }
+            }
+        </p>
+    </header>
+
+    <div class="min-h-0 flex-1 overflow-auto px-8 py-6">
+        <div class="flex max-w-4xl flex-col gap-6">
+            @if (!persistent()) {
+                <p-message severity="warn">Running outside the desktop app: changes are kept only until you reload.
+                </p-message>
+            }
+            @if (errorMessage(); as message) {
+                <p-message severity="error">
+                    <span role="alert">Could not save settings: {{ message }}</span>
+                </p-message>
+            }
+
+            <!-- Atalhos não fazem parte do formulário de preferências (modelo e gravação próprios). -->
+            @if (section() === 'shortcuts') {
+                <app-keyboard-shortcuts-settings />
+            }
+
+            <form [formGroup]="form" (submit)="$event.preventDefault()" class="flex flex-col gap-6">
+                @switch (section()) {
+                    @case ('general') {
+                        <section aria-labelledby="group-workspaces" class="flex flex-col gap-2">
+                            <h3 id="group-workspaces"
+                                class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">
+                                Workspaces</h3>
+                            <div formGroupName="workspaces"
+                                 class="flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                                <div>
+                                    <label for="base-directory" class="font-medium">Workspaces folder</label>
+                                    <p id="base-directory-help" class="m-0 mt-0.5 text-sm text-muted-color">
+                                        New and imported workspaces are created in <code>&lt;folder&gt;/&lt;workspace&gt;/collections/&lt;collection&gt;</code>.
+                                        When you change it, you can move the existing workspaces to the new folder.
+                                    </p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <input pInputText id="base-directory" class="min-w-0 flex-1 font-mono text-sm"
+                                           [value]="form.controls.workspaces.controls.baseDirectory.value || appInfo()?.defaultBaseDirectory || ''"
+                                           readonly aria-describedby="base-directory-help" />
+                                    <p-button label="Change…" icon="pi pi-folder-open" severity="secondary"
+                                              [disabled]="!persistent()" (onClick)="browseBaseDirectory()" />
+                                    @if (form.controls.workspaces.controls.baseDirectory.value) {
+                                        <p-button label="Use Default" severity="secondary" [text]="true"
+                                                  (onClick)="resetBaseDirectory()" />
+                                    }
+                                </div>
+                                @if (moveResult(); as result) {
+                                    <p-message [severity]="result.severity" size="small"><span role="status">{{ result.text }}</span></p-message>
+                                }
+                            </div>
+                        </section>
+
+                        <section aria-labelledby="group-language" class="flex flex-col gap-2">
+                            <h3 id="group-languages"
+                                class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color"
+                            >
+                                Language
+                            </h3>
+                            <div
+                                class="flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                                <div>
+                                    <label for="base-directory" class="font-medium">Languages <span class="font-semibold text-orange-400 italic">coming soon</span></label>
+                                    <p id="base-directory-help" class="m-0 mt-0.5 text-sm text-muted-color">
+                                        Only US English is currently supported. Additional languages will be available in the future.
+<!--                                        Currently available only in English (US). More languages <span class="text-orange-400 font-medium italic">coming soon</span>.-->
+                                    </p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <p-select
+                                        [options]="listLanguages()"
+                                        [disabled]="true"
+                                        optionLabel="label"
+                                        optionValue="value"
+                                        placeholder="Select a language"
+                                        class="w-full"
+                                    >
+                                        <ng-template #selectedItem let-selected>
+                                            <div class="flex items-center">
+                                                <img [ngSrc]="selected.flag" [height]="16" [width]="16"
+                                                     [alt]="selected.label" [class]="'mr-2 flag flag-' + selected.value"
+                                                     style="width: 20px" />
+                                                <span>{{ selected.label }}</span>
+                                            </div>
+                                        </ng-template>
+                                        <ng-template #item let-option>
+                                            <div class="flex items-center">
+                                                <img [ngSrc]="option.flag" [height]="16" [width]="16"
+                                                     [alt]="option.label" [class]="'mr-2 flag flag-' + option.value"
+                                                     style="width: 20px" />
+                                                <span>{{ option.label }}</span>
+                                            </div>
+                                        </ng-template>
+                                    </p-select>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section aria-labelledby="group-application" class="flex flex-col gap-2">
+                            <h3 id="group-application"
+                                class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">
+                                Application</h3>
+                            <div
+                                class="divide-y divide-surface-200 rounded-lg border border-surface-200 dark:divide-surface-700 dark:border-surface-700">
+                                <div class="flex items-center justify-between gap-6 px-4 py-3">
+                                    <div class="min-w-0">
+                                        <label id="show-tray-icon-label" for="show-tray-icon" class="font-medium">Show
+                                            icon in the system tray</label>
+                                        <p id="show-tray-icon-help" class="m-0 mt-0.5 text-sm text-muted-color">Display
+                                            an Otto icon in the system tray to show, hide or quit the app.</p>
+                                    </div>
+                                    <p-toggle-switch formControlName="showTrayIcon" inputId="show-tray-icon"
+                                                     ariaLabelledBy="show-tray-icon-label" />
+                                </div>
+                                <div class="flex items-center justify-between gap-6 px-4 py-3">
+                                    <div class="min-w-0">
+                                        <label id="minimize-to-tray-label" for="minimize-to-tray" class="font-medium">Run
+                                            in the system tray</label>
+                                        <p id="minimize-to-tray-help" class="m-0 mt-0.5 text-sm text-muted-color">Keep
+                                            Otto running in the background when the window is closed. Requires the tray
+                                            icon.</p>
+                                    </div>
+                                    <p-toggle-switch formControlName="minimizeToTray" inputId="minimize-to-tray"
+                                                     ariaLabelledBy="minimize-to-tray-label" />
+                                </div>
+                                <div class="flex flex-col gap-3 px-4 py-3">
+                                    <div class="flex items-center justify-between gap-6">
+                                        <div class="min-w-0">
+                                            <label id="hardware-acceleration-label" for="hardware-acceleration"
+                                                   class="font-medium">Hardware acceleration</label>
+                                            <p id="hardware-acceleration-help"
+                                               class="m-0 mt-0.5 text-sm text-muted-color">
+                                                Use the GPU to render the application. Turn it off if you see a blank
+                                                window, flickering or rendering glitches. Requires a restart.</p>
+                                        </div>
+                                        <p-toggle-switch formControlName="hardwareAcceleration"
+                                                         inputId="hardware-acceleration"
+                                                         ariaLabelledBy="hardware-acceleration-label" />
+                                    </div>
+                                    @if (restartRequired()) {
+                                        <p-message severity="info" size="small">
+                                            <div class="flex flex-wrap items-center gap-x-4 gap-y-2" role="status">
+                                                <span>Restart {{ appInfo()?.name }} to apply this change.</span>
+                                                <p-button label="Restart now" icon="pi pi-refresh" size="small"
+                                                          severity="secondary" (onClick)="relaunch()" />
+                                            </div>
+                                        </p-message>
+                                    }
+                                </div>
+                            </div>
+                        </section>
+
+                        <section aria-labelledby="group-requests" class="flex flex-col gap-2">
+                            <h3 id="group-requests"
+                                class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">
+                                Requests</h3>
+                            <div
+                                class="divide-y divide-surface-200 rounded-lg border border-surface-200 dark:divide-surface-700 dark:border-surface-700">
+                                <ng-container formGroupName="http">
+                                    <div class="flex items-center justify-between gap-6 px-4 py-3">
+                                        <div class="min-w-0">
+                                            <label id="follow-redirects-label" for="follow-redirects"
+                                                   class="font-medium">Follow redirects</label>
+                                            <p class="m-0 mt-0.5 text-sm text-muted-color">Automatically follow 3xx
+                                                responses.</p>
+                                        </div>
+                                        <p-toggle-switch formControlName="followRedirects" inputId="follow-redirects"
+                                                         ariaLabelledBy="follow-redirects-label" />
+                                    </div>
+                                    <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+                                        <div class="min-w-0 flex-1">
+                                            <label for="timeout" class="font-medium">Request timeout (ms)</label>
+                                            <p id="timeout-help" class="m-0 mt-0.5 text-sm text-muted-color">Use 0 to
+                                                disable the timeout. Maximum {{ maxTimeoutMs }} ms (1 hour).</p>
+                                        </div>
+                                        <p-input-number formControlName="timeoutMs" inputId="timeout" [min]="0"
+                                                        [max]="maxTimeoutMs" [useGrouping]="false"
+                                                        [invalid]="controlInvalid('http.timeoutMs')"
+                                                        ariaDescribedBy="timeout-help" inputStyleClass="w-40" />
+                                    </div>
+                                </ng-container>
+                            </div>
+                        </section>
+                    }
+                    @case ('themes') {
+                        <div
+                            class="flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                            <div>
+                                <span id="theme-label" class="font-medium">Theme</span>
+                                <p id="theme-help" class="m-0 mt-0.5 text-sm text-muted-color">Auto follows your
+                                    operating system. @if (theme.mode() === 'auto') {
+                                        Currently using the {{ theme.effective() }} theme.
+                                    }</p>
+                            </div>
+                            <p-select-button formControlName="theme" [options]="themeOptions" optionLabel="label"
+                                             optionValue="value" [allowEmpty]="false" ariaLabelledBy="theme-label">
+                                <ng-template #item let-option>
+                                    <i [class]="option.icon" aria-hidden="true"></i>
+                                    <span>{{ option.label }}</span>
+                                </ng-template>
+                            </p-select-button>
+                        </div>
+
+                        <ng-container formGroupName="appearance">
+                            <fieldset
+                                class="m-0 flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                                <legend class="sr-only">Base style</legend>
+                                <div aria-hidden="true">
+                                    <span class="font-medium">Base style</span>
+                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Visual language of buttons, inputs
+                                        and panels.</p>
+                                </div>
+                                <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                    @for (preset of presetOptions; track preset.value) {
+                                        @let selected = form.controls.appearance.controls.themePreset.value === preset.value;
+                                        <label
+                                            class="relative flex cursor-pointer flex-col gap-1 rounded-lg border-2 p-4 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--p-primary-color)"
+                                            [class]="selected ? 'border-primary bg-highlight' : 'border-surface-200 hover:border-surface-400 dark:border-surface-700 dark:hover:border-surface-500'"
+                                        >
+                                            <input type="radio" class="sr-only" formControlName="themePreset"
+                                                   [value]="preset.value"
+                                                   [attr.aria-describedby]="'preset-' + preset.value + '-help'" />
+                                            <span class="font-semibold">{{ preset.label }}</span>
+                                            <span [id]="'preset-' + preset.value + '-help'" class="text-sm"
+                                                  [class.text-muted-color]="!selected">{{ preset.description }}</span>
+                                            @if (selected) {
+                                                <i class="pi pi-check-circle absolute top-3 right-3"
+                                                   aria-hidden="true"></i>
+                                            }
+                                        </label>
+                                    }
+                                </div>
+                            </fieldset>
+
+                            <fieldset
+                                class="m-0 flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                                <legend class="sr-only">Accent color</legend>
+                                <div aria-hidden="true">
+                                    <span class="font-medium">Accent color</span>
+                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Used in buttons, links, selection and
+                                        other interactive elements.</p>
+                                </div>
+                                <div class="flex flex-wrap gap-3">
+                                    @for (color of primaryColorOptions; track color.value) {
+                                        @let selected = form.controls.appearance.controls.primaryColor.value === color.value;
+                                        <label
+                                            class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-black/10 transition-transform hover:scale-110 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--p-primary-color) dark:border-white/20"
+                                            [class]="selected ? 'ring-2 ring-offset-2 ring-(--p-text-color) ring-offset-(--p-content-background)' : ''"
+                                            [style.background-color]="color.swatch"
+                                            [title]="color.label"
+                                        >
+                                            <input type="radio" class="sr-only" formControlName="primaryColor"
+                                                   [value]="color.value" [attr.aria-label]="color.label" />
+                                            @if (selected) {
+                                                <i class="pi pi-check text-sm"
+                                                   [class]="color.value === 'noir' ? 'text-surface-0 dark:text-surface-950' : 'text-white'"
+                                                   aria-hidden="true"></i>
+                                            }
+                                        </label>
+                                    }
+                                </div>
+                            </fieldset>
+
+                            <fieldset
+                                class="m-0 flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                                <legend class="sr-only">Surface tone</legend>
+                                <div aria-hidden="true">
+                                    <span class="font-medium">Surface tone</span>
+                                    <p class="m-0 mt-0.5 text-sm text-muted-color">Gray palette used for backgrounds,
+                                        panels and borders.</p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    @for (surface of surfaceColorOptions; track surface.label) {
+                                        @let selected = form.controls.appearance.controls.surfaceColor.value === surface.value;
+                                        <label
+                                            class="flex cursor-pointer items-center gap-2 rounded-md border-2 px-3 py-1.5 text-sm font-medium has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--p-primary-color)"
+                                            [class]="selected ? 'border-primary bg-highlight' : 'border-surface-200 hover:border-surface-400 dark:border-surface-700 dark:hover:border-surface-500'"
+                                        >
+                                            <input type="radio" class="sr-only" formControlName="surfaceColor"
+                                                   [value]="surface.value" />
+                                            <span class="flex" aria-hidden="true">
+                                                @for (swatch of surface.swatches; track $index) {
+                                                    <span
+                                                        class="h-3.5 w-3.5 rounded-full border border-black/10 first:-mr-1 dark:border-white/20"
+                                                        [style.background-color]="swatch"></span>
+                                                }
+                                            </span>
+                                            {{ surface.label }}
+                                        </label>
+                                    }
+                                </div>
+                            </fieldset>
+                        </ng-container>
+                    }
+                    @case ('appearance') {
+                        <div formGroupName="appearance"
+                             class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-lg border border-surface-200 px-4 py-3 dark:border-surface-700">
+                            <div class="min-w-0 flex-1">
+                                <label for="request-layout" class="font-medium">Request and response panels</label>
+                                <p id="request-layout-help" class="m-0 mt-0.5 text-sm text-muted-color">How the request
+                                    tab splits the request editor and the response. The divider between them can still
+                                    be dragged.</p>
+                            </div>
+                            <p-select formControlName="requestLayout" inputId="request-layout"
+                                      [options]="requestLayoutOptions" optionLabel="label" optionValue="value"
+                                      aria-describedby="request-layout-help" appendTo="body" class="w-full sm:w-80" />
+                        </div>
+                        <div formGroupName="appearance"
+                             class="mt-4 flex items-center justify-between gap-6 rounded-lg border border-surface-200 px-4 py-3 dark:border-surface-700">
+                            <div class="min-w-0">
+                                <label id="show-query-label" for="show-query" class="font-medium">Show query params in the URL</label>
+                                <p id="show-query-help" class="m-0 mt-0.5 text-sm text-muted-color">Display the enabled
+                                    params after the request URL, read-only and color-coded. They are always sent,
+                                    whether shown or not.</p>
+                            </div>
+                            <p-toggleswitch formControlName="showQueryInUrl" inputId="show-query"
+                                            ariaLabelledBy="show-query-label" />
+                        </div>
+                        <fieldset formGroupName="appearance"
+                                  class="m-0 mt-4 divide-y divide-surface-200 rounded-lg border border-surface-200 p-0 dark:divide-surface-700 dark:border-surface-700">
+                            <legend class="sr-only">Syntax highlighting</legend>
+                            <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+                                <div class="min-w-0 flex-1">
+                                    <label for="code-font-size" class="font-medium">Code font size</label>
+                                    <p id="code-font-size-help" class="m-0 mt-0.5 text-sm text-muted-color">In pixels,
+                                        from {{ minCodeFontSize }} to {{ maxCodeFontSize }}.</p>
+                                </div>
+                                <div class="w-full sm:w-80">
+                                    <p-input-number
+                                        formControlName="codeFontSize"
+                                        inputId="code-font-size"
+                                        [min]="minCodeFontSize"
+                                        [max]="maxCodeFontSize"
+                                        [showButtons]="true"
+                                        suffix=" px"
+                                        ariaDescribedBy="code-font-size-help"
+                                        [fluid]="true"
+                                    />
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+                                <div class="min-w-0 flex-1">
+                                    <label for="code-theme" class="font-medium">Syntax highlighting colors</label>
+                                    <p id="code-theme-help" class="m-0 mt-0.5 text-sm text-muted-color">Color palette
+                                        for
+                                        JSON and XML in the request body and the response. Adapts to light and dark
+                                        themes.</p>
+                                </div>
+                                <p-select formControlName="codeTheme" inputId="code-theme" [options]="codeThemeOptions"
+                                          optionLabel="label" optionValue="value" aria-describedby="code-theme-help"
+                                          appendTo="body" class="w-full sm:w-80" />
+                            </div>
+                            <div class="px-4 py-3">
+                                <p id="code-preview-label" class="m-0 mb-2 text-sm font-medium">Preview</p>
+                                <pre
+                                    class="otto-code-view m-0 overflow-auto rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-800"
+                                    tabindex="0" aria-labelledby="code-preview-label"><code
+                                    [highlight]="codePreview" language="json" lineNumbers></code></pre>
+                            </div>
+                        </fieldset>
+                    }
+                    @case ('proxy') {
+                        <ng-container formGroupName="http">
+                            <fieldset formGroupName="proxy"
+                                      class="m-0 divide-y divide-surface-200 rounded-lg border border-surface-200 p-0 dark:divide-surface-700 dark:border-surface-700">
+                                <legend class="sr-only">Proxy</legend>
+                                <div class="flex items-center justify-between gap-6 px-4 py-3">
+                                    <div class="min-w-0">
+                                        <label id="proxy-enabled-label" for="proxy-enabled" class="font-medium">Use a
+                                            proxy server</label>
+                                        <p class="m-0 mt-0.5 text-sm text-muted-color">HTTP, HTTPS and SOCKS5
+                                            (socks5://user:pass@host:1080) proxies are supported.</p>
+                                    </div>
+                                    <p-toggleswitch formControlName="enabled" inputId="proxy-enabled"
+                                                    ariaLabelledBy="proxy-enabled-label" />
+                                </div>
+                                <div class="flex flex-col gap-2 px-4 py-3" [formGroup]="proxyAddress">
+                                    <div class="flex flex-wrap gap-3">
+                                        <div class="flex min-w-48 flex-1 flex-col gap-2">
+                                            <label for="proxy-server" class="font-medium">Proxy server</label>
+                                            <input
+                                                pInputText
+                                                id="proxy-server"
+                                                formControlName="server"
+                                                placeholder="http://proxy.local"
+                                                autocomplete="off"
+                                                spellcheck="false"
+                                                class="font-mono text-sm"
+                                                [invalid]="controlInvalid('http.proxy.url') || (form.controls.http.controls.proxy.invalid && form.controls.http.controls.proxy.touched)"
+                                                [attr.aria-invalid]="!!(proxyErrors?.['proxyUrl'] || proxyErrors?.['proxyProtocol'] || proxyErrors?.['proxyUrlRequired'])"
+                                                aria-describedby="proxy-server-help proxy-url-error"
+                                            />
+                                        </div>
+                                        <div class="flex w-32 flex-col gap-2">
+                                            <label for="proxy-port" class="font-medium">Port</label>
+                                            <p-inputnumber formControlName="port" inputId="proxy-port" [useGrouping]="false" [min]="1" [max]="65535" placeholder="3128" inputStyleClass="w-full font-mono text-sm" styleClass="w-full" />
+                                        </div>
+                                    </div>
+                                    <small id="proxy-server-help" class="text-sm text-muted-color">Scheme and host, with optional credentials: http://, https:// or socks5://user:pass&#64;host. Without a scheme, http:// is used.</small>
+                                    <small id="proxy-url-error" class="text-red-700 empty:hidden dark:text-red-400"
+                                           aria-live="polite">@if (proxyErrors?.['proxyUrl']) {
+                                        Enter a valid address, for example http://proxy.local.
+                                    } @else if (proxyErrors?.['proxyProtocol']) {
+                                        The proxy address must start with http://, https:// or socks5://.
+                                    } @else if (proxyErrors?.['proxyUrlRequired']) {
+                                        Enter the proxy server or turn the proxy off.
+                                    }</small>
+                                </div>
+                                <div class="flex flex-col gap-2 px-4 py-3">
+                                    <label for="proxy-bypass" class="font-medium">Bypass proxy for</label>
+                                    <textarea pTextarea id="proxy-bypass" formControlName="bypass" rows="4" autocomplete="off"
+                                              spellcheck="false" class="w-full resize-y font-mono text-sm"
+                                              placeholder="localhost&#10;127.0.0.1&#10;*.internal"
+                                              aria-describedby="proxy-bypass-help"></textarea>
+                                    <small id="proxy-bypass-help" class="text-sm text-muted-color">One host per line (or
+                                        comma-separated). Use *.domain for subdomains and host:port for a single port; * bypasses everything.</small>
+                                </div>
+                            </fieldset>
+                        </ng-container>
+                    }
+                    @case ('certificates') {
+                        <ng-container formGroupName="http">
+                            <fieldset formGroupName="ssl" class="m-0 flex flex-col gap-4 border-0 p-0">
+                                <legend class="sr-only">SSL/TLS certificates</legend>
+                                <div
+                                    class="divide-y divide-surface-200 rounded-lg border border-surface-200 dark:divide-surface-700 dark:border-surface-700">
+                                    <div class="flex items-center justify-between gap-6 px-4 py-3">
+                                        <div class="min-w-0">
+                                            <label id="verify-certificates-label" for="verify-certificates"
+                                                   class="font-medium">SSL/TLS certificate verification</label>
+                                            <p class="m-0 mt-0.5 text-sm text-muted-color">Reject servers whose
+                                                certificate cannot be verified.</p>
+                                        </div>
+                                        <p-toggleswitch formControlName="verifyCertificates"
+                                                        inputId="verify-certificates"
+                                                        ariaLabelledBy="verify-certificates-label" />
+                                    </div>
+                                    <div class="flex flex-col gap-3 px-4 py-3">
+                                        <div>
+                                            <label for="ca-certificate" class="font-medium">Custom CA
+                                                certificate</label>
+                                            <p id="ca-certificate-help" class="m-0 mt-0.5 text-sm text-muted-color">PEM
+                                                file trusted in addition to the built-in and operating system
+                                                certificates.</p>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <input
+                                                pInputText
+                                                id="ca-certificate"
+                                                class="min-w-0 flex-1 font-mono text-sm"
+                                                [value]="form.controls.http.controls.ssl.controls.caCertificatePath.value ?? ''"
+                                                placeholder="No certificate selected"
+                                                readonly
+                                                aria-describedby="ca-certificate-help"
+                                            />
+                                            <p-button label="Select File" icon="pi pi-folder-open" severity="secondary"
+                                                      [disabled]="!persistent()" (onClick)="browseCertificate()" />
+                                            @if (form.controls.http.controls.ssl.controls.caCertificatePath.value) {
+                                                <p-button label="Clear" icon="pi pi-times" severity="secondary"
+                                                          [text]="true" (onClick)="clearCertificate()" />
+                                            }
+                                        </div>
+                                    </div>
+                                    <app-client-certificates
+                                        [certificates]="form.controls.http.controls.ssl.controls.clientCertificates.value"
+                                        (certificatesChange)="form.controls.http.controls.ssl.controls.clientCertificates.setValue($event)"
+                                        [disabled]="!persistent()"
+                                    />
+                                </div>
+                                @if (!form.controls.http.controls.ssl.controls.verifyCertificates.value) {
+                                    <p-message severity="warn" size="small">Certificate verification is off. Use this
+                                        only with trusted development servers.
+                                    </p-message>
+                                }
+                            </fieldset>
+                        </ng-container>
+                    }
+                    @case ('updates') {
+                        <section aria-labelledby="group-updates" class="flex flex-col gap-2">
+                            <h3 id="group-updates" class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">Software Update</h3>
+                            <div class="flex flex-col gap-3 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                                @if (updates.state(); as state) {
+                                    <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 text-sm">
+                                        <dt class="text-muted-color">Installed version</dt>
+                                        <dd class="m-0">{{ state.currentVersion }}</dd>
+                                        <dt class="text-muted-color">Channel</dt>
+                                        <dd class="m-0">{{ state.channel === 'beta' ? 'Beta — receives only beta pre-releases' : 'Stable — receives only final releases' }}</dd>
+                                        <dt class="text-muted-color">Last checked</dt>
+                                        <dd class="m-0">{{ state.lastCheckedAt ? (state.lastCheckedAt | date: 'medium') : 'Never' }}</dd>
+                                        @if (state.skippedVersion) {
+                                            <dt class="text-muted-color">Skipped version</dt>
+                                            <dd class="m-0 flex items-center gap-2">
+                                                {{ state.skippedVersion }}
+                                                <p-button label="Clear" size="small" severity="secondary" [text]="true" (onClick)="updates.clearSkipped()" />
+                                            </dd>
+                                        }
+                                    </dl>
+                                    @if (state.mode === 'disabled') {
+                                        <p-message severity="info" text="Updates are disabled in development builds." />
+                                    } @else if (state.mode === 'notify-only') {
+                                        <p class="m-0 text-sm text-muted-color">This installation (deb package or macOS) cannot update itself: you will be notified and taken to the release page.</p>
+                                    }
+                                    <div>
+                                        <p-button label="Check Now" icon="pi pi-refresh" severity="secondary" [disabled]="state.mode === 'disabled' || state.phase === 'checking'" (onClick)="updates.openAndCheck()" />
+                                    </div>
+                                } @else {
+                                    <p class="m-0 text-sm text-muted-color">Updates are only available in the desktop app.</p>
+                                }
+                            </div>
+                        </section>
+                        <section aria-labelledby="group-update-behavior" class="flex flex-col gap-2" formGroupName="updates">
+                            <h3 id="group-update-behavior" class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">Behavior</h3>
+                            <div class="flex flex-col gap-4 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                                <div class="flex items-center justify-between gap-4">
+                                    <div>
+                                        <label for="updates-auto-check" class="font-medium">Check for updates automatically</label>
+                                        <p id="updates-auto-check-help" class="m-0 mt-0.5 text-sm text-muted-color">On startup and every 6 hours. When off, Otto never checks on its own.</p>
+                                    </div>
+                                    <p-toggleswitch inputId="updates-auto-check" formControlName="autoCheck" />
+                                </div>
+                                <div class="flex items-center justify-between gap-4">
+                                    <div>
+                                        <label for="updates-auto-download" class="font-medium">Download updates automatically</label>
+                                        <p id="updates-auto-download-help" class="m-0 mt-0.5 text-sm text-muted-color">Downloads in the background; the update is installed when you restart Otto.</p>
+                                    </div>
+                                    <p-toggleswitch inputId="updates-auto-download" formControlName="autoDownload" />
+                                </div>
+                            </div>
+                        </section>
+                    }
+                    @case ('about') {
+                        <div
+                            class="flex flex-col gap-4 rounded-lg border border-surface-200 p-4 dark:border-surface-700">
+                            @if (appInfo(); as info) {
+                                <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 text-sm">
+                                    <dt class="text-muted-color">Version</dt>
+                                    <dd class="m-0">{{ info.name }} {{ info.version }}</dd>
+                                    <dt class="text-muted-color">Electron</dt>
+                                    <dd class="m-0">{{ info.versions.electron }}</dd>
+                                    <dt class="text-muted-color">Chromium</dt>
+                                    <dd class="m-0">{{ info.versions.chrome }}</dd>
+                                    <dt class="text-muted-color">Node.js</dt>
+                                    <dd class="m-0">{{ info.versions.node }}</dd>
+                                    <dt class="text-muted-color">Platform</dt>
+                                    <dd class="m-0">{{ info.platform }}</dd>
+                                </dl>
+                            } @else {
+                                <p class="m-0 text-sm text-muted-color">Version information is only available in the
+                                    desktop app.</p>
+                            }
+                            <p class="m-0 text-sm text-muted-color">Open-source, offline-first API client. No accounts,
+                                no telemetry.</p>
+                        </div>
+                        <div
+                            class="group relative inline-flex items-center gap-4 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-xl transition-all duration-300 dark:border-zinc-800/80 dark:bg-zinc-950/80">
+
+                            <!-- Feixe de borda iluminada suave no hover -->
+                            <div
+                                class="pointer-events-none absolute -inset-px -z-10 rounded-2xl bg-linear-to-r from-emerald-500/0 via-emerald-500/25 to-amber-400/0 opacity-0 blur-sm transition-opacity duration-300"></div>
+
+                            <!-- Efeito Shimmer sutil no hover -->
+                            <div
+                                class="pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 ease-in-out group-hover:translate-x-full dark:via-white/5"></div>
+
+                            <!-- Container da Bandeira (sem o quadro/box) -->
+                            <div class="relative flex h-10 w-10 shrink-0 items-center justify-center">
+                                <!-- Pulso suave de fundo -->
+                                <div
+                                    class="absolute inset-0 animate-ping rounded-full bg-emerald-500/15 duration-1000"></div>
+
+                                <!-- Glow gradiente verde e amarelo -->
+                                <div
+                                    class="absolute -inset-1 rounded-full bg-linear-to-tr from-emerald-500 via-teal-400 to-amber-400 opacity-30 blur-md transition-all duration-300 group-hover:scale-110 group-hover:opacity-60"></div>
+
+                                <!-- Ícone solto diretamente sobre o efeito de luz -->
+                                <img
+                                    src="assets/icons/brazil.svg"
+                                    alt="Bandeira do Brasil"
+                                    class="relative h-9 w-9 drop-shadow-md transition-transform duration-300 group-hover:scale-105"
+                                />
+                            </div>
+
+                            <!-- Textos -->
+                            <div class="flex flex-col pr-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span
+                                        class="bg-linear-to-r from-zinc-900 via-zinc-800 to-zinc-600 bg-clip-text text-sm font-bold tracking-tight text-transparent dark:from-white dark:via-zinc-200 dark:to-zinc-400">
+                                        From Brazil to the world
+                                    </span>
+                                    <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                </div>
+                                <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                                    Made with dedication to connect all peoples.
+                                </span>
+                            </div>
+                        </div>
+                    }
+                }
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,464 @@
+@use 'primeicons/primeicons.css';
+
+/* Densidade de aplicativo desktop: os componentes do PrimeNG usam `rem`. */
+:root {
+    font-size: 14px;
+    color-scheme: light;
+
+    /* Métodos HTTP: tons 700 do Tailwind (contraste AA sobre fundo claro). */
+    --otto-method-get: #15803d;
+    --otto-method-post: #1d4ed8;
+    --otto-method-put: #b45309;
+    --otto-method-patch: #6d28d9;
+    --otto-method-delete: #b91c1c;
+    --otto-method-other: #0e7490;
+
+    /* Chips de variável/comando: correto = primary do app; incorreto = danger (red) do app. */
+    --otto-template-ok-color: var(--p-primary-700);
+    --otto-template-ok-background: color-mix(in srgb, var(--p-primary-color) 12%, transparent);
+    --otto-template-ok-border: color-mix(in srgb, var(--p-primary-color) 45%, transparent);
+
+    --otto-template-error-color: var(--p-red-700);
+    --otto-template-error-background: color-mix(in srgb, var(--p-red-500) 12%, transparent);
+    --otto-template-error-border: var(--p-red-400);
+}
+
+/* Tons 400 (contraste AA sobre as superfícies escuras). */
+:root.app-dark {
+    color-scheme: dark;
+    --otto-method-get: #4ade80;
+    --otto-method-post: #60a5fa;
+    --otto-method-put: #fbbf24;
+    --otto-method-patch: #a78bfa;
+    --otto-method-delete: #f87171;
+    --otto-method-other: #22d3ee;
+
+    --otto-template-ok-color: var(--p-primary-300);
+    --otto-template-ok-background: color-mix(in srgb, var(--p-primary-color) 18%, transparent);
+    --otto-template-ok-border: color-mix(in srgb, var(--p-primary-color) 50%, transparent);
+
+    --otto-template-error-color: var(--p-red-300);
+    --otto-template-error-background: color-mix(in srgb, var(--p-red-400) 18%, transparent);
+    --otto-template-error-border: var(--p-red-400);
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    font-family:
+        system-ui,
+        -apple-system,
+        'Segoe UI',
+        Roboto,
+        'Helvetica Neue',
+        Arial,
+        sans-serif;
+    background: var(--p-content-background);
+    color: var(--p-text-color);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Janela sem moldura: áreas que movem a janela e as que recebem cliques. */
+.app-drag {
+    -webkit-app-region: drag;
+    user-select: none;
+}
+
+.app-no-drag {
+    -webkit-app-region: no-drag;
+}
+
+/* Barras de rolagem discretas, no estilo de editores. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--p-surface-300) transparent;
+}
+
+.app-dark * {
+    scrollbar-color: var(--p-surface-700) transparent;
+}
+
+/* Foco visível para navegação por teclado (WCAG 2.4.7). */
+:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 1px;
+}
+
+/* Botão de ícone compacto (barra de título, barra lateral, abas). */
+.otto-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.875rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--p-text-muted-color);
+    cursor: pointer;
+
+    &:hover {
+        background: var(--p-content-hover-background);
+        color: var(--p-text-color);
+    }
+
+    &[aria-pressed='true'] {
+        color: var(--p-primary-color);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+}
+
+/* Seletor de método embutido na barra de URL (a borda é a do grupo). */
+.p-select.otto-method-select {
+    height: 100%;
+    border: 0;
+    border-right: 1px solid var(--p-content-border-color);
+    border-radius: var(--p-content-border-radius) 0 0 var(--p-content-border-radius);
+    background: transparent;
+    box-shadow: none;
+}
+
+/* Opção selecionada/focada com fundo neutro: as cores dos métodos mantêm contraste AA. */
+.otto-method-panel .p-select-option.p-select-option-selected,
+.otto-method-panel .p-select-option.p-select-option-selected.p-focus {
+    background: var(--p-select-option-focus-background);
+}
+
+/*
+ * Seleção com fundo sólido (Nora, cor Noir — classe definida pelo ThemeService): as cores dos
+ * métodos somem sobre ele, então o rótulo assume a cor de contraste do destaque.
+ */
+.otto-solid-highlight {
+    .p-tree-node-selected,
+    .p-listbox-option-selected,
+    .p-select-option-selected:not(.otto-method-panel .p-select-option),
+    .p-highlight {
+        app-method-badge {
+            color: inherit !important;
+            opacity: 0.85;
+        }
+    }
+}
+
+/* <select> nativo com a aparência dos inputs do PrimeNG (usado dentro de tabelas, onde é mais leve que o p-select). */
+.otto-native-select {
+    height: 2rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--p-inputtext-border-color);
+    border-radius: var(--p-inputtext-border-radius);
+    background: var(--p-inputtext-background);
+    color: var(--p-inputtext-color);
+    font-size: 0.875rem;
+}
+
+.otto-native-select:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 1px;
+}
+
+/* Item de menu destrutivo (ex.: Disconnect Sync). */
+.otto-danger-item .p-menu-item-label,
+.otto-danger-item .p-menu-item-icon {
+    color: var(--otto-method-delete);
+}
+
+/* Editor com realce (app-code-editor): textarea e espelho precisam da mesma caixa de texto. */
+.otto-code {
+    box-sizing: border-box;
+    padding: 0.75rem;
+    border: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+    font-size: var(--otto-code-font-size, 14px);
+    line-height: 1.5;
+    tab-size: 4;
+    white-space: pre;
+    overflow-wrap: normal;
+}
+
+/* Realce do highlight.js: cores definidas pela paleta escolhida em Settings → Appearance (ThemeService). */
+.hljs-attr,
+.hljs-attribute {
+    color: var(--otto-hl-key);
+}
+.hljs-string {
+    color: var(--otto-hl-string);
+}
+.hljs-number {
+    color: var(--otto-hl-number);
+}
+.hljs-literal,
+.hljs-keyword {
+    color: var(--otto-hl-literal);
+}
+.hljs-name,
+.hljs-tag {
+    color: var(--otto-hl-tag);
+}
+.hljs-comment,
+.hljs-meta {
+    color: var(--otto-hl-comment);
+}
+
+.otto-code-view {
+    font-size: var(--otto-code-font-size, 14px);
+    line-height: 1.5;
+}
+
+/* Números de linha: tabela do plugin `lineNumbers` (ngx-highlightjs) e calha do app-code-editor. */
+.hljs-ln td.hljs-ln-numbers,
+.otto-code-gutter {
+    color: var(--p-text-muted-color);
+    text-align: right;
+    user-select: none;
+}
+.hljs-ln td.hljs-ln-numbers {
+    padding-right: 1rem;
+    vertical-align: top;
+}
+
+/* Expandir/recolher blocos (diretiva `codeFold`): botão à esquerda do número da linha. */
+.hljs-ln:has(.otto-fold-toggle) td.hljs-ln-numbers {
+    position: relative;
+    padding-left: 1.5em;
+}
+.otto-fold-toggle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: inline-flex;
+    width: 1.25em;
+    height: 1.5em;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+
+    .pi {
+        font-size: 0.7em;
+    }
+    &:hover {
+        color: var(--p-text-color);
+    }
+    &:focus-visible {
+        outline: 2px solid var(--p-primary-color);
+        outline-offset: -1px;
+    }
+}
+.otto-fold-collapsed td.hljs-ln-code::after {
+    content: ' …';
+    color: var(--p-text-muted-color);
+}
+
+/* Campos com template (app-otto-input / app-otto-textarea): o host recebe `p-inputtext` do PrimeNG. */
+.otto-template-field {
+    display: block;
+    min-width: 0;
+    cursor: text;
+    overflow: hidden;
+
+    &.otto-mono {
+        font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    }
+
+    &:not(.p-disabled):not(.p-invalid):not(:focus-within):hover {
+        border-color: var(--p-inputtext-hover-border-color);
+    }
+
+    &:focus-within {
+        border-color: var(--p-inputtext-focus-border-color);
+        box-shadow: var(--p-inputtext-focus-ring-shadow);
+        outline: var(--p-inputtext-focus-ring-width) var(--p-inputtext-focus-ring-style) var(--p-inputtext-focus-ring-color);
+        outline-offset: var(--p-inputtext-focus-ring-offset);
+    }
+
+    &.p-invalid {
+        border-color: var(--p-inputtext-invalid-border-color);
+    }
+
+    &.p-disabled {
+        background: var(--p-inputtext-disabled-background);
+        color: var(--p-inputtext-disabled-color);
+        cursor: default;
+    }
+
+    &.otto-masked .cm-line {
+        -webkit-text-security: disc;
+    }
+
+    &.otto-multiline .cm-editor {
+        min-height: calc(var(--otto-rows, 3) * 1.5em);
+    }
+
+    &.otto-multiline:not(.otto-auto-resize) .cm-editor {
+        height: calc(var(--otto-rows, 3) * 1.5em);
+    }
+
+    &.otto-multiline .cm-scroller {
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+
+    /* `otto-fill`: ocupa a altura do contêiner (ex.: corpo da requisição) em vez de `rows`. */
+    &.otto-multiline.otto-fill {
+        display: flex;
+        flex-direction: column;
+
+        .cm-editor {
+            flex: 1;
+            min-height: 0;
+            height: auto;
+        }
+    }
+}
+
+/*
+ * Inline (não inline-flex) para ficar na mesma linha de base do texto; a borda é um
+ * box-shadow interno, então o chip não aumenta a altura da linha nem desloca o texto.
+ */
+.otto-template-chip {
+    /*
+     * inline-block alinhado pela linha de base do próprio texto: coincide com o texto ao
+     * lado qualquer que seja o line-height da linha (e com os cm-widgetBuffer do CodeMirror).
+     * A margem vertical negativa (= padding) faz o chip não aumentar a linha; a caixa
+     * (altura das maiúsculas ~0.7em + 0.6em) cabe na linha de 1.5em e não é cortada
+     * pelo `.cm-scroller`.
+     */
+    display: inline-block;
+    box-sizing: border-box;
+    margin: -0.3em 0.125em;
+    padding: 0.3em 0.4em;
+    /*
+     * A área de "line-height: normal" inclui o descendente da fonte (bem maior que o espaço
+     * acima das maiúsculas), o que deixava sobra embaixo. Recorta a caixa da altura das
+     * maiúsculas até a linha de base: o padding simétrico centra o texto de fato.
+     */
+    text-box: trim-both cap alphabetic;
+    color: var(--otto-template-ok-color);
+    background: var(--otto-template-ok-background);
+    box-shadow: inset 0 0 0 1px var(--otto-template-ok-border);
+    border-radius: 0.3em;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: normal;
+    vertical-align: baseline;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-text-security: none;
+    transition: background-color 0.15s;
+
+    &:hover {
+        background: color-mix(in srgb, var(--otto-template-ok-border) 35%, transparent);
+    }
+
+    .pi {
+        margin-right: 0.3em;
+        font-size: 0.75em;
+        line-height: 1;
+        vertical-align: 0.05em;
+    }
+
+    &[data-state='error'] {
+        color: var(--otto-template-error-color);
+        background: var(--otto-template-error-background);
+        box-shadow: inset 0 0 0 1px var(--otto-template-error-border);
+        font-style: italic;
+
+        &:hover {
+            background: color-mix(in srgb, var(--otto-template-error-border) 30%, transparent);
+        }
+
+        .pi {
+            font-style: normal;
+        }
+    }
+}
+
+/* Tag aberta para edição (texto bruto): mesmas cores do chip, para seguir identificável. */
+.otto-template-editing {
+    color: var(--otto-template-ok-color);
+    background: var(--otto-template-ok-background);
+    box-shadow:
+        inset 0 1px 0 var(--otto-template-ok-border),
+        inset 0 -1px 0 var(--otto-template-ok-border);
+
+    &.otto-template-editing-open {
+        border-radius: 0.3em 0 0 0.3em;
+        box-shadow:
+            inset 1px 0 0 var(--otto-template-ok-border),
+            inset 0 1px 0 var(--otto-template-ok-border),
+            inset 0 -1px 0 var(--otto-template-ok-border);
+    }
+
+    &.otto-template-editing-close {
+        border-radius: 0 0.3em 0.3em 0;
+        box-shadow:
+            inset -1px 0 0 var(--otto-template-ok-border),
+            inset 0 1px 0 var(--otto-template-ok-border),
+            inset 0 -1px 0 var(--otto-template-ok-border);
+    }
+
+    &[data-state='error'] {
+        --otto-template-ok-color: var(--otto-template-error-color);
+        --otto-template-ok-background: var(--otto-template-error-background);
+        --otto-template-ok-border: var(--otto-template-error-border);
+    }
+}
+
+.otto-template-tooltip {
+    max-width: 24rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+
+    .otto-template-tooltip-title {
+        font-family: var(--font-mono, monospace);
+        font-weight: 600;
+        word-break: break-all;
+    }
+
+    .otto-template-tooltip-detail {
+        margin-top: 0.25rem;
+        color: var(--p-text-muted-color);
+        word-break: break-all;
+    }
+
+    .otto-template-tooltip-error {
+        margin-top: 0.25rem;
+        color: var(--otto-template-error-color);
+    }
+}
+
+/* URL da requisição: o grupo (método + URL) já tem a borda; o campo só centraliza a linha. */
+.otto-template-field.otto-request-url {
+    display: flex;
+    align-items: center;
+
+    > .cm-editor {
+        flex: 1;
+        min-width: 0;
+    }
+
+    &:focus-within {
+        box-shadow: none;
+        outline: 2px solid var(--p-primary-color);
+        outline-offset: -2px;
+    }
+
+    &.p-invalid {
+        box-shadow: inset 0 0 0 1px var(--p-inputtext-invalid-border-color);
+    }
+}

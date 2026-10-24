@@ -1,0 +1,134 @@
+import type { EntityId, IsoDateTime, KeyValue, Timestamps } from './common';
+import type { OpenApiConfig } from './openapi';
+import type { HttpMethod } from './http';
+import type { RequestAuth, RequestScripts } from './request';
+
+/** Origem remota da coleção (ex.: spec OpenAPI), usada pela sincronização. */
+export interface CollectionSource {
+    kind: 'openapi';
+    /** URL ou caminho local da especificação. */
+    location: string;
+    /** Hash do último conteúdo sincronizado, para detectar mudanças. */
+    lastHash: string | null;
+    lastCheckedAt: IsoDateTime | null;
+}
+
+/** Metadados de uma coleção conhecida pelo app (o conteúdo vive no disco). */
+export interface CollectionMetadata extends Timestamps {
+    id: EntityId;
+    name: string;
+    /** Pasta raiz da coleção no sistema de arquivos. */
+    path: string;
+    source: CollectionSource | null;
+    lastOpenedAt: IsoDateTime | null;
+}
+
+export type NewCollectionMetadata = Omit<CollectionMetadata, 'id' | keyof Timestamps>;
+
+/** Versão do formato em disco (`otto.yaml`). */
+export const COLLECTION_FORMAT_VERSION = 1;
+
+/** Conteúdo do `otto.yaml` na raiz da coleção. */
+export interface CollectionManifest {
+    version: number;
+    name: string;
+    description: string;
+    /** Headers enviados em todas as requisições da coleção; os da requisição têm prioridade. */
+    headers: KeyValue[];
+    /** Variáveis da coleção (versionadas): perdem para as do ambiente selecionado. */
+    variables: KeyValue[];
+    /** Cookies da coleção (isolados por coleção): enviados e atualizados a cada requisição. */
+    cookies: CollectionCookie[];
+    /** Autenticação usada pelas requisições e pastas com `auth: inherit` (nunca `inherit`). */
+    auth: RequestAuth;
+    /** Executados antes/depois de cada requisição da coleção (antes dos scripts das pastas e da requisição). */
+    scripts: RequestScripts;
+    openapi: OpenApiConfig | null;
+}
+
+/**
+ * Configurações de uma pasta (`_folder.yaml`), herdadas pelo que está dentro dela.
+ * `auth: inherit` (padrão) usa a da pasta pai ou a da coleção; as variáveis vencem as
+ * da coleção e das pastas acima (o ambiente selecionado vence todas).
+ */
+export interface FolderSettings {
+    auth: RequestAuth;
+    variables: KeyValue[];
+    scripts: RequestScripts;
+}
+
+export const emptyFolderSettings = (): FolderSettings => ({ auth: { type: 'inherit' }, variables: [], scripts: {} });
+
+/** Cookie guardado na coleção. */
+export interface CollectionCookie {
+    name: string;
+    value: string;
+    /** Host sem protocolo (`localhost`, `api.exemplo.com`). */
+    domain: string;
+    path: string;
+    /** ISO 8601; `null` = cookie de sessão. */
+    expires: string | null;
+    secure: boolean;
+    httpOnly: boolean;
+    /** Só o host exato (sem subdomínios). */
+    hostOnly: boolean;
+}
+
+/** Alteração editável pela UI no `otto.yaml`. */
+export type CollectionManifestPatch = Partial<Pick<CollectionManifest, 'description' | 'headers' | 'variables' | 'cookies' | 'auth' | 'scripts'>>;
+
+/** Nó da árvore de uma coleção lida do disco. */
+export type CollectionNode = CollectionFolderNode | CollectionRequestNode;
+
+export interface CollectionFolderNode {
+    type: 'folder';
+    name: string;
+    /** Caminho relativo à raiz da coleção, sempre com `/`. */
+    path: string;
+    /** Ordem da pasta entre os itens da pasta pai (de `_folder.yaml`); `null` quando não definida. */
+    seq: number | null;
+    settings: FolderSettings;
+    children: CollectionNode[];
+}
+
+export interface CollectionRequestNode {
+    type: 'request';
+    /** `id` estável do arquivo; `null` em arquivos antigos (ainda não regravados) ou inválidos. */
+    id: string | null;
+    /** Nome da requisição (do arquivo) ou o nome do arquivo, se ilegível. */
+    name: string;
+    path: string;
+    /** `null` quando o arquivo não pôde ser lido como requisição. */
+    method: HttpMethod | null;
+    seq: number | null;
+    /** Motivo pelo qual o arquivo é inválido, se for o caso. */
+    error: string | null;
+}
+
+export interface CollectionTree {
+    root: string;
+    name: string;
+    children: CollectionNode[];
+}
+
+/** Coleção aberta: metadados do banco + manifesto e árvore lidos do disco. */
+export interface OpenedCollection {
+    metadata: CollectionMetadata;
+    manifest: CollectionManifest;
+    tree: CollectionTree;
+}
+
+/** Formatos de exportação: backup completo do Otto (.zip com ambientes) ou spec OpenAPI 3. */
+export const COLLECTION_EXPORT_FORMATS = ['backup', 'openapi'] as const;
+
+export type CollectionExportFormat = (typeof COLLECTION_EXPORT_FORMATS)[number];
+
+/** O que importar: um backup do Otto (.zip) ou um spec OpenAPI/Swagger (URL ou arquivo). */
+export type CollectionImportRequest =
+    | { type: 'backup'; file: string }
+    | {
+          type: 'openapi';
+          source: OpenApiConfig['source'];
+          /** Liga a verificação automática de atualizações do spec. */
+          autoSync: boolean;
+      };

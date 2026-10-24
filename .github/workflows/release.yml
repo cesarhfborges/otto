@@ -1,0 +1,34 @@
+name: Release
+
+# Merge em `master` gera a versão final; merge em `beta` gera uma pre-release (`-beta.N`).
+# A versão vem dos commits (Conventional Commits) via semantic-release.
+on:
+    push:
+        branches: [master, beta]
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
+permissions:
+    contents: write
+    issues: write
+    pull-requests: write
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        # Imagem oficial do electron-builder: já traz Node, git e Wine (gera o .exe do Windows no Linux).
+        container: electronuserland/builder:wine
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            # No container o checkout pertence a outro usuário; o git (usado pelo semantic-release) exige liberar a pasta.
+            - run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
+            - run: npm ci
+            - run: npx semantic-release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  # O Wine recusa o HOME do Actions (/github/home, de outro dono); usa o HOME do root do container.
+                  HOME: /root

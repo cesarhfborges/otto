@@ -1,0 +1,155 @@
+<p class="sr-only" aria-live="polite">{{ announcement() }}</p>
+
+@if (keybindings.error(); as message) {
+    <p-message severity="error">
+        <span role="alert">Could not save the shortcuts: {{ message }}</span>
+    </p-message>
+}
+
+<div class="flex flex-wrap items-center gap-3">
+    <div class="flex min-w-64 flex-1 items-center gap-2">
+        <label for="shortcut-search" class="sr-only">Search shortcuts</label>
+        <input
+            pInputText
+            id="shortcut-search"
+            type="search"
+            class="min-w-0 flex-1"
+            placeholder="Search by command or keys (e.g. ctrl+w)…"
+            autocomplete="off"
+            [ngModel]="query()"
+            (ngModelChange)="query.set($event)"
+        />
+        @if (searchingKeys()) {
+            <app-shortcut-recorder label="Press the keys to search for" placeholder="Press keys to search…" (captured)="onKeySearch($event)" (cancelled)="stopKeySearch()" />
+        } @else {
+            <p-button id="shortcut-key-search" label="Search by keys" icon="pi pi-key" size="small" severity="secondary" [outlined]="true" (onClick)="searchingKeys.set(true)" />
+        }
+    </div>
+    <p-button label="Reset All" icon="pi pi-replay" size="small" severity="secondary" [text]="true" [disabled]="!counts().modified" (onClick)="resetAll()" />
+</div>
+
+<div class="flex flex-wrap items-center gap-3">
+    <span id="shortcut-filter-label" class="text-sm text-muted-color">Show</span>
+    <p-select-button [options]="filterOptions()" optionLabel="label" optionValue="value" [allowEmpty]="false" size="small" ariaLabelledBy="shortcut-filter-label" [ngModel]="filter()" (ngModelChange)="filter.set($event)" />
+    @if (keyQuery(); as chord) {
+        <span class="flex items-center gap-1 rounded-md bg-surface-100 py-0.5 pl-2 pr-0.5 text-sm dark:bg-surface-800">
+            Using <kbd class="font-sans font-medium" aria-hidden="true">{{ keyboard.format(chord) }}</kbd>
+            <span class="sr-only">{{ keyboard.spoken(chord) }}</span>
+            <button type="button" class="otto-icon-button h-6! w-6!" [attr.aria-label]="'Stop filtering by ' + keyboard.spoken(chord)" (click)="clearKeyQuery()">
+                <i class="pi pi-times text-xs" aria-hidden="true"></i>
+            </button>
+        </span>
+    }
+</div>
+
+@for (group of groups(); track group.category) {
+    <table class="w-full border-collapse text-sm">
+        <caption class="pb-2 text-left text-base font-semibold">{{ group.category }}</caption>
+        <thead>
+            <tr class="border-b border-surface-200 text-left text-xs text-muted-color dark:border-surface-700">
+                <th scope="col" class="w-2/5 py-1.5 pr-3 font-medium">Command</th>
+                <th scope="col" class="py-1.5 pr-3 font-medium">Shortcuts</th>
+                <th scope="col" class="w-24 py-1.5 font-medium"><span class="sr-only">Actions</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (row of group.rows; track row.meta.id) {
+                <tr class="border-b border-surface-100 align-middle dark:border-surface-800">
+                    <th scope="row" [id]="rowHeaderId(row.meta.id)" tabindex="-1" class="py-2 pr-3 text-left font-normal outline-none">
+                        <span class="flex flex-wrap items-center gap-2">
+                            {{ row.meta.label }}
+                            @if (row.modified) {
+                                <span class="inline-flex items-center gap-1 rounded bg-surface-100 px-1.5 text-xs text-muted-color dark:bg-surface-800">
+                                    <i class="pi pi-pencil text-[0.625rem]" aria-hidden="true"></i>Modified
+                                </span>
+                            }
+                            @if (row.conflict) {
+                                <span class="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                                    <i class="pi pi-exclamation-triangle text-[0.625rem]" aria-hidden="true"></i>Conflict
+                                </span>
+                            }
+                        </span>
+                    </th>
+                    <td class="py-2 pr-3">
+                        @if (conflict(); as pending) {
+                            @if (pending.editing.id === row.meta.id) {
+                                <div class="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 dark:border-amber-800 dark:bg-amber-950" role="group" aria-label="Shortcut conflict">
+                                    <span role="alert">
+                                        <kbd class="font-sans font-medium" aria-hidden="true">{{ keyboard.format(pending.chord) }}</kbd>
+                                        <span class="sr-only">{{ keyboard.spoken(pending.chord) }}</span> is already used by
+                                        @for (other of pending.others; track other.id; let last = $last) {
+                                            <strong>{{ other.label }}</strong>{{ last ? '.' : ', ' }}
+                                        }
+                                    </span>
+                                    <p-button id="shortcut-conflict-replace" label="Replace" size="small" (onClick)="replaceConflict()" />
+                                    <p-button label="Cancel" size="small" severity="secondary" [text]="true" (onClick)="cancelConflict()" />
+                                </div>
+                            }
+                        }
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            @for (chord of row.chords; track chord; let i = $index) {
+                                @if (isRecording(row.meta.id, i)) {
+                                    <app-shortcut-recorder [label]="'New shortcut to replace ' + keyboard.spoken(chord) + ' for ' + row.meta.label" [error]="recordError()" (captured)="onCaptured($event)" (cancelled)="onCancelled()" />
+                                } @else {
+                                    <span class="inline-flex items-center rounded-md border border-surface-300 bg-surface-50 dark:border-surface-600 dark:bg-surface-800">
+                                        <button
+                                            type="button"
+                                            [id]="chipId(row.meta.id, i)"
+                                            class="cursor-pointer rounded-l-md border-0 bg-transparent px-2 py-0.5 text-color hover:bg-surface-100 dark:hover:bg-surface-700"
+                                            [attr.aria-label]="'Change ' + keyboard.spoken(chord) + ' for ' + row.meta.label"
+                                            (click)="startRecording(row.meta.id, i)"
+                                        >
+                                            <kbd class="font-sans text-xs font-medium">{{ keyboard.format(chord) }}</kbd>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-r-md border-0 bg-transparent text-muted-color hover:bg-surface-100 hover:text-color dark:hover:bg-surface-700"
+                                            [attr.aria-label]="'Remove ' + keyboard.spoken(chord) + ' from ' + row.meta.label"
+                                            (click)="remove(row.meta.id, chord)"
+                                        >
+                                            <i class="pi pi-times text-[0.625rem]" aria-hidden="true"></i>
+                                        </button>
+                                    </span>
+                                }
+                            } @empty {
+                                @if (!isRecording(row.meta.id, null)) {
+                                    <span class="text-xs text-muted-color">Not assigned</span>
+                                }
+                            }
+                            @if (isRecording(row.meta.id, null)) {
+                                <app-shortcut-recorder [label]="'New shortcut for ' + row.meta.label" [error]="recordError()" (captured)="onCaptured($event)" (cancelled)="onCancelled()" />
+                            } @else if (row.chords.length < maxChords) {
+                                <button type="button" [id]="addButtonId(row.meta.id)" class="otto-icon-button h-6! w-6!" [attr.aria-label]="'Add shortcut for ' + row.meta.label" (click)="startRecording(row.meta.id, null)">
+                                    <i class="pi pi-plus text-xs" aria-hidden="true"></i>
+                                </button>
+                            }
+                        </div>
+                    </td>
+                    <td class="py-2 text-right">
+                        @if (row.modified) {
+                            <p-button label="Reset" icon="pi pi-replay" size="small" severity="secondary" [text]="true" [ariaLabel]="'Reset ' + row.meta.label + ' to default'" (onClick)="resetOne(row.meta.id)" />
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+} @empty {
+    <p class="m-0 text-sm text-muted-color" role="status">No commands match the current search.</p>
+}
+
+<details class="rounded-lg border border-surface-200 p-3 text-sm dark:border-surface-700">
+    <summary class="cursor-pointer font-medium">Reserved by the system</summary>
+    <p class="m-0 mt-2 text-muted-color">These shortcuts are fixed: they cannot be changed or assigned to other commands.</p>
+    <dl class="m-0 mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
+        @for (item of reservedShortcuts; track item.label) {
+            <dt class="text-muted-color">{{ item.label }}</dt>
+            <dd class="m-0 flex flex-wrap gap-1.5">
+                @for (chord of item.keys; track chord) {
+                    <kbd class="rounded border border-surface-300 bg-surface-50 px-1.5 font-sans text-xs dark:border-surface-600 dark:bg-surface-800" aria-hidden="true">{{ keyboard.format(chord) }}</kbd>
+                    <span class="sr-only">{{ keyboard.spoken(chord) }}</span>
+                }
+            </dd>
+        }
+    </dl>
+</details>
