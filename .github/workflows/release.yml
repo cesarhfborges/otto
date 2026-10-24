@@ -2,6 +2,10 @@ name: Release
 
 # Merge em `master` gera a versão final; merge em `beta` gera uma pre-release (`-beta.N`).
 # A versão vem dos commits (Conventional Commits) via semantic-release.
+#
+# Etapas: version → (linux-windows + mac, em paralelo) → publish.
+# A release só é publicada se todos os builds passarem; qualquer falha interrompe o processo
+# antes de criar tag ou release.
 on:
     push:
         branches: [master, beta]
@@ -16,51 +20,100 @@ permissions:
     pull-requests: write
 
 jobs:
-    release:
+    # Calcula a próxima versão sem publicar (vazia quando os commits não geram release).
+    version:
         runs-on: ubuntu-latest
-        # Imagem oficial do electron-builder: já traz Node, git e Wine (gera o .exe do Windows no Linux).
-        container: electronuserland/builder:wine
         outputs:
-            tag: ${{ steps.tag.outputs.tag }}
+            version: ${{ steps.next.outputs.version }}
         steps:
             - uses: actions/checkout@v4
               with:
                   fetch-depth: 0
-            # No container o checkout pertence a outro usuário; o git (usado pelo semantic-release) exige liberar a pasta.
-            - run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
-            - run: npm ci
-            - run: npx semantic-release
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  # O Wine recusa o HOME do Actions (/github/home, de outro dono); usa o HOME do root do container.
-                  HOME: /root
-            # Tag criada pelo semantic-release neste commit (vazio quando não houve release).
-            - id: tag
-              run: echo "tag=$(git tag --points-at HEAD --list 'v*' | head -n 1)" >> "$GITHUB_OUTPUT"
-
-    # O .dmg só pode ser gerado no macOS: empacota a tag recém-publicada e anexa à mesma release.
-    mac:
-        needs: release
-        if: needs.release.outputs.tag != ''
-        runs-on: macos-latest
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                  ref: ${{ needs.release.outputs.tag }}
             - uses: actions/setup-node@v4
               with:
                   node-version: 22
                   cache: npm
             - run: npm ci
-            # O package.json da tag não tem a versão publicada (ela só é gravada no CI do Linux).
-            - run: npm version "${TAG#v}" --no-git-tag-version --allow-same-version
+            - id: next
+              run: node scripts/next-version.mjs
               env:
-                  TAG: ${{ needs.release.outputs.tag }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    linux-windows:
+        needs: version
+        if: needs.version.outputs.version != ''
+        runs-on: ubuntu-latest
+        # Imagem oficial do electron-builder: já traz Node, git e Wine (gera o .exe do Windows no Linux).
+        container: electronuserland/builder:wine
+        steps:
+            - uses: actions/checkout@v4
+            - run: npm ci
+            - run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+              env:
+                  VERSION: ${{ needs.version.outputs.version }}
+            - run: npm run dist:release
+              env:
+                  # O Wine recusa o HOME do Actions (/github/home, de outro dono); usa o HOME do root do container.
+                  HOME: /root
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: release-linux-windows
+                  path: |
+                      release/*.AppImage
+                      release/*.deb
+                      release/*.exe
+                      release/*.yml
+                      release/*.blockmap
+                  if-no-files-found: error
+
+    # O .dmg só pode ser gerado no macOS.
+    mac:
+        needs: version
+        if: needs.version.outputs.version != ''
+        runs-on: macos-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+            - run: npm ci
+            - run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+              env:
+                  VERSION: ${{ needs.version.outputs.version }}
             - run: npm run build && node scripts/dist-release.mjs --mac
               env:
                   # Sem certificado da Apple: o app sai com assinatura ad-hoc, sem notarização.
                   CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-            - run: gh release upload "$TAG" release/*.dmg release/*.zip release/*-mac.yml release/*.blockmap --clobber
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: release-mac
+                  path: |
+                      release/*.dmg
+                      release/*.zip
+                      release/*.yml
+                      release/*.blockmap
+                  if-no-files-found: error
+
+    # Só roda com todos os builds aprovados: cria a tag e a release com os arquivos de todas as plataformas.
+    publish:
+        needs: [version, linux-windows, mac]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+            - run: npm ci
+            - uses: actions/download-artifact@v4
+              with:
+                  pattern: release-*
+                  path: release
+                  merge-multiple: true
+            - run: npx semantic-release
               env:
-                  TAG: ${{ needs.release.outputs.tag }}
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  EXPECTED_VERSION: ${{ needs.version.outputs.version }}

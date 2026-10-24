@@ -7,7 +7,7 @@
         [
             "@semantic-release/exec",
             {
-                "prepareCmd": "npm version ${nextRelease.version} --no-git-tag-version --allow-same-version && npm run dist:release"
+                "verifyReleaseCmd": "[ -z \"$EXPECTED_VERSION\" ] || [ \"${nextRelease.version}\" = \"$EXPECTED_VERSION\" ] || { echo \"Expected $EXPECTED_VERSION, got ${nextRelease.version}: the builds are for another version.\" >&2; exit 1; }"
             }
         ],
         [
@@ -17,6 +17,8 @@
                     { "path": "release/*.AppImage" },
                     { "path": "release/*.deb" },
                     { "path": "release/*.exe" },
+                    { "path": "release/*.dmg" },
+                    { "path": "release/*.zip" },
                     { "path": "release/latest*.yml" },
                     { "path": "release/beta*.yml" },
                     { "path": "release/*.blockmap" }
