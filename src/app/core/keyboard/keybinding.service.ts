@@ -122,6 +122,16 @@ export class KeybindingService {
         return spokenChord(chord, this.mac);
     }
 
+    /** Comando com handler habilitado agora (para a paleta). */
+    isEnabled(id: CommandId): boolean {
+        return this.registry.isEnabled(id, readContext(this.doc));
+    }
+
+    /** Executa um comando escolhido na paleta, com o contexto atual. */
+    run(id: CommandId): boolean {
+        return this.registry.execute(id, readContext(this.doc));
+    }
+
     /** Executa um comando vindo do menu nativo/tray, com o mesmo contexto do teclado. */
     runFromMenu(id: CommandId): void {
         this.registry.execute(id, readContext(this.doc), 'menu');

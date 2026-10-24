@@ -39,6 +39,8 @@ export class WorkspacesIpcModule implements IIpcModule {
 
         ipc.handle('workspaces:export', (_event, id, file) => this.workspaces.export(parseEntityId(id), parseArchivePath(file)));
 
+        ipc.handle('workspaces:move-all', (_event, from, to) => this.workspaces.moveAll(parseCollectionPath(from, 'from'), parseCollectionPath(to, 'to')));
+
         ipc.handle('workspaces:import', (_event, file) => this.workspaces.import(parseArchivePath(file)));
 
         ipc.handle('workspaces:reveal', (_event, id) => {

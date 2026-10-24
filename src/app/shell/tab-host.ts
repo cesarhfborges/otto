@@ -2,6 +2,7 @@ import { afterNextRender, Component, computed, DestroyRef, effect, type ElementR
 import type { EntityId, TabState } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { CollectionOverview } from '../features/collection/collection-overview';
+import { FolderSettingsPage } from '../features/collection/folder-settings';
 import { RequestView } from '../features/request/request-view';
 import { EnvironmentsPage } from '../features/environments/environments-page';
 import { ManageWorkspaces } from '../features/workspace/manage-workspaces';
@@ -27,7 +28,7 @@ interface PanelContext {
  */
 @Component({
     selector: 'app-tab-host',
-    imports: [ButtonModule, TabActiveScope, ManageWorkspaces, WorkspaceOverview, EnvironmentsPage, CollectionOverview, RequestView],
+    imports: [ButtonModule, TabActiveScope, ManageWorkspaces, WorkspaceOverview, EnvironmentsPage, CollectionOverview, FolderSettingsPage, RequestView],
     template: `
         <ng-template #panel let-tab let-active="active">
             <ng-container [appTabActive]="active">
@@ -51,6 +52,11 @@ interface PanelContext {
                     @case ('collection') {
                         @defer {
                             <app-collection-overview [collectionId]="tab.collectionId!" />
+                        }
+                    }
+                    @case ('folder') {
+                        @defer {
+                            <app-folder-settings [collectionId]="tab.collectionId!" [folder]="tab.resourceRef!" />
                         }
                     }
                     @case ('request') {

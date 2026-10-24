@@ -1,12 +1,43 @@
 import { acceptCompletion, closeCompletion, completionStatus, selectedCompletion, startCompletion } from '@codemirror/autocomplete';
 import { ChangeSet, EditorSelection, EditorState, Facet, Prec, RangeSetBuilder, type Extension } from '@codemirror/state';
 import { Decoration, EditorView, hoverTooltip, keymap, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view';
-import { tokenize, type TagInfo, type TagSegment } from '@shared/templating';
+import { parseResponseRef, tokenize, type TagInfo, type TagSegment } from '@shared/templating';
 
 /** Como interpretar o conteúdo de uma tag (estado do chip), fornecido pelo componente. */
 export const tagInspector = Facet.define<(inner: string) => TagInfo, (inner: string) => TagInfo>({
     combine: (values) => values.at(-1) ?? ((inner) => ({ expr: null, kind: 'command', label: inner, error: null }))
 });
+
+/**
+ * Construtor visual de referências a respostas (`otto.request(…).response…`): recebe a
+ * expressão atual (ou `null`) e devolve a nova, ou `null` se cancelado. Ausente fora de uma coleção.
+ */
+export type ReferenceBuilder = (initial: string | null) => Promise<string | null>;
+
+export const referenceBuilder = Facet.define<ReferenceBuilder | null, ReferenceBuilder | null>({ combine: (values) => values.at(-1) ?? null });
+
+/** Abre o construtor e troca o intervalo `from…to` pela tag gerada. */
+export async function buildReference(view: EditorView, from: number, to: number, initial: string | null): Promise<boolean> {
+    const build = view.state.facet(referenceBuilder);
+
+    if (!build) {
+        return false;
+    }
+
+    const original = view.state.sliceDoc(from, to);
+    const expression = await build(initial);
+
+    // O documento pode ter mudado enquanto o diálogo estava aberto.
+    if (expression && view.state.sliceDoc(from, to) === original) {
+        const insert = `{{ ${expression} }}`;
+
+        view.dispatch({ changes: { from, to, insert }, selection: { anchor: from + insert.length }, userEvent: 'input.complete' });
+    }
+
+    view.focus();
+
+    return true;
+}
 
 const ICONS: Record<TagInfo['kind'], string> = { variable: 'pi-at', secret: 'pi-lock', command: 'pi-bolt', request: 'pi-link' };
 
@@ -58,11 +89,25 @@ class ChipWidget extends WidgetType {
         // Tag vazia/ilegível: mostra o motivo em vez de um "…" minúsculo.
         label.textContent = this.info.error && (!this.info.label || this.info.label === '…') ? 'empty tag' : this.info.label;
         chip.append(icon, label);
-        // Clique abre o texto bruto para edição (o cursor entra na tag).
+        // Clique abre o texto bruto para edição (o cursor entra na tag); duplo clique numa
+        // referência a resposta abre o construtor visual.
         chip.addEventListener('mousedown', (event) => {
             event.preventDefault();
+
+            if (event.detail >= 2 && this.editable(view)) {
+                return;
+            }
+
             view.dispatch({ selection: { anchor: this.start + 2 } });
             view.focus();
+        });
+        chip.addEventListener('dblclick', (event) => {
+            const tag = tagAt(view.state, this.start + 1);
+
+            if (tag && this.editable(view)) {
+                event.preventDefault();
+                void buildReference(view, tag.start, tag.end, tag.inner);
+            }
         });
 
         return chip;
@@ -70,6 +115,13 @@ class ChipWidget extends WidgetType {
 
     override ignoreEvent(): boolean {
         return false;
+    }
+
+    /** Tag no formato do construtor, num campo editável de uma coleção. */
+    private editable(view: EditorView): boolean {
+        const tag = tagAt(view.state, this.start + 1);
+
+        return !!tag && !view.state.readOnly && !!view.state.facet(referenceBuilder) && parseResponseRef(tag.inner) !== null;
     }
 }
 
@@ -158,6 +210,14 @@ const chipTooltip = hoverTooltip((view, pos) => {
             detail.className = info.error ? 'otto-template-tooltip-error' : 'otto-template-tooltip-detail';
             detail.textContent = info.error ?? (info.variable ? (info.variable.secret ? '••••••' : info.variable.value || '(empty)') : 'Evaluated when the request is sent');
             dom.append(title, detail);
+
+            if (view.state.facet(referenceBuilder) && parseResponseRef(tag.inner)) {
+                const hint = document.createElement('div');
+
+                hint.className = 'otto-template-tooltip-detail';
+                hint.textContent = 'Double-click to edit in the builder';
+                dom.append(hint);
+            }
 
             return { dom };
         }

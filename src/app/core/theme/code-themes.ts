@@ -77,7 +77,7 @@ export const CODE_THEME_PALETTES: Record<CodeTheme, { label: string; light: Code
     },
     seneca: {
         label: 'Seneca',
-        light: { key: '#609c20', string: '#9f9425', number: '#604cd8', literal: '#604cd8', tag: '#cc241d', comment: '#575757' },
+        light: { key: '#4a7a16', string: '#736a12', number: '#604cd8', literal: '#604cd8', tag: '#cc241d', comment: '#575757' },
         dark: { key: '#7ecf2b', string: '#f0e137', number: '#a896ff', literal: '#a896ff', tag: '#fb4934', comment: '#999999' }
     }
 };

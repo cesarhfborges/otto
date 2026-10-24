@@ -15,9 +15,11 @@ import { OpenApiPanel } from '../openapi/openapi-panel';
 import { CollectionCookies } from './collection-cookies';
 import { CollectionKeyValues } from './collection-key-values';
 import { MockServerPanel } from './mock-server-panel';
+import { ScopeAuth } from './scope-auth';
+import { ScopeScripts } from './scope-scripts';
 import { MockState } from '../../core/state/mock.state';
 
-type Section = 'overview' | 'headers' | 'variables' | 'cookies' | 'openapi' | 'mock';
+type Section = 'overview' | 'auth' | 'headers' | 'variables' | 'scripts' | 'cookies' | 'openapi' | 'mock';
 
 interface TreeStats {
     requests: number;
@@ -42,15 +44,23 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
     return acc;
 }
 
-/** Página da coleção: visão geral, headers base e sincronização OpenAPI. */
+const authLabel = (type: string): string => (type === 'none' ? 'None' : type === 'apikey' ? 'API Key' : type === 'oauth2' ? 'OAuth 2.0' : type === 'oauth1' ? 'OAuth 1.0' : type === 'awsv4' ? 'AWS IAM' : type[0]!.toUpperCase() + type.slice(1));
+
+/** Página da coleção: visão geral, autenticação/scripts herdados, headers base e sincronização OpenAPI. */
 @Component({
     selector: 'app-collection-overview',
-    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, CollectionCookies, OpenApiPanel, MockServerPanel],
+    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, CollectionCookies, OpenApiPanel, MockServerPanel, ScopeAuth, ScopeScripts],
     template: `
         @if (collection(); as current) {
             <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="px-4 pt-2">
                 <p-tablist>
                     <p-tab value="overview">Overview</p-tab>
+                    <p-tab value="auth"
+                        >Auth
+                        @if (current.manifest.auth.type !== 'none') {
+                            <span class="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-primary align-middle" aria-hidden="true"></span><span class="sr-only">(configured)</span>
+                        }
+                    </p-tab>
                     <p-tab value="headers"
                         >Headers
                         @if (current.manifest.headers.length) {
@@ -61,6 +71,12 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
                         >Variables
                         @if (current.manifest.variables.length) {
                             <span class="text-xs text-muted-color">({{ current.manifest.variables.length }})</span>
+                        }
+                    </p-tab>
+                    <p-tab value="scripts"
+                        >Scripts
+                        @if (current.manifest.scripts.preRequest || current.manifest.scripts.postResponse) {
+                            <span class="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-primary align-middle" aria-hidden="true"></span><span class="sr-only">(configured)</span>
                         }
                     </p-tab>
                     <p-tab value="cookies"
@@ -165,6 +181,9 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
                             </aside>
                         </div>
                     </p-tabpanel>
+                    <p-tabpanel value="auth">
+                        <app-scope-auth [collectionId]="current.metadata.id" />
+                    </p-tabpanel>
                     <p-tabpanel value="headers">
                         <app-collection-key-values [collectionId]="current.metadata.id" field="headers" label="Collection headers" addLabel="Add Header">
                             Sent with every request in this collection. A request that defines the same header (case-insensitive) overrides it — for example, set <code>Content-Type: application/json</code> here and use another type in an upload
@@ -175,8 +194,11 @@ function stats(nodes: CollectionNode[], acc: TreeStats = { requests: 0, folders:
                     <p-tabpanel value="variables">
                         <app-collection-key-values [collectionId]="current.metadata.id" field="variables" label="Collection variables" addLabel="Add Variable">
                             Saved in <code>otto.yaml</code> (versioned with the collection) and used as <code>{{ variableExample }}</code
-                            >. The selected environment overrides a variable with the same name. Keep secrets in an environment, not here.
+                            >. Folder variables and the selected environment override a variable with the same name. Keep secrets in an environment, not here.
                         </app-collection-key-values>
+                    </p-tabpanel>
+                    <p-tabpanel value="scripts">
+                        <app-scope-scripts [collectionId]="current.metadata.id" />
                     </p-tabpanel>
                     <p-tabpanel value="cookies">
                         <app-collection-cookies [collectionId]="current.metadata.id" />
@@ -231,6 +253,7 @@ export class CollectionOverview {
 
         return [
             { label: 'Name', value: current?.manifest.name ?? '' },
+            { label: 'Authentication', value: authLabel(current?.manifest.auth.type ?? 'none'), action: 'Configure', target: 'auth' },
             { label: 'Format version', value: String(current?.manifest.version ?? '') },
             { label: 'Last opened', value: current?.metadata.lastOpenedAt ? new Date(current.metadata.lastOpenedAt).toLocaleString() : '—' },
             { label: 'Created', value: current ? new Date(current.metadata.createdAt).toLocaleDateString() : '—' },

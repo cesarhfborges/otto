@@ -39,6 +39,7 @@ const section = <S extends string>(name: S, label: string, n: number) => ({ id: 
 export const COMMANDS = [
     { id: 'app.preferences', label: 'Open Preferences', category: 'App', scope: 'global', defaults: ['Mod+,'], fixed: true },
     { id: 'app.shortcuts', label: 'Show keyboard shortcuts', category: 'App', scope: 'global', defaults: ['Mod+Shift+/'], fixed: true },
+    { id: 'app.commandPalette', label: 'Command palette (requests, commands, environments)', category: 'App', scope: 'global', defaults: ['Mod+K', 'Mod+P'] },
     { id: 'app.keyboardShortcutsSettings', label: 'Customize keyboard shortcuts', category: 'App', scope: 'global', defaults: [] },
     { id: 'theme.cycle', label: 'Cycle theme (dark / light / auto)', category: 'App', scope: 'global', defaults: [] },
     { id: 'view.toggleSidebar', label: 'Show / hide sidebar', category: 'App', scope: 'global', defaults: ['Mod+B'] },

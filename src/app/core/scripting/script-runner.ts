@@ -3,6 +3,7 @@ import type { EntityId, HttpResponse, HttpTimelineEntry, KeyValue, RequestDefini
 import { createOtto, CURRENT_REQUEST_MEMBERS, messageReader, requestSnapshot, responseSnapshot } from '@shared/templating';
 import { CollectionsState } from '../state/collections.state';
 import { EnvironmentsState } from '../state/environments.state';
+import { parentFolder } from '@shared/http/inheritance';
 import { checkScript, describeViolation, SHADOWED_GLOBALS } from './script-policy';
 import { TemplateContextService, type ResponseAccess } from '../templating/template-context.service';
 
@@ -19,6 +20,8 @@ export interface ScriptContext {
     chain: readonly string[];
     /** Só no post-response. */
     response?: HttpResponse;
+    /** De onde vem o script herdado (`collection`, `folder Auth`); `null`/ausente = da própria requisição. */
+    origin?: string | null;
 }
 
 export interface ScriptOutcome {
@@ -111,7 +114,7 @@ export class ScriptRunner {
 
     async run(phase: ScriptPhase, code: string, context: ScriptContext): Promise<ScriptOutcome> {
         const { collectionId, path, response } = context;
-        const label = LABELS[phase];
+        const label = context.origin ? `${LABELS[phase]} · ${context.origin}` : LABELS[phase];
         const now = new Date();
         const logs: HttpTimelineEntry[] = [];
         const log =
@@ -125,9 +128,11 @@ export class ScriptRunner {
         const manifest = this.collections.find(collectionId)?.manifest ?? null;
         const envStore = variableStore(environment?.variables ?? null, 'No environment is selected: select one in the top bar to use otto.environment.set', (key, value) => ({ key, value, enabled: true, secret: false }));
         const collectionStore = variableStore(manifest?.variables ?? null, 'The collection is not open', (key, value) => ({ key, value, enabled: true }));
-        const scopes = this.templates.scopes(collectionId);
-        // Alterações feitas neste script já valem na leitura resolvida.
-        const resolve = (name: unknown) => envStore.api.get(name) ?? collectionStore.api.get(name) ?? scopes.lookup(String(name))?.value;
+        const scopes = this.templates.scopes(collectionId, parentFolder(path));
+        // Ambiente → pastas (da mais próxima) → coleção; alterações feitas neste script já valem na leitura resolvida.
+        const folderValue = (name: unknown) => scopes.lookup(String(name), 'folder')?.value;
+        const resolve = (name: unknown) => envStore.api.get(name) ?? folderValue(name) ?? collectionStore.api.get(name) ?? scopes.lookup(String(name))?.value;
+        const folderAll = () => Object.fromEntries(scopes.entries().filter((entry) => entry.scope === 'folder' && !entry.shadowed).map((entry) => [entry.name, entry.value]));
         const identity = { id: request.id ?? '', name: request.name, path, folder: path.split('/').slice(0, -1).join('/') };
         const reader = () => messageReader(requestSnapshot(request), now, {}, identity);
         const change = (apply: () => void) => () => {
@@ -163,7 +168,7 @@ export class ScriptRunner {
             ...(response && { response: messageReader(responseSnapshot(response, now), now) }),
             environment: envStore.api,
             collectionVariables: collectionStore.api,
-            variables: { get: resolve, has: (name: unknown) => resolve(name) !== undefined, all: () => ({ ...Object.fromEntries(scopes.entries().filter((entry) => !entry.shadowed).map((entry) => [entry.name, entry.value])), ...collectionStore.api.all(), ...envStore.api.all() }) }
+            variables: { get: resolve, has: (name: unknown) => resolve(name) !== undefined, all: () => ({ ...Object.fromEntries(scopes.entries().filter((entry) => !entry.shadowed).map((entry) => [entry.name, entry.value])), ...collectionStore.api.all(), ...folderAll(), ...envStore.api.all() }) }
         };
         const consoleApi = { log: log('info'), info: log('info'), debug: log('info'), warn: log('error'), error: log('error') };
         let error: string | null = null;

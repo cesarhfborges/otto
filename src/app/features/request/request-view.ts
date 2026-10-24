@@ -4,6 +4,8 @@ import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { commandMeta, type CommandId, type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition, type ResponseExample } from '@shared/models';
 import { looksLikeCurl, parseCurl } from '@shared/http/curl-import';
 import { querySuffix } from '@shared/http/url-query';
+import { parentFolder } from '@shared/http/inheritance';
+import { TemplateContextService } from '../../core/templating/template-context.service';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -233,7 +235,7 @@ import { OttoInput } from '../../shared/template-editor';
                                         <app-key-value-editor [items]="req.headers" (itemsChange)="update({ headers: $event })" label="Headers" addLabel="Add Header" />
                                     </p-tabpanel>
                                     <p-tabpanel value="auth">
-                                        <app-auth-editor [auth]="req.auth" (authChange)="update({ auth: $event })" />
+                                        <app-auth-editor [auth]="req.auth" (authChange)="update({ auth: $event })" [inherited]="inheritedAuth()" />
                                     </p-tabpanel>
                                     <p-tabpanel value="docs" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
                                         <label for="request-docs" class="mb-2 block text-sm font-medium">Documentation (Markdown)</label>
@@ -379,6 +381,8 @@ export class RequestView {
     private readonly drafts = inject(RequestDraftsState);
     private readonly key = computed(() => draftKey(this.collectionId(), this.path()));
     protected readonly request = computed(() => this.drafts.draft(this.key()));
+    protected readonly inheritedAuth = computed(() => this.templateContext.inheritedAuth(this.collectionId(), parentFolder(this.path())));
+    private readonly templateContext = inject(TemplateContextService);
     protected readonly dirty = computed(() => this.drafts.isDirty(this.key()));
     /** Aba inicial: Body quando o metodo aceita corpo, senão Params; volta ao padrão ao trocar de request ou de método com/sem corpo. */
     protected readonly section = linkedSignal<{ key: string; bodyAllowed: boolean }, Section>({

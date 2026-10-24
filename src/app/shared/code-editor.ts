@@ -29,6 +29,7 @@ import { type HighlightLanguage, highlightLanguageFor } from './highlight';
                 autocomplete="off"
                 [attr.aria-invalid]="invalid()"
                 [attr.aria-describedby]="describedBy()"
+                [attr.aria-label]="ariaLabel()"
                 (input)="value.set($any($event.target).value)"
                 (scroll)="syncScroll($any($event.target))"
             ></textarea>
@@ -44,6 +45,8 @@ export class CodeEditor {
     readonly placeholder = input('');
     readonly invalid = input(false);
     readonly describedBy = input<string | null>(null);
+    /** Nome acessível quando não há `<label for>` (ex.: corpo da resposta). */
+    readonly ariaLabel = input<string | null>(null);
     // A quebra final extra mantém a última linha vazia com altura igual à do textarea.
     protected readonly mirrorText = computed(() => this.value() + '\n');
     protected readonly lineNumbers = computed(() => {

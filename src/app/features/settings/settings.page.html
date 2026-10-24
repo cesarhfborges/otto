@@ -71,7 +71,7 @@
                                     <label for="base-directory" class="font-medium">Workspaces folder</label>
                                     <p id="base-directory-help" class="m-0 mt-0.5 text-sm text-muted-color">
                                         New and imported workspaces are created in <code>&lt;folder&gt;/&lt;workspace&gt;/collections/&lt;collection&gt;</code>.
-                                        Changing it does not move existing workspaces.
+                                        When you change it, you can move the existing workspaces to the new folder.
                                     </p>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
@@ -85,6 +85,9 @@
                                                   (onClick)="resetBaseDirectory()" />
                                     }
                                 </div>
+                                @if (moveResult(); as result) {
+                                    <p-message [severity]="result.severity" size="small"><span role="status">{{ result.text }}</span></p-message>
+                                }
                             </div>
                         </section>
 
@@ -405,43 +408,52 @@
                                     <div class="min-w-0">
                                         <label id="proxy-enabled-label" for="proxy-enabled" class="font-medium">Use a
                                             proxy server</label>
-                                        <p class="m-0 mt-0.5 text-sm text-muted-color">Only HTTP and HTTPS proxies are
-                                            supported.</p>
+                                        <p class="m-0 mt-0.5 text-sm text-muted-color">HTTP, HTTPS and SOCKS5
+                                            (socks5://user:pass@host:1080) proxies are supported.</p>
                                     </div>
                                     <p-toggleswitch formControlName="enabled" inputId="proxy-enabled"
                                                     ariaLabelledBy="proxy-enabled-label" />
                                 </div>
-                                <div class="flex flex-col gap-2 px-4 py-3">
-                                    <label for="proxy-url" class="font-medium">Proxy URL</label>
-                                    <input
-                                        pInputText
-                                        id="proxy-url"
-                                        type="url"
-                                        formControlName="url"
-                                        placeholder="http://proxy.local:3128"
-                                        autocomplete="off"
-                                        spellcheck="false"
-                                        class="font-mono text-sm"
-                                        [invalid]="controlInvalid('http.proxy.url') || (form.controls.http.controls.proxy.invalid && form.controls.http.controls.proxy.touched)"
-                                        [attr.aria-invalid]="!!(proxyErrors?.['proxyUrl'] || proxyErrors?.['proxyProtocol'] || proxyErrors?.['proxyUrlRequired'])"
-                                        aria-describedby="proxy-url-error"
-                                    />
+                                <div class="flex flex-col gap-2 px-4 py-3" [formGroup]="proxyAddress">
+                                    <div class="flex flex-wrap gap-3">
+                                        <div class="flex min-w-48 flex-1 flex-col gap-2">
+                                            <label for="proxy-server" class="font-medium">Proxy server</label>
+                                            <input
+                                                pInputText
+                                                id="proxy-server"
+                                                formControlName="server"
+                                                placeholder="http://proxy.local"
+                                                autocomplete="off"
+                                                spellcheck="false"
+                                                class="font-mono text-sm"
+                                                [invalid]="controlInvalid('http.proxy.url') || (form.controls.http.controls.proxy.invalid && form.controls.http.controls.proxy.touched)"
+                                                [attr.aria-invalid]="!!(proxyErrors?.['proxyUrl'] || proxyErrors?.['proxyProtocol'] || proxyErrors?.['proxyUrlRequired'])"
+                                                aria-describedby="proxy-server-help proxy-url-error"
+                                            />
+                                        </div>
+                                        <div class="flex w-32 flex-col gap-2">
+                                            <label for="proxy-port" class="font-medium">Port</label>
+                                            <p-inputnumber formControlName="port" inputId="proxy-port" [useGrouping]="false" [min]="1" [max]="65535" placeholder="3128" inputStyleClass="w-full font-mono text-sm" styleClass="w-full" />
+                                        </div>
+                                    </div>
+                                    <small id="proxy-server-help" class="text-sm text-muted-color">Scheme and host, with optional credentials: http://, https:// or socks5://user:pass&#64;host. Without a scheme, http:// is used.</small>
                                     <small id="proxy-url-error" class="text-red-700 empty:hidden dark:text-red-400"
                                            aria-live="polite">@if (proxyErrors?.['proxyUrl']) {
-                                        Enter a valid URL, for example http://proxy.local:3128.
+                                        Enter a valid address, for example http://proxy.local.
                                     } @else if (proxyErrors?.['proxyProtocol']) {
-                                        The proxy URL must start with http:// or https://.
+                                        The proxy address must start with http://, https:// or socks5://.
                                     } @else if (proxyErrors?.['proxyUrlRequired']) {
-                                        Enter the proxy URL or turn the proxy off.
+                                        Enter the proxy server or turn the proxy off.
                                     }</small>
                                 </div>
                                 <div class="flex flex-col gap-2 px-4 py-3">
                                     <label for="proxy-bypass" class="font-medium">Bypass proxy for</label>
-                                    <input pInputText id="proxy-bypass" formControlName="bypass" autocomplete="off"
-                                           spellcheck="false" class="font-mono text-sm"
-                                           aria-describedby="proxy-bypass-help" />
-                                    <small id="proxy-bypass-help" class="text-sm text-muted-color">Comma-separated
-                                        hosts, for example localhost, *.internal.</small>
+                                    <textarea pTextarea id="proxy-bypass" formControlName="bypass" rows="4" autocomplete="off"
+                                              spellcheck="false" class="w-full resize-y font-mono text-sm"
+                                              placeholder="localhost&#10;127.0.0.1&#10;*.internal"
+                                              aria-describedby="proxy-bypass-help"></textarea>
+                                    <small id="proxy-bypass-help" class="text-sm text-muted-color">One host per line (or
+                                        comma-separated). Use *.domain for subdomains and host:port for a single port; * bypasses everything.</small>
                                 </div>
                             </fieldset>
                         </ng-container>
@@ -489,6 +501,11 @@
                                             }
                                         </div>
                                     </div>
+                                    <app-client-certificates
+                                        [certificates]="form.controls.http.controls.ssl.controls.clientCertificates.value"
+                                        (certificatesChange)="form.controls.http.controls.ssl.controls.clientCertificates.setValue($event)"
+                                        [disabled]="!persistent()"
+                                    />
                                 </div>
                                 @if (!form.controls.http.controls.ssl.controls.verifyCertificates.value) {
                                     <p-message severity="warn" size="small">Certificate verification is off. Use this

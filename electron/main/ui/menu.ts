@@ -48,6 +48,8 @@ export function buildAppMenu(commands: AppCommands, overrides: KeybindingOverrid
         {
             label: 'View',
             submenu: [
+                command('app.commandPalette', 'Command Palette…'),
+                separator,
                 command('view.toggleSidebar', 'Toggle Sidebar'),
                 command('view.toggleRequestLayout', 'Toggle Request Layout'),
                 separator,

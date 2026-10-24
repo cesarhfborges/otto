@@ -171,7 +171,7 @@ export class ScriptEditor {
         return templateCompletionData(
             { templates: this.templates, responses: this.responses, drafts: this.drafts },
             collectionId,
-            this.templates.validationEnv(collectionId, this.scope?.localVariables() ?? null).scopes,
+            this.templates.validationEnv(collectionId, this.scope?.localVariables() ?? null, this.scope?.folder() ?? '').scopes,
             this.scope?.requestPath() ?? null
         );
     });

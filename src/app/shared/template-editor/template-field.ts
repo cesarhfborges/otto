@@ -6,12 +6,13 @@ import { afterNextRender, booleanAttribute, computed, DestroyRef, Directive, eff
 import type { ControlValueAccessor } from '@angular/forms';
 import { RequestDraftsState } from '@/app/core/state/request-drafts.state';
 import { ResponsesState } from '@/app/core/state/responses.state';
+import { ResponseRefBuilderState } from '@/app/core/state/response-ref-builder.state';
 import { TemplateContextService } from '@/app/core/templating/template-context.service';
 import { TemplateScope } from '@/app/core/templating/template-scope';
 import { inspectTag, tokenize } from '@shared/templating';
 import { completionData, templateCompletions, type TemplateCompletionData } from './template-completions';
 import { templateCompletionData } from './completion-data';
-import { tagInspector, templateExtensions } from './template-extensions';
+import { referenceBuilder, tagInspector, templateExtensions } from './template-extensions';
 import { templateTheme } from './template-theme';
 
 /** Mudança vinda de fora (`writeValue`, `[(value)]`): não volta como `onChange`. */
@@ -66,6 +67,7 @@ export abstract class TemplateField implements ControlValueAccessor {
     private readonly templates = inject(TemplateContextService);
     private readonly responses = inject(ResponsesState);
     private readonly drafts = inject(RequestDraftsState);
+    private readonly refBuilder = inject(ResponseRefBuilderState);
     private readonly formDisabled = signal(false);
     private readonly config = new Compartment();
     private readonly data = new Compartment();
@@ -77,7 +79,7 @@ export abstract class TemplateField implements ControlValueAccessor {
 
     protected readonly isDisabled = computed(() => this.disabled() || this.formDisabled());
     private readonly collectionId = computed(() => this.scope?.collectionId() ?? null);
-    private readonly validation = computed(() => this.templates.validationEnv(this.collectionId(), this.scope?.localVariables() ?? null));
+    private readonly validation = computed(() => this.templates.validationEnv(this.collectionId(), this.scope?.localVariables() ?? null, this.scope?.folder() ?? ''));
     private readonly inspector = computed(() => {
         const env = this.validation();
 
@@ -106,7 +108,7 @@ export abstract class TemplateField implements ControlValueAccessor {
             untracked(() => this.view?.dispatch({ effects: this.config.reconfigure(extensions) }));
         });
         effect(() => {
-            const extensions = [tagInspector.of(this.inspector()), completionData.of(this.completionSource())];
+            const extensions = [tagInspector.of(this.inspector()), completionData.of(this.completionSource()), referenceBuilder.of(this.builder())];
 
             untracked(() => this.view?.dispatch({ effects: this.data.reconfigure(extensions) }));
         });
@@ -179,6 +181,14 @@ export abstract class TemplateField implements ControlValueAccessor {
         return [EditorView.contentAttributes.of(attributes), EditorView.editable.of(!disabled), EditorState.readOnly.of(disabled || this.readonly()), ...(this.placeholder() ? [placeholderExtension(this.placeholder())] : []), ...this.extraExtensions()];
     }
 
+    /** Construtor de referências da coleção do campo (`null` fora de uma coleção). */
+    private builder() {
+        const collectionId = this.collectionId();
+        const currentPath = this.scope?.requestPath() ?? null;
+
+        return collectionId ? (initial: string | null) => this.refBuilder.open(collectionId, currentPath, initial) : null;
+    }
+
     private completionSource(): TemplateCompletionData {
         return templateCompletionData({ templates: this.templates, responses: this.responses, drafts: this.drafts }, this.collectionId(), this.validation().scopes, this.scope?.requestPath() ?? null);
     }
@@ -242,7 +252,7 @@ export abstract class TemplateField implements ControlValueAccessor {
                     ...templateExtensions(this.multiline),
                     ...(this.multiline ? [EditorView.lineWrapping] : []),
                     this.config.of(this.configExtensions()),
-                    this.data.of([tagInspector.of(this.inspector()), completionData.of(this.completionSource())]),
+                    this.data.of([tagInspector.of(this.inspector()), completionData.of(this.completionSource()), referenceBuilder.of(this.builder())]),
                     EditorView.updateListener.of((update) => {
                         if (update.docChanged && !update.transactions.some((tr) => tr.annotation(external))) {
                             const text = update.state.doc.toString();

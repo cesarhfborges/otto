@@ -7,7 +7,13 @@
     @switch (auth().type) { @case ('none') {
     <p class="m-0 text-sm text-muted-color">No authentication is sent.</p>
     } @case ('inherit') {
-    <p class="m-0 text-sm text-muted-color">Uses the collection authentication (not configurable yet). Choose another type to set it here.</p>
+    @if (inherited(); as current) {
+    <p class="m-0 text-sm" role="status">
+        Uses <strong>{{ inheritedLabel() }}</strong> from <strong>{{ current.from }}</strong>. Its values, variables and <code>otto</code> commands are resolved when this request is sent.
+    </p>
+    } @else {
+    <p class="m-0 text-sm text-muted-color" role="status">Nothing to inherit yet: no parent folder or the collection defines an authentication, so nothing is sent. Configure it in the collection Overview (Auth tab) or in Folder Settings.</p>
+    }
     } @case ('basic') {
     <ng-container *ngTemplateOutlet="text; context: { id: 'username', label: 'Username', mono: false }" />
     <ng-container *ngTemplateOutlet="secret; context: { id: 'password', label: 'Password' }" />

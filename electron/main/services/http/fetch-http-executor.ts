@@ -9,7 +9,7 @@ import { digestAuthorization, findChallenge } from './auth/digest';
 import { authenticateMessage, negotiateMessage } from './auth/ntlm';
 import { OAuth2TokenProvider, type CachedToken, type OAuth2Authorizer } from './auth/oauth2';
 import { signAsap, signAwsV4, signHawk, signNetrc, signOAuth1, signWsse } from './auth/signers';
-import { DispatcherProvider } from './dispatcher-provider';
+import { clientCertificateFor, DispatcherProvider } from './dispatcher-provider';
 import { RequestTrace } from './request-trace';
 
 export interface FetchHttpExecutorOptions {
@@ -341,6 +341,12 @@ export class FetchHttpExecutor implements IHttpExecutor {
             trace.info(`Using proxy ${redactCredentials(settings.proxy.url)}${settings.proxy.bypass ? ` (bypass: ${settings.proxy.bypass})` : ''}`);
         }
 
+        const clientCertificate = clientCertificateFor(settings.ssl.clientCertificates, url);
+
+        if (clientCertificate && url.protocol === 'https:') {
+            trace.info(`Using client certificate for ${clientCertificate.host} (${clientCertificate.pfxPath ?? clientCertificate.certPath})`);
+        }
+
         const dispatcher: Dispatcher = this.dispatchers.get(settings);
         const headers = new Headers(request.headers);
 
@@ -358,7 +364,7 @@ export class FetchHttpExecutor implements IHttpExecutor {
         try {
             if (request.auth?.type === 'ntlm') {
                 // O handshake NTLM autentica a conexão: as 3 mensagens precisam usar o mesmo socket.
-                dedicated = this.dispatchers.dedicated(settings);
+                dedicated = this.dispatchers.dedicated(settings, url);
                 context.dispatcher = dedicated;
                 trace.info('NTLM: using a dedicated connection (proxy settings do not apply)');
             }

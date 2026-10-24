@@ -1,6 +1,6 @@
 export type Access = { kind: 'member'; name: string } | { kind: 'index'; key: Expr } | { kind: 'call'; args: Expr[] };
 
-export type VariableScope = 'env' | 'collection';
+export type VariableScope = 'env' | 'folder' | 'collection';
 
 export type Expr =
     | { kind: 'literal'; value: string | number | boolean | null }

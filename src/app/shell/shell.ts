@@ -17,6 +17,9 @@ import { RemoveCollectionDialog } from '../features/collections/remove-collectio
 import { ImportWorkspaceDialog } from '../features/workspace/import-workspace-dialog';
 import { NewWorkspaceDialog } from '../features/workspace/new-workspace-dialog';
 import { ShortcutsDialog } from '../features/settings/shortcuts-dialog';
+import { CommandPalette } from '../features/palette/command-palette';
+import { ResponseRefDialog } from '../features/request/response-ref-dialog';
+import { ResponseRefBuilderState } from '../core/state/response-ref-builder.state';
 import { ContextHeader } from './context-header';
 import { StatusBar } from './status-bar';
 import { TabHost } from './tab-host';
@@ -46,6 +49,8 @@ function savedSplitterSize(key: string, fallback: number): number {
     selector: 'app-shell',
     imports: [
         TitleBar,
+        CommandPalette,
+        ResponseRefDialog,
         CollectionsSidebar,
         ContextHeader,
         TabStrip,
@@ -114,6 +119,12 @@ function savedSplitterSize(key: string, fallback: number): number {
         <app-import-collection-dialog />
         <app-remove-collection-dialog />
         <app-shortcuts-dialog />
+        @defer (when ui.commandPalette()) {
+            <app-command-palette />
+        }
+        @defer (when refBuilder.pending()) {
+            <app-response-ref-dialog />
+        }
         <p-toast position="top-right" />
     `,
     host: {
@@ -132,6 +143,7 @@ function savedSplitterSize(key: string, fallback: number): number {
 })
 export class Shell {
     protected readonly ui = inject(UiState);
+    protected readonly refBuilder = inject(ResponseRefBuilderState);
 
     protected readonly sidebarStateKey = SIDEBAR_SPLITTER_KEY;
     protected readonly sidebarSizes = [15, 85];

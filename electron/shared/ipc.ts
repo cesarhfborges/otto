@@ -29,9 +29,11 @@ import type {
     WindowState,
     LoadedWorkspace,
     Workspace,
+    WorkspaceMoveResult,
     WorkspaceSummary,
     CollectionManifest,
     CollectionManifestPatch,
+    FolderSettings,
     OpenApiConfig,
     OpenApiStatus,
     UpdateState,
@@ -77,6 +79,7 @@ export interface IpcInvokeContract {
     'workspaces:export': { args: [id: EntityId, file: string]; result: void };
     'workspaces:import': { args: [file: string]; result: Workspace };
     'workspaces:reveal': { args: [id: EntityId]; result: void };
+    'workspaces:move-all': { args: [from: string, to: string]; result: WorkspaceMoveResult };
     'environments:list': { args: [collectionId: EntityId | null]; result: Environment[] };
     'environments:get': { args: [id: EntityId]; result: Environment | null };
     'environments:create': { args: [input: NewEnvironment]; result: Environment };
@@ -95,6 +98,7 @@ export interface IpcInvokeContract {
     'collections:tree': { args: [id: EntityId]; result: CollectionTree };
     'collections:manifest': { args: [id: EntityId]; result: CollectionManifest };
     'collections:update-manifest': { args: [id: EntityId, patch: CollectionManifestPatch]; result: CollectionManifest };
+    'collections:update-folder': { args: [id: EntityId, folder: string, patch: Partial<FolderSettings>]; result: FolderSettings };
     'openapi:status': { args: [collectionId: EntityId, refresh?: boolean]; result: OpenApiStatus };
     'openapi:connect': { args: [collectionId: EntityId, config: OpenApiConfig]; result: OpenApiStatus };
     'openapi:disconnect': { args: [collectionId: EntityId]; result: void };

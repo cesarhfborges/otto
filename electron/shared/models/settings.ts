@@ -13,17 +13,35 @@ export interface ThemeState {
 
 export interface ProxySettings {
     enabled: boolean;
-    /** URL do proxy HTTP(S), ex.: `http://proxy.local:3128`. */
+    /** URL do proxy HTTP(S) ou SOCKS5, ex.: `http://proxy.local:3128` ou `socks5://127.0.0.1:1080`. */
     url: string;
     /** Hosts que não passam pelo proxy, separados por vírgula (ex.: `localhost, *.internal`). */
     bypass: string;
 }
+
+/**
+ * Certificado de cliente (mTLS) apresentado aos servidores cujo host combina com `host`.
+ * Ou `certPath` + `keyPath` (PEM), ou `pfxPath` (PKCS#12).
+ */
+export interface ClientCertificate {
+    /** Host (`api.example.com`), curinga de subdomínios (`*.example.com`) e porta opcional (`:8443`). */
+    host: string;
+    certPath: string | null;
+    keyPath: string | null;
+    pfxPath: string | null;
+    /** Senha da chave privada ou do PFX (cifrada no banco com o chaveiro do sistema). */
+    passphrase: string;
+}
+
+export const MAX_CLIENT_CERTIFICATES = 50;
 
 export interface SslSettings {
     /** Desligar aceita certificados autoassinados/inválidos (útil em dev, inseguro em produção). */
     verifyCertificates: boolean;
     /** Caminho absoluto de um certificado de CA adicional (PEM), ou `null`. */
     caCertificatePath: string | null;
+    /** Avaliados em ordem; vale o primeiro cujo host combina. */
+    clientCertificates: ClientCertificate[];
 }
 
 export interface HttpSettings {
@@ -132,7 +150,7 @@ export const DEFAULT_SETTINGS: Readonly<OttoSettings> = {
         timeoutMs: 30_000,
         followRedirects: true,
         proxy: { enabled: false, url: '', bypass: 'localhost, 127.0.0.1' },
-        ssl: { verifyCertificates: true, caCertificatePath: null }
+        ssl: { verifyCertificates: true, caCertificatePath: null, clientCertificates: [] }
     },
     workspaces: { baseDirectory: '' },
     appearance: { themePreset: 'aura', primaryColor: 'emerald', surfaceColor: null, requestLayout: 'horizontal', showQueryInUrl: true, codeTheme: 'seneca', codeFontSize: 14 },

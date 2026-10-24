@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import {
     CODE_THEMES,
     DEFAULT_SETTINGS,
+    MAX_CLIENT_CERTIFICATES,
     MAX_CODE_FONT_SIZE,
     MIN_CODE_FONT_SIZE,
     MAX_TIMEOUT_MS,
@@ -10,11 +11,12 @@ import {
     SURFACE_COLORS,
     THEME_MODES,
     THEME_PRESETS,
+    type ClientCertificate,
     type OttoSettings,
     type SettingsPatch
 } from '../../../shared/models';
 import type { WindowBounds } from '../contracts';
-import { isRecord, optionalString, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
+import { isRecord, optionalString, requireArray, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
 /** Uma preferência "folha" (valor primitivo), identificada pelo caminho no objeto de settings. */
 export interface SettingLeaf {
@@ -33,6 +35,8 @@ function parseTimeout(value: unknown, field: string): number {
     return ms;
 }
 
+const PROXY_PROTOCOLS = ['http:', 'https:', 'socks5:', 'socks:'];
+
 function parseProxyUrl(value: unknown, field: string): string {
     const url = requireString(value, field, { allowEmpty: true, maxLength: 2_048 }).trim();
 
@@ -48,8 +52,8 @@ function parseProxyUrl(value: unknown, field: string): string {
         throw new ValidationError(field, 'must be a valid URL');
     }
 
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        throw new ValidationError(field, 'only http:// and https:// proxies are supported');
+    if (!PROXY_PROTOCOLS.includes(parsed.protocol)) {
+        throw new ValidationError(field, 'only http://, https:// and socks5:// proxies are supported');
     }
 
     return url;
@@ -68,6 +72,35 @@ function parseCertificatePath(value: unknown, field: string): string | null {
     }
 
     return path.normalize(file);
+}
+
+/** `api.example.com`, `*.example.com`, `10.0.0.5:8443`... (sem esquema nem caminho). */
+const CERTIFICATE_HOST = /^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:\d{1,5})?$/i;
+
+function parseClientCertificates(value: unknown, field: string): ClientCertificate[] {
+    return requireArray(value, field, MAX_CLIENT_CERTIFICATES).map((item, i) => {
+        const at = `${field}[${i}]`;
+        const entry = requireRecord(item, at);
+        const host = requireString(entry['host'], `${at}.host`, { maxLength: 255 }).trim().toLowerCase();
+
+        if (!CERTIFICATE_HOST.test(host)) {
+            throw new ValidationError(`${at}.host`, 'must be a host name, optionally with *. and :port');
+        }
+
+        const certificate: ClientCertificate = {
+            host,
+            certPath: parseCertificatePath(entry['certPath'] ?? null, `${at}.certPath`),
+            keyPath: parseCertificatePath(entry['keyPath'] ?? null, `${at}.keyPath`),
+            pfxPath: parseCertificatePath(entry['pfxPath'] ?? null, `${at}.pfxPath`),
+            passphrase: requireString(entry['passphrase'] ?? '', `${at}.passphrase`, { allowEmpty: true, maxLength: 1_024 })
+        };
+
+        if (!certificate.pfxPath && !(certificate.certPath && certificate.keyPath)) {
+            throw new ValidationError(at, 'needs a PFX file or both a certificate and a key file');
+        }
+
+        return certificate;
+    });
 }
 
 const leaf = (keyPath: string, parse: SettingLeaf['parse']): SettingLeaf => ({ path: keyPath.split('.'), key: keyPath, parse });
@@ -92,6 +125,7 @@ export const SETTING_LEAVES: readonly SettingLeaf[] = [
     leaf('http.proxy.bypass', (v, f) => requireString(v, f, { allowEmpty: true, maxLength: 2_000 }).trim()),
     leaf('http.ssl.verifyCertificates', requireBoolean),
     leaf('http.ssl.caCertificatePath', parseCertificatePath),
+    leaf('http.ssl.clientCertificates', parseClientCertificates),
     leaf('workspaces.baseDirectory', (v, f) => parseCertificatePath(v, f) ?? ''),
     leaf('updates.autoCheck', requireBoolean),
     leaf('updates.autoDownload', requireBoolean)

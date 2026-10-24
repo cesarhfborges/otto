@@ -225,7 +225,16 @@ export class CollectionsSidebar {
                     { label: 'Remove from Workspace', icon: 'pi pi-times', command: () => this.ui.removeCollectionDialog.set(target.collectionId) }
                 ];
             case 'folder':
-                return [...create, { separator: true }, ...edit, reveal, { separator: true }, remove];
+                return [
+                    { label: 'Folder Settings', icon: 'pi pi-sliders-h', command: () => this.tabs.open({ kind: 'folder', title: target.path.split('/').pop() ?? target.path, collectionId: target.collectionId, resourceRef: target.path }) },
+                    { separator: true },
+                    ...create,
+                    { separator: true },
+                    ...edit,
+                    reveal,
+                    { separator: true },
+                    remove
+                ];
             case 'request':
                 return [{ label: 'Open', icon: 'pi pi-file', command: () => this.openRequest(target) }, ...edit, reveal, { separator: true }, remove];
         }
@@ -426,7 +435,7 @@ export class CollectionsSidebar {
         this.expanded.update((set) => new Set([...set].map((key) => (key === folderFrom || key.startsWith(`${folderFrom}/`) ? folderTo + key.slice(folderFrom.length) : key))));
 
         for (const tab of this.tabs.tabs()) {
-            if (tab.kind === 'request' && tab.collectionId === collectionId && tab.resourceRef && (tab.resourceRef === from || tab.resourceRef.startsWith(`${from}/`))) {
+            if ((tab.kind === 'request' || tab.kind === 'folder') && tab.collectionId === collectionId && tab.resourceRef && (tab.resourceRef === from || tab.resourceRef.startsWith(`${from}/`))) {
                 this.tabs.update(tab.id, { resourceRef: to + tab.resourceRef.slice(from.length) });
             }
         }
@@ -513,6 +522,12 @@ export class CollectionsSidebar {
                     this.tabs.update(tab.id, { title: name });
                 }
             }
+        } else if (target.kind === 'folder') {
+            for (const tab of this.tabs.tabs()) {
+                if (tab.kind === 'folder' && tab.collectionId === collectionId && tab.resourceRef === to) {
+                    this.tabs.update(tab.id, { title: to.split('/').pop() ?? name });
+                }
+            }
         }
 
         await this.collections.refresh(collectionId);
@@ -595,9 +610,9 @@ export class CollectionsSidebar {
         try {
             await this.files.remove(target.collectionId, target.path);
 
-            // Abas de requisições removidas (a própria ou as de dentro da pasta) são fechadas.
+            // Abas de requisições e pastas removidas (a própria ou as de dentro da pasta) são fechadas.
             for (const tab of this.tabs.tabs()) {
-                if (tab.kind === 'request' && tab.collectionId === target.collectionId && (tab.resourceRef === target.path || tab.resourceRef?.startsWith(`${target.path}/`))) {
+                if ((tab.kind === 'request' || tab.kind === 'folder') && tab.collectionId === target.collectionId && (tab.resourceRef === target.path || tab.resourceRef?.startsWith(`${target.path}/`))) {
                     this.tabs.close(tab.id);
                 }
             }

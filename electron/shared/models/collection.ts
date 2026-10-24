@@ -1,6 +1,7 @@
 import type { EntityId, IsoDateTime, KeyValue, Timestamps } from './common';
 import type { OpenApiConfig } from './openapi';
 import type { HttpMethod } from './http';
+import type { RequestAuth, RequestScripts } from './request';
 
 /** Origem remota da coleção (ex.: spec OpenAPI), usada pela sincronização. */
 export interface CollectionSource {
@@ -38,8 +39,25 @@ export interface CollectionManifest {
     variables: KeyValue[];
     /** Cookies da coleção (isolados por coleção): enviados e atualizados a cada requisição. */
     cookies: CollectionCookie[];
+    /** Autenticação usada pelas requisições e pastas com `auth: inherit` (nunca `inherit`). */
+    auth: RequestAuth;
+    /** Executados antes/depois de cada requisição da coleção (antes dos scripts das pastas e da requisição). */
+    scripts: RequestScripts;
     openapi: OpenApiConfig | null;
 }
+
+/**
+ * Configurações de uma pasta (`_folder.yaml`), herdadas pelo que está dentro dela.
+ * `auth: inherit` (padrão) usa a da pasta pai ou a da coleção; as variáveis vencem as
+ * da coleção e das pastas acima (o ambiente selecionado vence todas).
+ */
+export interface FolderSettings {
+    auth: RequestAuth;
+    variables: KeyValue[];
+    scripts: RequestScripts;
+}
+
+export const emptyFolderSettings = (): FolderSettings => ({ auth: { type: 'inherit' }, variables: [], scripts: {} });
 
 /** Cookie guardado na coleção. */
 export interface CollectionCookie {
@@ -57,7 +75,7 @@ export interface CollectionCookie {
 }
 
 /** Alteração editável pela UI no `otto.yaml`. */
-export type CollectionManifestPatch = Partial<Pick<CollectionManifest, 'description' | 'headers' | 'variables' | 'cookies'>>;
+export type CollectionManifestPatch = Partial<Pick<CollectionManifest, 'description' | 'headers' | 'variables' | 'cookies' | 'auth' | 'scripts'>>;
 
 /** Nó da árvore de uma coleção lida do disco. */
 export type CollectionNode = CollectionFolderNode | CollectionRequestNode;
@@ -69,6 +87,7 @@ export interface CollectionFolderNode {
     path: string;
     /** Ordem da pasta entre os itens da pasta pai (de `_folder.yaml`); `null` quando não definida. */
     seq: number | null;
+    settings: FolderSettings;
     children: CollectionNode[];
 }
 

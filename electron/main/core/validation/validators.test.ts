@@ -56,7 +56,7 @@ describe('parseSettingsPatch / parseWindowBounds', () => {
         assert.throws(() => parseSettingsPatch({ http: 5 }), /settings.http/);
         assert.throws(() => parseSettingsPatch({ http: { timeoutMs: -1 } }), /settings.http.timeoutMs/);
         assert.throws(() => parseSettingsPatch({ http: { timeoutMs: 3_600_001 } }), /at most/);
-        assert.throws(() => parseSettingsPatch({ http: { proxy: { url: 'socks5://p:1080' } } }), /only http/);
+        assert.throws(() => parseSettingsPatch({ http: { proxy: { url: 'ftp://p:21' } } }), /only http/);
         assert.throws(() => parseSettingsPatch({ http: { proxy: { url: 'not a url' } } }), /valid URL/);
         assert.throws(() => parseSettingsPatch({ http: { ssl: { caCertificatePath: 'ca.pem' } } }), /absolute path/);
     });

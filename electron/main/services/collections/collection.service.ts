@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
-import { COLLECTION_FORMAT_VERSION, type CollectionManifest, type CollectionMetadata, type CollectionNode, type CollectionTree, type EntityId, type OpenedCollection, type RequestDefinition } from '../../../shared/models';
+import { COLLECTION_FORMAT_VERSION, emptyFolderSettings, type CollectionManifest, type FolderSettings, type CollectionMetadata, type CollectionNode, type CollectionTree, type EntityId, type OpenedCollection, type RequestDefinition } from '../../../shared/models';
 import type { CollectionEntry, FolderMetadata, IClock, ICollectionFormat, ICollectionMetadataRepository, ICollectionStore, ICollectionWatcher } from '../../core/contracts';
 import { slugify } from './slug';
 
@@ -135,6 +135,25 @@ export class CollectionService {
         return updated;
     }
 
+    /** Altera autenticação, variáveis ou scripts de uma pasta (`_folder.yaml`), mantendo a ordem. */
+    async updateFolder(id: EntityId, folder: string, change: (settings: FolderSettings) => FolderSettings): Promise<FolderSettings> {
+        const root = this.resolve(id).path;
+
+        this.assertNotManifest(folder);
+
+        if (!(await this.store.isDirectory(path.join(root, ...folder.split('/'))))) {
+            throw new Error(`Folder "${folder}" not found`);
+        }
+
+        const { seq, ...current } = await this.readFolder(root, folder);
+        const updated = change(current);
+
+        await this.store.writeFile(root, joinRelative(folder, this.format.folderFile), this.format.serializeFolder({ ...updated, seq }));
+        this.emitChanged(id);
+
+        return updated;
+    }
+
     /** Todas as requisições válidas da coleção, com o caminho do arquivo. */
     async requests(id: EntityId): Promise<Array<{ path: string; request: RequestDefinition }>> {
         const root = this.resolve(id).path;
@@ -198,7 +217,7 @@ export class CollectionService {
 
         await this.store.createRoot(root);
 
-        const manifest: CollectionManifest = { version: COLLECTION_FORMAT_VERSION, name, description: '', headers: [], variables: [], cookies: [], openapi: null };
+        const manifest: CollectionManifest = { version: COLLECTION_FORMAT_VERSION, name, description: '', headers: [], variables: [], cookies: [], auth: { type: 'none' }, scripts: {}, openapi: null };
 
         await this.store.writeFile(root, this.format.manifestFile, this.format.serializeManifest(manifest), { createOnly: true });
 
@@ -375,8 +394,10 @@ export class CollectionService {
             } else if (await this.store.exists(root, entry)) {
                 const file = joinRelative(entry, this.format.folderFile);
 
-                if ((await this.readFolder(root, entry)).seq !== seq) {
-                    await this.store.writeFile(root, file, this.format.serializeFolder({ seq }));
+                const folder = await this.readFolder(root, entry);
+
+                if (folder.seq !== seq) {
+                    await this.store.writeFile(root, file, this.format.serializeFolder({ ...folder, seq }));
                 }
             }
         }
@@ -455,7 +476,9 @@ export class CollectionService {
             const nodes = await Promise.all(
                 entries.map(async (entry): Promise<CollectionNode | null> => {
                     if (entry.kind === 'directory') {
-                        return { type: 'folder', name: entry.name, path: entry.path, seq: (await this.readFolder(root, entry.path)).seq, children: await toNodes(entry.children) };
+                        const { seq, ...settings } = await this.readFolder(root, entry.path);
+
+                        return { type: 'folder', name: entry.name, path: entry.path, seq, settings, children: await toNodes(entry.children) };
                     }
 
                     if (!this.format.isRequestFile(entry.name)) {
@@ -484,7 +507,7 @@ export class CollectionService {
         try {
             return this.format.parseFolder(await this.store.readFile(root, joinRelative(folder, this.format.folderFile)));
         } catch {
-            return { seq: null };
+            return { seq: null, ...emptyFolderSettings() };
         }
     }
 

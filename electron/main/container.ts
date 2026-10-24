@@ -5,6 +5,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { OttoSettings } from '../shared/models';
 import type { ICollectionMetadataRepository, IEnvironmentRepository, IHttpExecutor, IIpcModule, IKeybindingService, ISettingsService, ITabRepository } from './core/contracts';
 import { FsCollectionStore } from './infra/collections/fs-collection-store';
+import { moveFolder } from './infra/workspaces/move-folder';
 import { FsCollectionWatcher } from './infra/collections/fs-collection-watcher';
 import { YamlCollectionFormat } from './infra/collections/yaml-collection-format';
 import { MigrationRunner } from './infra/database/migration-runner';
@@ -104,7 +105,9 @@ export function readStartupSettings(db: DatabaseSync): OttoSettings {
  */
 export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean): Container {
     const userData = app.getPath('userData');
-    const settingsStore = new SqliteSettingsStore(db, systemClock);
+    // Cofre: segredos (variáveis secretas, senhas de certificados) cifrados no banco com o chaveiro do sistema.
+    const secretCipher = createSafeStorageCipher();
+    const settingsStore = new SqliteSettingsStore(db, systemClock, secretCipher);
 
     importLegacySettings(path.join(userData, 'settings.json'), settingsStore);
 
@@ -112,8 +115,6 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
     const keybindings = new KeybindingService(new SqliteKeybindingStore(db, systemClock, isMac));
 
     const tabs = new SqliteTabRepository(db);
-    // Cofre: valores de variáveis secretas cifrados no banco com o chaveiro do sistema.
-    const secretCipher = createSafeStorageCipher();
     const environments = new EncryptedEnvironmentRepository(new SqliteEnvironmentRepository(db, systemClock, uuidGenerator), secretCipher);
 
     try {
@@ -144,7 +145,8 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
         archives,
         environments,
         systemClock,
-        () => settings.get().workspaces.baseDirectory || defaultBaseDirectory()
+        () => settings.get().workspaces.baseDirectory || defaultBaseDirectory(),
+        moveFolder
     );
     const importers = new ImporterRegistry();
     const window = new WindowManager(settings, settingsStore);

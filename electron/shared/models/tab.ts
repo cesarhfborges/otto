@@ -5,7 +5,7 @@ import type { EntityId } from './common';
  * - `settings`: preferências globais.
  * - `collection`: detalhes da coleção (Etapa 8); `request`: arquivo de requisição.
  */
-export const TAB_KINDS = ['overview', 'environments', 'settings', 'collection', 'request', 'environment', 'history', 'workspaces'] as const;
+export const TAB_KINDS = ['overview', 'environments', 'settings', 'collection', 'folder', 'request', 'environment', 'history', 'workspaces'] as const;
 
 export type TabKind = (typeof TAB_KINDS)[number];
 

@@ -102,7 +102,7 @@ export function buildHttpRequest(definition: RequestDefinition, options: BuildRe
             break;
         case 'none':
         case 'inherit':
-            // `inherit` depende da autenticação da coleção (Etapa 8); `none` não envia nada.
+            // `inherit` já chega resolvido (pasta/coleção, em `TemplateContextService.prepare`); sem nada a herdar, não envia nada.
             break;
         default:
             // Dependem de nonce, horário, corpo final, desafio do servidor ou token: o main aplica no envio.

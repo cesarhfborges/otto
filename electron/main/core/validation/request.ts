@@ -11,6 +11,7 @@ import {
     type RequestAuth,
     type RequestBody,
     type RequestDefinition,
+    type RequestScripts,
     type ResponseExample
 } from '../../../shared/models';
 import { requireArray, requireBoolean, requireInteger, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
@@ -153,17 +154,30 @@ export function parseRequestBody(raw: unknown): RequestBody {
     }
 }
 
-/** `scripts` é opcional; scripts vazios não são guardados. */
-function parseRequestScripts(raw: unknown): Pick<RequestDefinition, 'scripts'> {
+/** Scripts opcionais (requisição, pasta ou coleção); vazios não são guardados. */
+export function parseScripts(raw: unknown, field: string): RequestScripts {
     if (raw === undefined || raw === null) {
         return {};
     }
 
-    const scripts = requireRecord(raw, 'request.scripts');
-    const preRequest = text(scripts['preRequest'], 'request.scripts.preRequest', 1_000_000);
-    const postResponse = text(scripts['postResponse'], 'request.scripts.postResponse', 1_000_000);
+    const scripts = requireRecord(raw, field);
+    const preRequest = text(scripts['preRequest'], `${field}.preRequest`, 1_000_000);
+    const postResponse = text(scripts['postResponse'], `${field}.postResponse`, 1_000_000);
 
-    return preRequest || postResponse ? { scripts: { ...(preRequest && { preRequest }), ...(postResponse && { postResponse }) } } : {};
+    return { ...(preRequest.trim() && { preRequest }), ...(postResponse.trim() && { postResponse }) };
+}
+
+function parseRequestScripts(raw: unknown): Pick<RequestDefinition, 'scripts'> {
+    const scripts = parseScripts(raw, 'request.scripts');
+
+    return scripts.preRequest || scripts.postResponse ? { scripts } : {};
+}
+
+/** Autenticação da coleção: `inherit` não faz sentido no topo e vira `none`. */
+export function parseCollectionAuth(raw: unknown): RequestAuth {
+    const auth = parseRequestAuth(raw);
+
+    return auth.type === 'inherit' ? { type: 'none' } : auth;
 }
 
 const MAX_EXAMPLES = 50;

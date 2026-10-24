@@ -1,50 +1,20 @@
 import { Component, computed, input, linkedSignal, output } from '@angular/core';
-import type { HttpResponse } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TabsModule } from 'primeng/tabs';
 import type { ResponseEntry } from '../../core/state/responses.state';
 import { formatBytes, formatDuration } from '../../shared/format';
-import { type HighlightLanguage, highlightLanguageFor } from '../../shared/highlight';
 import { errorHelp } from './error-hints';
+import { ResponseBody } from './response-body';
 import { ResponseConsole } from './response-console';
-import { CodeEditor } from '@/app/shared/code-editor';
-
-/** Acima disso o corpo é exibido parcialmente (o visualizador completo chega na Etapa 7). */
-const MAX_DISPLAYED_CHARS = 1_000_000;
 
 const STATUS_COLORS = ['var(--otto-method-other)', 'var(--otto-method-get)', 'var(--otto-method-post)', 'var(--otto-method-put)', 'var(--otto-method-delete)'];
-
-interface PrettyBody {
-    code: string;
-    language: HighlightLanguage | null;
-}
-
-function prettyBody(response: HttpResponse): PrettyBody {
-    const looksJson = /\bjson\b|\+json/i.test(response.contentType ?? '') || /^\s*[[{]/.test(response.body);
-
-    if (looksJson && response.body.length <= MAX_DISPLAYED_CHARS) {
-        try {
-            const code = JSON.stringify(JSON.parse(response.body), null, 2);
-
-            return { code, language: highlightLanguageFor(code, 'json') };
-        } catch {
-            // Não é JSON válido: mostra como veio.
-        }
-    }
-
-    const looksXml = /\b(xml|html)\b|\+xml/i.test(response.contentType ?? '');
-
-    const code = response.body.slice(0, MAX_DISPLAYED_CHARS);
-
-    return { code, language: highlightLanguageFor(code, looksXml ? 'xml' : 'plaintext') };
-}
 
 /** Painel de resposta: estado de envio, erro (com sugestões) ou status/tempo/tamanho + corpo, headers, tempos e console. */
 @Component({
     selector: 'app-response-panel',
-    imports: [ButtonModule, MessageModule, ProgressSpinnerModule, ResponseConsole, TabsModule, CodeEditor],
+    imports: [ButtonModule, MessageModule, ProgressSpinnerModule, ResponseBody, ResponseConsole, TabsModule],
     template: `
         @switch (entry().status) {
             @case ('sending') {
@@ -121,32 +91,7 @@ function prettyBody(response: HttpResponse): PrettyBody {
                         <p-tabpanels class="flex min-h-0 flex-1 flex-col overflow-auto">
                             @if (response(); as res) {
                                 <p-tabpanel value="body" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
-                                    @if (res.bodyEncoding === 'base64') {
-                                        @if (imageSrc(); as src) {
-                                            <img [src]="src" alt="Image returned by the request" class="max-h-96 max-w-full rounded-md border border-surface-200 dark:border-surface-700" />
-                                        } @else {
-                                            <p class="m-0 text-sm text-muted-color">Binary content ({{ res.contentType }}, {{ bytes(res.size) }}).</p>
-                                        }
-                                    } @else if (res.size === 0) {
-                                        <p class="m-0 text-sm text-muted-color">The response has no body.</p>
-                                    } @else {
-                                        @if (partial()) {
-                                            <p class="m-0 mb-2 text-xs text-muted-color">Showing the first 1,000,000 characters.</p>
-                                        }
-
-                                        <app-code-editor class="flex-1" inputId="body-content" [value]="body().code" [language]="body().language" readonly />
-
-                                        <!--                                        <pre-->
-                                        <!--                                            class="m-0 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all otto-code-view rounded-md bg-surface-100 p-3 font-mono dark:bg-surface-900"-->
-                                        <!--                                            tabindex="0"-->
-                                        <!--                                            aria-label="Response body"-->
-                                        <!--                                        >@switch (body().language) {-->
-                                        <!--                                            @case ('json') {<code [highlight]="body().code" language="json" ignoreIllegals lineNumbers codeFold="json"></code>}-->
-                                        <!--                                            @case ('xml') {<code [highlight]="body().code" language="xml" ignoreIllegals lineNumbers codeFold="xml"></code>}-->
-                                        <!--                                            @case ('plaintext') {<code [highlight]="body().code" language="plaintext" lineNumbers></code>}-->
-                                        <!--                                            @default {<code>{{ body().code }}</code>}-->
-                                        <!--                                        }</pre>-->
-                                    }
+                                    <app-response-body [response]="res" />
                                 </p-tabpanel>
                                 <p-tabpanel value="headers">
                                     <table class="w-full table-fixed border-collapse text-sm">
@@ -237,19 +182,6 @@ export class ResponsePanel {
         const result = this.result();
 
         return result?.ok ? result.response : null;
-    });
-    protected readonly body = computed<PrettyBody>(() => {
-        const response = this.response();
-
-        return response?.bodyEncoding === 'utf8' ? prettyBody(response) : { code: '', language: null };
-    });
-    protected readonly partial = computed(() => (this.response()?.body.length ?? 0) > MAX_DISPLAYED_CHARS);
-    protected readonly imageSrc = computed(() => {
-        const response = this.response();
-        const mime = response?.contentType?.split(';')[0]?.trim().toLowerCase();
-
-        // Em <img> o SVG não executa scripts, então todas as imagens podem ser exibidas.
-        return response?.bodyEncoding === 'base64' && !response.truncated && mime?.startsWith('image/') ? `data:${mime};base64,${response.body}` : null;
     });
     /** Falha usa a cor de erro (5xx). */
     protected readonly statusColor = computed(() => {

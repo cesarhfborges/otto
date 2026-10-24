@@ -9,6 +9,7 @@ export * from './jsonpath';
 export * from './message';
 export * from './node';
 export * from './parse';
+export * from './response-ref';
 export * from './runtime';
 export * from './scopes';
 export * from './serialize';

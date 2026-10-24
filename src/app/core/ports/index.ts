@@ -29,9 +29,11 @@ import type {
     WindowState,
     LoadedWorkspace,
     Workspace,
+    WorkspaceMoveResult,
     WorkspaceSummary,
     CollectionManifest,
     CollectionManifestPatch,
+    FolderSettings,
     OpenApiConfig,
     OpenApiStatus,
     UpdateState
@@ -108,6 +110,7 @@ export abstract class WorkspacesGateway implements WorkspacesApi {
     abstract export(id: EntityId, file: string): Promise<void>;
     abstract import(file: string): Promise<Workspace>;
     abstract reveal(id: EntityId): Promise<void>;
+    abstract moveAll(from: string, to: string): Promise<WorkspaceMoveResult>;
     abstract onChanged(listener: () => void): () => void;
 }
 
@@ -133,6 +136,7 @@ export abstract class CollectionsGateway implements CollectionsApi {
     abstract tree(id: EntityId): Promise<CollectionTree>;
     abstract manifest(id: EntityId): Promise<CollectionManifest>;
     abstract updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<CollectionManifest>;
+    abstract updateFolder(id: EntityId, folder: string, patch: Partial<FolderSettings>): Promise<FolderSettings>;
     abstract onChanged(listener: (event: { collectionId: EntityId }) => void): () => void;
 }
 

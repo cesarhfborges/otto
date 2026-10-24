@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, effect, model, signal } from '@angular/core';
+import { Component, computed, effect, input, model, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { HAWK_ALGORITHMS, OAUTH1_SIGNATURE_METHODS, OAUTH2_GRANT_TYPES, type AuthType, type OAuth2GrantType, type RequestAuth } from '@shared/models';
@@ -43,6 +43,10 @@ const GRANT_LABELS: Record<OAuth2GrantType, string> = {
 })
 export class AuthEditor {
     readonly auth = model.required<RequestAuth>();
+    /** Oferece "Inherit" (requisições e pastas); a coleção, no topo, não herda de ninguém. */
+    readonly allowInherit = input(true);
+    /** O que `inherit` usaria agora: a autenticação e de onde vem (`null` = nada configurado acima). */
+    readonly inherited = input<{ auth: RequestAuth; from: string } | null>(null);
 
     protected readonly tokenPlaceholder = '{{$.token}}';
     protected readonly signatureMethods: Choice[] = OAUTH1_SIGNATURE_METHODS.map((value) => ({ label: value, value }));
@@ -59,8 +63,13 @@ export class AuthEditor {
     /** Campos secretos exibidos em texto puro. */
     private readonly revealed = signal<ReadonlySet<string>>(new Set());
     protected readonly typeControl = new FormControl<AuthType>('none', { nonNullable: true });
-    /** "Inherit" só aparece para arquivos que já o usam (a auth da coleção ainda não existe). */
-    protected readonly options = computed<AuthOption[]>(() => (this.auth().type === 'inherit' ? [...OPTIONS, { label: 'Inherit from Collection', value: 'inherit' }] : OPTIONS));
+    protected readonly options = computed<AuthOption[]>(() => (this.allowInherit() ? [{ label: 'Inherit from parent', value: 'inherit' }, ...OPTIONS] : OPTIONS));
+    /** Nome do tipo herdado, para a explicação do "Inherit". */
+    protected readonly inheritedLabel = computed(() => {
+        const inherited = this.inherited();
+
+        return inherited ? (OPTIONS.find((option) => option.value === inherited.auth.type)?.label ?? inherited.auth.type) : null;
+    });
 
     protected readonly bearerPrefix = computed(() => this.field('prefix').trim() || 'Bearer');
     protected readonly rsaSignature = computed(() => this.field('signatureMethod').startsWith('RSA-'));

@@ -1,5 +1,5 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
-import { DEFAULT_WORKSPACE_ID, type EntityId, type LoadedWorkspace, type Workspace, type WorkspaceSummary } from '@shared/models';
+import { DEFAULT_WORKSPACE_ID, type EntityId, type LoadedWorkspace, type Workspace, type WorkspaceMoveResult, type WorkspaceSummary } from '@shared/models';
 import { DialogGateway, WorkspacesGateway } from '../ports';
 import { CollectionsState } from './collections.state';
 import { ConfirmState } from './confirm.state';
@@ -130,6 +130,17 @@ export class WorkspacesState {
             await this.load();
         } else {
             await this.refreshList();
+        }
+    }
+
+    /** Move os workspaces da pasta base anterior para a nova e recarrega o ativo (que pode ter mudado de lugar). */
+    async moveAll(from: string, to: string): Promise<WorkspaceMoveResult> {
+        await this.tabs.flush();
+
+        try {
+            return await this.gateway.moveAll(from, to);
+        } finally {
+            await this.load();
         }
     }
 

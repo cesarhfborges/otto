@@ -173,12 +173,12 @@ class Parser {
         this.expect('$');
         let scope: VariableScope | null = null;
 
-        // `$env.x` / `$collection.x`: o identificador vem colado ao `$`.
+        // `$env.x` / `$folder.x` / `$collection.x`: o identificador vem colado ao `$`.
         const glued = this.peek();
 
         if (glued?.type === 'ident' && glued.pos === this.tokens[this.index - 1]!.pos + 1) {
-            if (glued.value !== 'env' && glued.value !== 'collection') {
-                throw new TemplateError(`Unknown variable scope "$${glued.value}": use $, $env or $collection`);
+            if (glued.value !== 'env' && glued.value !== 'folder' && glued.value !== 'collection') {
+                throw new TemplateError(`Unknown variable scope "$${glued.value}": use $, $env, $folder or $collection`);
             }
 
             scope = glued.value;

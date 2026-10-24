@@ -28,7 +28,7 @@ describe('YamlCollectionFormat', () => {
 
     it('gera YAML enxuto e legível (padrões omitidos, corpo em bloco)', () => {
         // Arquivo sem `id` ganha um na gravação.
-        assert.match(format.serializeRequest(emptyRequest('Ping')), /^id: rq_[0-9a-z]{10}\nname: Ping\nmethod: GET\nurl: ""\n$/);
+        assert.match(format.serializeRequest(emptyRequest('Ping')), /^id: rq_[0-9a-z]{10}\nname: Ping\nmethod: GET\nurl: ""\nauth:\n  type: inherit\n$/);
 
         const yaml = format.serializeRequest(fullRequest);
 
@@ -67,10 +67,10 @@ describe('YamlCollectionFormat', () => {
     });
 
     it('lê e escreve o manifesto, recusando formato mais novo', () => {
-        const manifest = { version: 1, name: 'Petstore', description: 'Demo API', headers: [], variables: [], cookies: [], openapi: null };
+        const manifest = { version: 1, name: 'Petstore', description: 'Demo API', headers: [], variables: [], cookies: [], auth: { type: 'none' as const }, scripts: {}, openapi: null };
 
         assert.deepEqual(format.parseManifest(format.serializeManifest(manifest)), manifest);
-        assert.deepEqual(format.parseManifest('name: Minimal\n'), { version: 1, name: 'Minimal', description: '', headers: [], variables: [], cookies: [], openapi: null });
+        assert.deepEqual(format.parseManifest('name: Minimal\n'), { version: 1, name: 'Minimal', description: '', headers: [], variables: [], cookies: [], auth: { type: 'none' }, scripts: {}, openapi: null });
         assert.throws(() => format.parseManifest('version: 99\nname: Future\n'), /newer than this app supports/);
         assert.throws(() => format.parseManifest('description: no name\n'), /"name"/);
     });

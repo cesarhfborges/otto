@@ -2,7 +2,7 @@ import { startCompletion, type Completion, type CompletionContext as CmContext, 
 import { Facet } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { availableIn, completionContext, REQUEST_REF_OPTIONS, signature, type ArgSpec, type CatalogNode, type MessageTarget, type VariableEntry, type Where } from '@shared/templating';
-import { tagAt } from './template-extensions';
+import { buildReference, referenceBuilder, tagAt } from './template-extensions';
 
 export interface MessageSuggestions {
     /** Ex.: `Login · 200 · received 4 min ago`. */
@@ -133,6 +133,26 @@ export function argumentOptions(spec: ArgSpec | undefined, target: MessageTarget
 /** Envolve o texto em `{{ … }}` (fora de tag); `cursorBack` conta a partir do fim do texto interno. */
 const wrapped = (text: string, cursorBack = 0, reopen = false, spaced = true) => (spaced ? insert(`{{ ${text} }}`, cursorBack + 3, reopen) : insert(`{{${text}}}`, cursorBack, reopen));
 
+/** Com o construtor disponível, "Value from another request…" abre o diálogo; sem ele, insere `otto.request('')`. */
+function referenceShortcut(context: CmContext, fallback: Completion['apply'], replaceTag: boolean): Completion {
+    const builder = context.state.facet(referenceBuilder);
+
+    return {
+        label: builder ? 'Value from another request (builder)…' : 'Response from another request…',
+        ...(builder && { info: 'Choose the request, what to read (JSONPath, header, cookie, status) and when to send it again' }),
+        type: 'request',
+        section: SECTIONS['shortcuts'],
+        boost: 1,
+        apply: builder
+            ? (view: EditorView, _completion: Completion, from: number, to: number) => {
+                  const tag = replaceTag ? tagAt(view.state, from) : null;
+
+                  void buildReference(view, tag?.start ?? from, tag?.end ?? to, null);
+              }
+            : fallback
+    };
+}
+
 /** Ctrl+Space fora de uma tag: sugestões que já inserem a tag completa. */
 function outsideTagCompletions(context: CmContext, data: TemplateCompletionData): CompletionResult | null {
     const word = context.matchBefore(/[\w$.]*/);
@@ -144,7 +164,7 @@ function outsideTagCompletions(context: CmContext, data: TemplateCompletionData)
     const options: Completion[] = [
         ...variableOptions(data.variables(), true).map((option) => ({ ...option, apply: wrapped(option.label, 0, false, false) })),
         { label: 'otto', detail: 'namespace', info: 'Otto commands and request data', type: 'namespace', section: SECTIONS['commands'], apply: wrapped('otto.', 0, true) },
-        { label: 'Response from another request…', type: 'request', section: SECTIONS['shortcuts'], apply: wrapped("otto.request('')", 2, true) }
+        referenceShortcut(context, wrapped("otto.request('')", 2, true), false)
     ];
 
     return { from: word?.from ?? context.pos, options, validFor: /^[\w$.]*$/ };
@@ -171,7 +191,7 @@ export function templateCompletions(context: CmContext): CompletionResult | null
             options = [
                 ...variableOptions(data.variables(), true),
                 { label: 'otto', detail: 'namespace', info: 'Otto commands and request data', type: 'namespace', section: SECTIONS['commands'], apply: insert('otto.', 0, true) },
-                ...(analysis.prefix ? [] : [{ label: 'Response from another request…', type: 'request', section: SECTIONS['shortcuts'], apply: insert("otto.request('')", 2, true) }])
+                ...(analysis.prefix ? [] : [referenceShortcut(context, insert("otto.request('')", 2, true), true)])
             ];
             break;
         case 'variable':

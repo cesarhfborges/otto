@@ -145,7 +145,8 @@ export const emptyRequest = (name: string): RequestDefinition => ({
     seq: null,
     params: [],
     headers: [],
-    auth: { type: 'none' },
+    // Novas requisições herdam a autenticação da pasta/coleção (sem nada configurado, nada é enviado).
+    auth: { type: 'inherit' },
     body: { type: 'none' },
     docs: ''
 });

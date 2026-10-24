@@ -1,5 +1,5 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
-import type { CollectionExportFormat, CollectionImportRequest, CollectionManifestPatch, CollectionMetadata, CollectionNode, EntityId, OpenedCollection } from '@shared/models';
+import type { CollectionExportFormat, CollectionFolderNode, CollectionImportRequest, CollectionManifestPatch, CollectionMetadata, CollectionNode, EntityId, FolderSettings, OpenedCollection } from '@shared/models';
 import { ipcErrorMessage } from '../bridge/ipc-error';
 import { CollectionsGateway, DialogGateway } from '../ports';
 
@@ -98,6 +98,34 @@ export class CollectionsState {
         const manifest = await this.gateway.updateManifest(id, patch);
 
         this.openedState.update((list) => list.map((c) => (c.metadata.id === id ? { ...c, manifest } : c)));
+    }
+
+    /** Grava autenticação/variáveis/scripts da pasta e atualiza a árvore em memória. Lança o erro para a tela exibir. */
+    async updateFolder(id: EntityId, folder: string, patch: Partial<FolderSettings>): Promise<void> {
+        const settings = await this.gateway.updateFolder(id, folder, patch);
+        const apply = (nodes: CollectionNode[]): CollectionNode[] => nodes.map((node) => (node.type !== 'folder' ? node : node.path === folder ? { ...node, settings } : { ...node, children: apply(node.children) }));
+
+        this.openedState.update((list) => list.map((c) => (c.metadata.id === id ? { ...c, tree: { ...c.tree, children: apply(c.tree.children) } } : c)));
+    }
+
+    /** Pasta da coleção pelo caminho relativo (`a/b`). */
+    findFolder(id: EntityId | null, folder: string): CollectionFolderNode | null {
+        let nodes = this.find(id)?.tree.children ?? [];
+        let found: CollectionFolderNode | null = null;
+        let current = '';
+
+        for (const segment of folder.split('/').filter(Boolean)) {
+            current = current ? `${current}/${segment}` : segment;
+            found = nodes.find((node): node is CollectionFolderNode => node.type === 'folder' && node.path === current) ?? null;
+
+            if (!found) {
+                return null;
+            }
+
+            nodes = found.children;
+        }
+
+        return found;
     }
 
     /** Relê árvore e manifesto (mudanças pelo app, Git ou editor externo). */

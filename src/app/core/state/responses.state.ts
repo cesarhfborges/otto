@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { buildHttpRequest } from '@shared/http/build-request';
+import { parentFolder, type InheritanceLevel } from '@shared/http/inheritance';
 import { applySetCookies, cookieHeaderFor } from '@shared/http/cookie-jar';
 import type { EntityId, HttpRequest, HttpResult, HttpTimelineEntry, RequestDefinition } from '@shared/models';
 import { responseSnapshot, TemplateError, type MessageSnapshot } from '@shared/templating';
@@ -75,26 +76,34 @@ export class ResponsesState implements ResponseAccess {
             throw new TemplateError(`Circular reference between requests: ${[...chain, path].join(' → ')}`);
         }
 
-        let preLogs: HttpTimelineEntry[] = [];
-        const preRequest = definition.scripts?.preRequest;
+        const preLogs: HttpTimelineEntry[] = [];
+        const scriptChain = this.scriptChain(collectionId, path, definition);
 
-        if (preRequest?.trim()) {
-            const outcome = await this.scripts.run('preRequest', preRequest, { collectionId, path, definition, access: this, chain: [...chain, path] });
+        // Coleção → pastas (de fora para dentro) → requisição; cada um recebe a requisição já alterada pelo anterior.
+        for (const { origin, scripts } of scriptChain) {
+            const preRequest = scripts.preRequest;
+
+            if (!preRequest?.trim()) {
+                continue;
+            }
+
+            const outcome = await this.scripts.run('preRequest', preRequest, { collectionId, path, definition, access: this, chain: [...chain, path], origin });
+
+            preLogs.push(...outcome.logs);
 
             if (outcome.error) {
-                this.set(key, { status: 'done', result: failure(outcome.error, 'SCRIPT_ERROR', outcome.logs), receivedAt: Date.now() });
+                this.set(key, { status: 'done', result: failure(outcome.error, 'SCRIPT_ERROR', preLogs), receivedAt: Date.now() });
 
                 return;
             }
 
             definition = outcome.definition;
-            preLogs = outcome.logs;
         }
 
         const { definition: resolved, unresolved, errors } = await this.templates.prepare(collectionId, path, definition, this, [...chain, path]);
 
         if (unresolved.length || errors.length) {
-            this.set(key, { status: 'done', result: failure(this.describeProblems(collectionId, unresolved, errors), unresolved.length ? 'UNRESOLVED_VARIABLES' : 'TEMPLATE_ERROR', preLogs), receivedAt: Date.now() });
+            this.set(key, { status: 'done', result: failure(this.describeProblems(collectionId, path, unresolved, errors), unresolved.length ? 'UNRESOLVED_VARIABLES' : 'TEMPLATE_ERROR', preLogs), receivedAt: Date.now() });
 
             return;
         }
@@ -125,15 +134,24 @@ export class ResponsesState implements ResponseAccess {
             result = failure(ipcErrorMessage(error));
         }
 
-        let postLogs: HttpTimelineEntry[] = [];
+        const postLogs: HttpTimelineEntry[] = [];
 
         if (result.ok) {
             await this.storeCookies(collectionId, result.response.url || request.url, result.response.headers);
 
-            const postResponse = definition.scripts?.postResponse;
+            for (const { origin, scripts } of scriptChain) {
+                const postResponse = scripts.postResponse;
 
-            if (postResponse?.trim()) {
-                postLogs = (await this.scripts.run('postResponse', postResponse, { collectionId, path, definition: resolved, access: this, chain: [...chain, path], response: result.response })).logs;
+                if (postResponse?.trim()) {
+                    const outcome = await this.scripts.run('postResponse', postResponse, { collectionId, path, definition: resolved, access: this, chain: [...chain, path], response: result.response, origin });
+
+                    postLogs.push(...outcome.logs);
+
+                    // Um script com erro interrompe os seguintes (como no pre-request).
+                    if (outcome.error) {
+                        break;
+                    }
+                }
             }
         }
 
@@ -146,6 +164,13 @@ export class ResponsesState implements ResponseAccess {
         if (current?.status === 'sending' && current.requestId === request.id) {
             this.set(key, { status: 'done', result, receivedAt: Date.now() });
         }
+    }
+
+    /** Scripts herdados (coleção e pastas) seguidos dos da requisição, na ordem de execução. */
+    private scriptChain(collectionId: EntityId, path: string, definition: RequestDefinition): Array<{ origin: string | null; scripts: NonNullable<RequestDefinition['scripts']> }> {
+        const describe = (level: InheritanceLevel) => (level.kind === 'collection' ? 'collection' : `folder ${level.label}`);
+
+        return [...this.templates.chain(collectionId, parentFolder(path)).map((level) => ({ origin: describe(level), scripts: level.scripts })), { origin: null, scripts: definition.scripts ?? {} }];
     }
 
     /** Guarda os `Set-Cookie` da resposta no `otto.yaml` da coleção. */
@@ -172,7 +197,8 @@ export class ResponsesState implements ResponseAccess {
     async preview(collectionId: EntityId, path: string, definition: RequestDefinition, resolve: boolean): Promise<{ request: HttpRequest; problems: string[] }> {
         if (!resolve) {
             const collectionHeaders = this.collections.find(collectionId)?.manifest.headers ?? [];
-            const request = buildHttpRequest({ ...definition, headers: [...collectionHeaders, ...definition.headers] }, { id: 'preview' });
+            const effective = this.templates.withInheritedAuth(collectionId, path, definition);
+            const request = buildHttpRequest({ ...effective, headers: [...collectionHeaders, ...effective.headers] }, { id: 'preview' });
 
             // Sem interpolar, `{{$.baseUrl}}/x` não ganha o `http://` padrão.
             return { request: /^\s*\{\{/.test(definition.url) ? { ...request, url: request.url.replace(/^http:\/\//, '') } : request, problems: [] };
@@ -188,7 +214,7 @@ export class ResponsesState implements ResponseAccess {
         };
         const { definition: resolved, unresolved, errors } = await this.templates.prepare(collectionId, path, definition, access, [path]);
         const secrets = this.templates
-            .scopes(collectionId)
+            .scopes(collectionId, parentFolder(path))
             .entries()
             .filter((entry) => entry.secret && !entry.shadowed && entry.value.length >= 3)
             .sort((a, b) => b.value.length - a.value.length);
@@ -214,17 +240,17 @@ export class ResponsesState implements ResponseAccess {
         }
     }
 
-    private describeProblems(collectionId: EntityId, unresolved: string[], errors: string[]): string {
+    private describeProblems(collectionId: EntityId, path: string, unresolved: string[], errors: string[]): string {
         const lines = [...errors];
 
         if (unresolved.length) {
             const names = unresolved.map((name) => `{{$.${name}}}`).join(', ');
             const verb = unresolved.length > 1 ? 'are' : 'is';
-            const scopes = this.templates.scopes(collectionId);
+            const scopes = this.templates.scopes(collectionId, parentFolder(path));
 
             lines.unshift(
                 scopes.layers.length
-                    ? `${names} ${verb} not defined in ${scopes.describe()}. Add ${unresolved.length > 1 ? 'them' : 'it'} in Environments or in the collection variables.`
+                    ? `${names} ${verb} not defined in ${scopes.describe()}. Add ${unresolved.length > 1 ? 'them' : 'it'} in Environments, in the folder or in the collection variables.`
                     : `${names} ${verb} not defined: no environment is selected and the collection has no variables. Select one in the top bar (or create it in Environments).`
             );
         }

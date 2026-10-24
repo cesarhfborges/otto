@@ -8,8 +8,8 @@ import { TemplateScope } from '../../core/templating/template-scope';
 import { KeyValueEditor } from '../request/key-value-editor';
 
 /**
- * Lista de pares do `otto.yaml` (headers ou variáveis da coleção), com Save/Discard.
- * A explicação de cada lista vem pelo conteúdo projetado.
+ * Lista de pares do `otto.yaml` (headers ou variáveis da coleção) ou as variáveis de uma
+ * pasta (`_folder.yaml`, com `folder`), com Save/Discard. A explicação vem pelo conteúdo projetado.
  */
 @Component({
     selector: 'app-collection-key-values',
@@ -38,10 +38,16 @@ export class CollectionKeyValues {
     readonly field = input.required<'headers' | 'variables'>();
     readonly label = input.required<string>();
     readonly addLabel = input('Add');
+    /** Pasta (`a/b`) cujas variáveis são editadas; `null` = a coleção. */
+    readonly folder = input<string | null>(null);
 
     private readonly collections = inject(CollectionsState);
 
-    protected readonly saved = computed<KeyValue[]>(() => this.collections.find(this.collectionId())?.manifest[this.field()] ?? []);
+    protected readonly saved = computed<KeyValue[]>(() => {
+        const folder = this.folder();
+
+        return folder === null ? (this.collections.find(this.collectionId())?.manifest[this.field()] ?? []) : (this.collections.findFolder(this.collectionId(), folder)?.settings.variables ?? []);
+    });
     /** Edição local; volta ao salvo quando o arquivo muda (Save, Git, editor externo). */
     protected readonly draft = linkedSignal(() => this.saved());
     protected readonly dirty = computed(() => JSON.stringify(this.draft()) !== JSON.stringify(this.saved()));
@@ -49,7 +55,7 @@ export class CollectionKeyValues {
     protected readonly error = signal<string | null>(null);
 
     constructor() {
-        inject(TemplateScope).connect(this.collectionId);
+        inject(TemplateScope).connect(this.collectionId, () => null, () => this.folder() ?? '');
     }
 
     protected async save(): Promise<void> {
@@ -58,7 +64,14 @@ export class CollectionKeyValues {
 
         try {
             // Linhas totalmente vazias são descartadas.
-            await this.collections.updateManifest(this.collectionId(), { [this.field()]: this.draft().filter((item) => item.key.trim() || item.value) });
+            const items = this.draft().filter((item) => item.key.trim() || item.value);
+            const folder = this.folder();
+
+            if (folder === null) {
+                await this.collections.updateManifest(this.collectionId(), { [this.field()]: items });
+            } else {
+                await this.collections.updateFolder(this.collectionId(), folder, { variables: items });
+            }
         } catch (error) {
             this.error.set(ipcErrorMessage(error));
         } finally {

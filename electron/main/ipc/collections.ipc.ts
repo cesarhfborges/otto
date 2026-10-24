@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { COLLECTION_EXPORT_FORMATS, type CollectionExportFormat, type CollectionImportRequest } from '../../shared/models';
 import type { ICollectionMetadataRepository, IIpcModule, IIpcRegistrar, IRendererNotifier } from '../core/contracts';
-import { parseCollectionPatch, parseCollectionPath, parseEntityId, parseEntryName, parseNewCollection, parseCookies, parseKeyValues, parseOpenApiConfig, requireBoolean, requireOneOf, requireRecord, requireString, ValidationError } from '../core/validation';
+import { parseCollectionPatch, parseCollectionPath, parseEntityId, parseEntryName, parseNewCollection, parseCollectionAuth, parseCookies, parseKeyValues, parseOpenApiConfig, parseRelativePath, parseRequestAuth, parseScripts, requireBoolean, requireOneOf, requireRecord, requireString, ValidationError } from '../core/validation';
 import type { CollectionService } from '../services/collections/collection.service';
 import type { OpenApiService } from '../services/openapi/openapi.service';
 import type { WorkspaceService } from '../services/workspaces/workspace.service';
@@ -95,8 +95,28 @@ export class CollectionsIpcModule implements IIpcModule {
             const headers = patch['headers'] === undefined ? undefined : parseKeyValues(patch['headers'], 'patch.headers');
             const variables = patch['variables'] === undefined ? undefined : parseKeyValues(patch['variables'], 'patch.variables');
             const cookies = patch['cookies'] === undefined ? undefined : parseCookies(patch['cookies'], 'patch.cookies');
+            const auth = patch['auth'] === undefined ? undefined : parseCollectionAuth(patch['auth']);
+            const scripts = patch['scripts'] === undefined ? undefined : parseScripts(patch['scripts'], 'patch.scripts');
 
-            return this.service.updateManifest(parseEntityId(id), (manifest) => ({ ...manifest, ...(description !== undefined && { description }), ...(headers && { headers }), ...(variables && { variables }), ...(cookies && { cookies }) }));
+            return this.service.updateManifest(parseEntityId(id), (manifest) => ({
+                ...manifest,
+                ...(description !== undefined && { description }),
+                ...(headers && { headers }),
+                ...(variables && { variables }),
+                ...(cookies && { cookies }),
+                ...(auth && { auth }),
+                ...(scripts && { scripts })
+            }));
+        });
+
+        // Autenticação, variáveis e scripts de uma pasta (gravados no _folder.yaml).
+        ipc.handle('collections:update-folder', (_event, id, folder, rawPatch) => {
+            const patch = requireRecord(rawPatch, 'patch');
+            const auth = patch['auth'] === undefined ? undefined : parseRequestAuth(patch['auth']);
+            const variables = patch['variables'] === undefined ? undefined : parseKeyValues(patch['variables'], 'patch.variables');
+            const scripts = patch['scripts'] === undefined ? undefined : parseScripts(patch['scripts'], 'patch.scripts');
+
+            return this.service.updateFolder(parseEntityId(id), parseRelativePath(folder, 'folder'), (settings) => ({ ...settings, ...(auth && { auth }), ...(variables && { variables }), ...(scripts && { scripts }) }));
         });
 
         this.service.onChanged((collectionId) => this.notifier.notify('collections:changed', { collectionId }));

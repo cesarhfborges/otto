@@ -293,22 +293,35 @@ Plano: [PLANO_ATALHOS.md](PLANO_ATALHOS.md).
 - [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (84), helpers conferidos com Node (query dos params, formato do `workspace.yaml`, mesclagem com e sem preservar)
 - [ ] Verificação no app real (CDP) e axe no novo toggle de Connection Settings
 
+## Herança coleção/pastas, prévia da resposta, paleta e encadeamento sem script (pedido do usuário)
+
+- [x] **Autenticação, variáveis e scripts herdados**: `otto.yaml` ganhou `auth` (nunca `inherit`) e `scripts`; `_folder.yaml` ganhou `auth` (padrão `inherit`), `variables` e `scripts` (a ordem `seq` é preservada ao reordenar). Overview da coleção com abas **Auth** e **Scripts**; nova aba **Folder Settings** (menu da pasta e paleta) com Auth/Variables/Scripts. IPC `collections:update-folder`
+- [x] `auth: inherit` resolvido no envio (`TemplateContextService.prepare` → pasta mais próxima com auth, senão a coleção), antes da interpolação: variáveis e comandos `otto` funcionam como na aba Auth da requisição (inclusive `otto.request(…)` encadeado). A aba Auth mostra de onde vem ("Uses Bearer Token from folder \"api\""). Novas requisições nascem com `inherit`; arquivos antigos sem `auth` continuam `none`
+- [x] Variáveis: ambiente → pastas (da mais próxima à raiz) → coleção; novo escopo `$folder.x`. Scripts: coleção → pastas (de fora para dentro) → requisição, no pre-request e no post-response; o console marca a origem (`[pre-request · folder api]`); erro interrompe a cadeia
+- [x] **Prévia da resposta** (`response-body.ts`): Pretty / Raw / Preview. HTML num `iframe sandbox=""` com CSP (sem scripts; recursos externos só com o toggle "Load external images and styles"), imagens (inclusive SVG) e PDF (visualizador do Chromium: `plugins: true` na janela). Filtro **JSONPath** (motor do projeto) ou **JMESPath** (`jmespath@0.16.0`), com contagem de resultados e erro acessível
+- [x] **Paleta de comandos** (`app.commandPalette`, `Mod+K` e `Mod+P`, menu View): requisições e pastas das coleções abertas, comandos habilitados (com o atalho) e ambientes da coleção atual; prefixos `>` comandos, `@` ambientes, `/` pastas. Combobox + listbox com setas/PageUp/PageDown/Enter. Carregada sob demanda (`@defer`)
+- [x] **Encadear requisições sem script**: o motor já tinha `otto.request('rq_…', { send, maxAge, expect })`; agora há um **construtor visual** ("Value from another request (builder)…" no autocomplete de qualquer campo, ou duplo clique num chip existente): requisição, o que ler (JSONPath, header, cookie, status, corpo), **quando reenviar** (Never / sem resposta em cache / resposta mais antiga que N s / Always), status esperado, valor atual da resposta em cache e "Send now". `shared/templating/response-ref.ts` gera e lê a tag
+- [x] Acessibilidade: `CodeEditor` aceita `ariaLabel` (corpo da resposta sem rótulo era violação); paleta Seneca clara com contraste AA (`key` `#4a7a16`, `string` `#736a12`)
+- [x] Verificação: `typecheck` ✅, `ng build` (orçamento ok) ✅, `test:electron` ✅ (84; expectativa do YAML de requisição nova ajustada para `auth: inherit`), E2E no Electron real via CDP com perfil isolado e servidor local: 24 cenários (paleta abre requisição/pasta/comando; Bearer herdado da coleção com Login encadeado e reaproveitado do cache; scripts da coleção e da pasta; `$folder`; console com origem; Overview Auth/Scripts; Folder Settings salva no `_folder.yaml` mantendo variáveis/scripts e a requisição passa a herdar da pasta; prévias HTML/imagem/PDF; JSONPath/JMESPath/erro; construtor gera, insere e reabre pelo chip) ✅, **axe-core 4.10 sem violações** em 16 cenários (8 telas × tema claro/escuro) ✅
+
 ## Pendências e débitos conhecidos
 
 > Revisado em 2026-10-23 contra o código. Itens já resolvidos (undici, métricas, histórico, interpolação, editor com destaque, renomear/mover/arrastar, splitters, árvore persistida, cofre `safeStorage`, múltiplos workspaces) foram removidos.
 
 ### Funcionalidades
-- [ ] Paleta de comandos (fase 6 do plano de atalhos).
-- [ ] Autenticação, variáveis e scripts no nível da coleção. Hoje `auth: inherit` não envia nada (`electron/shared/http/build-request.ts`).
+- [x] Paleta de comandos (fase 6 do plano de atalhos).
+- [x] Autenticação, variáveis e scripts no nível da coleção e das pastas (`auth: inherit` resolvido no envio).
+- [ ] Escrita de variáveis de pasta pelos scripts (`otto.folderVariables.set`); hoje os scripts só leem as da pasta (via `otto.variables`).
+- [ ] Respostas usadas pelo encadeamento ficam só em memória (até 20); reiniciar o app exige reenviar a requisição referenciada.
 - [ ] Importar coleções do Postman e do Insomnia. O `ImporterRegistry` existe, mas não tem nenhum importador registrado.
 - [ ] Métricas sem separação de DNS/TCP/TLS (seria possível com `diagnostics_channel` do undici).
-- [ ] Proxy SOCKS não é suportado (a validação aceita só http/https).
-- [ ] Sem certificado de cliente (mTLS).
+- [x] Proxy SOCKS5 (`socks5://` / `socks://`, com usuário/senha na URL) via `Socks5ProxyAgent` do undici (experimental); o bypass vale também para ele.
+- [x] Certificados de cliente (mTLS) por host (`host`, `*.domínio`, `:porta`), em CRT+KEY ou PFX, com senha cifrada no chaveiro (Preferences → Certificates). Também no túnel SOCKS/HTTP e na conexão NTLM.
 
 ### Robustez
 - [ ] Sem detecção de conflito ao salvar: uma requisição alterada no disco (git pull, outro editor) é sobrescrita pelo rascunho sem aviso.
 - [ ] O `workspace.yaml` não é observado. Mudanças externas só entram ao trocar de workspace ou reiniciar.
-- [ ] Mudar a pasta base não move os workspaces existentes.
+- [x] Ao mudar a pasta base, o app pergunta se move os workspaces da pasta anterior (rename, ou cópia + remoção entre discos); os que já existem no destino ficam e são informados.
 - [ ] `fs.watch` recursivo depende do SO; se falhar, o app segue sem atualização automática.
 
 ### Qualidade e build

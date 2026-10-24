@@ -38,6 +38,7 @@ export function registerAppCommands(): void {
 
     registerCommand('app.preferences', { run: () => settingsDialog.open() });
     registerCommand('app.shortcuts', { run: () => ui.shortcutsDialog.set(true) });
+    registerCommand('app.commandPalette', { run: () => ui.commandPalette.set(true) });
     registerCommand('app.keyboardShortcutsSettings', { run: () => settingsDialog.open('shortcuts') });
     registerCommand('theme.cycle', { run: () => theme.toggle() });
     registerCommand('view.toggleSidebar', { run: () => ui.toggleSidebar() });

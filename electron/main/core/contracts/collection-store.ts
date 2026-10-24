@@ -1,4 +1,4 @@
-import type { CollectionManifest, RequestDefinition, WorkspaceManifest } from '../../../shared/models';
+import type { CollectionManifest, FolderSettings, RequestDefinition, WorkspaceManifest } from '../../../shared/models';
 
 /** Entrada do sistema de arquivos dentro de uma coleção. `path` é relativo à raiz e usa `/`. */
 export interface CollectionEntry {
@@ -55,8 +55,8 @@ export interface ICollectionFormat {
     serializeFolder(folder: FolderMetadata): string;
 }
 
-/** Metadados de uma pasta da coleção. */
-export interface FolderMetadata {
+/** Metadados de uma pasta da coleção (ordem + configurações herdadas). */
+export interface FolderMetadata extends FolderSettings {
     /** Ordem da pasta entre os itens da pasta pai; `null` ordena antes dos numerados, por nome. */
     seq: number | null;
 }

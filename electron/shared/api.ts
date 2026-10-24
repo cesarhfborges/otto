@@ -26,9 +26,11 @@ import type {
     WindowState,
     LoadedWorkspace,
     Workspace,
+    WorkspaceMoveResult,
     WorkspaceSummary,
     CollectionManifest,
     CollectionManifestPatch,
+    FolderSettings,
     OpenApiConfig,
     OpenApiStatus,
     UpdateState,
@@ -128,6 +130,8 @@ export interface WorkspacesApi {
     import(file: string): Promise<Workspace>;
     /** Mostra a pasta do workspace no gerenciador de arquivos. */
     reveal(id: EntityId): Promise<void>;
+    /** Move as pastas dos workspaces de `from` (pasta base anterior) para `to`. */
+    moveAll(from: string, to: string): Promise<WorkspaceMoveResult>;
     onChanged(listener: () => void): () => void;
 }
 
@@ -160,6 +164,8 @@ export interface CollectionsApi {
     /** `otto.yaml` atual (descrição, headers da coleção, ligação OpenAPI). */
     manifest(id: EntityId): Promise<CollectionManifest>;
     updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<CollectionManifest>;
+    /** Autenticação, variáveis e scripts de uma pasta (`_folder.yaml`). */
+    updateFolder(id: EntityId, folder: string, patch: Partial<FolderSettings>): Promise<FolderSettings>;
     /** Disparado quando arquivos da coleção mudam (pelo app, git, editor...). */
     onChanged(listener: (event: { collectionId: EntityId }) => void): () => void;
 }

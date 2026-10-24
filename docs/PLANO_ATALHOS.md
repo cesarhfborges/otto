@@ -1,6 +1,6 @@
 # Plano de Implementação — Atalhos de Teclado Configuráveis
 
-> Status: **implementado** (fases 1–5) em 2026-10-20. A fase 6 (paleta de comandos) ficou para depois.
+> Status: **implementado** (fases 1–5) em 2026-10-20. A fase 6 (paleta de comandos) foi feita em 2026-10-24: `app.commandPalette` (`Mod+K`, `Mod+P`).
 >
 > Diferenças em relação ao plano abaixo:
 > - 48 comandos em `electron/shared/models/keybindings.ts`: `app.quit` virou tecla reservada (o menu nativo trata) e `app.commandPalette` não existe ainda.

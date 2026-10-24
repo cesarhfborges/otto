@@ -51,3 +51,9 @@ export interface LoadedWorkspace {
     /** Local sugerido para novas coleções (`<workspace>/collections`); `null` no workspace padrão. */
     collectionsLocation: string | null;
 }
+
+/** Resultado de mover os workspaces para uma nova pasta base. */
+export interface WorkspaceMoveResult {
+    moved: string[];
+    skipped: Array<{ name: string; reason: string }>;
+}

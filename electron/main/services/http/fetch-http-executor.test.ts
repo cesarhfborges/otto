@@ -239,7 +239,7 @@ describe('FetchHttpExecutor', () => {
         });
 
         it('aceita o certificado quando a verificação está desligada', async () => {
-            const result = await new FetchHttpExecutor({ settings: http({ ssl: { verifyCertificates: false, caCertificatePath: null } }) }).execute({ id: 's2', method: 'GET', url: secureUrl });
+            const result = await new FetchHttpExecutor({ settings: http({ ssl: { verifyCertificates: false, caCertificatePath: null, clientCertificates: [] } }) }).execute({ id: 's2', method: 'GET', url: secureUrl });
 
             assert.equal(result.ok && result.response.body, 'secure');
         });
@@ -249,7 +249,7 @@ describe('FetchHttpExecutor', () => {
 
             writeFileSync(caPath, TEST_TLS_CERT);
 
-            const result = await new FetchHttpExecutor({ settings: http({ ssl: { verifyCertificates: true, caCertificatePath: caPath } }) }).execute({ id: 's3', method: 'GET', url: secureUrl });
+            const result = await new FetchHttpExecutor({ settings: http({ ssl: { verifyCertificates: true, caCertificatePath: caPath, clientCertificates: [] } }) }).execute({ id: 's3', method: 'GET', url: secureUrl });
 
             assert.equal(result.ok && result.response.body, 'secure');
         });
@@ -259,8 +259,8 @@ describe('FetchHttpExecutor', () => {
 
             writeFileSync(notPem, 'hello');
 
-            const missing = await new FetchHttpExecutor({ settings: http({ ssl: { verifyCertificates: true, caCertificatePath: path.join(dir, 'missing.pem') } }) }).execute({ id: 's4', method: 'GET', url: secureUrl });
-            const invalid = await new FetchHttpExecutor({ settings: http({ ssl: { verifyCertificates: true, caCertificatePath: notPem } }) }).execute({ id: 's5', method: 'GET', url: secureUrl });
+            const missing = await new FetchHttpExecutor({ settings: http({ ssl: { verifyCertificates: true, caCertificatePath: path.join(dir, 'missing.pem'), clientCertificates: [] } }) }).execute({ id: 's4', method: 'GET', url: secureUrl });
+            const invalid = await new FetchHttpExecutor({ settings: http({ ssl: { verifyCertificates: true, caCertificatePath: notPem, clientCertificates: [] } }) }).execute({ id: 's5', method: 'GET', url: secureUrl });
 
             assert.match(!missing.ok ? missing.error : '', /Could not read the CA certificate .*ENOENT/);
             assert.match(!invalid.ok ? invalid.error : '', /is not a PEM certificate/);
@@ -286,7 +286,7 @@ describe('FetchHttpExecutor', () => {
             stop(secure);
         });
 
-        const proxied = (bypass = '') => http({ proxy: { enabled: true, url: proxyUrl, bypass }, ssl: { verifyCertificates: false, caCertificatePath: null } });
+        const proxied = (bypass = '') => http({ proxy: { enabled: true, url: proxyUrl, bypass }, ssl: { verifyCertificates: false, caCertificatePath: null, clientCertificates: [] } });
 
         it('envia requisições HTTP pelo proxy com URI absoluta', async () => {
             seen.length = 0;

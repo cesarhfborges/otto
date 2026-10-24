@@ -1,11 +1,21 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
-import { DEFAULT_WORKSPACE_ID, WORKSPACE_FORMAT_VERSION, type EntityId, type Environment, type LoadedWorkspace, type OpenedCollection, type Workspace, type WorkspaceManifest, type WorkspaceSummary } from '../../../shared/models';
+import { DEFAULT_WORKSPACE_ID, WORKSPACE_FORMAT_VERSION, type EntityId, type Environment, type LoadedWorkspace, type OpenedCollection, type Workspace, type WorkspaceManifest, type WorkspaceMoveResult, type WorkspaceSummary } from '../../../shared/models';
 import type { IClock, ICollectionMetadataRepository, ICollectionStore, IEnvironmentRepository, IWorkspaceFormat, IWorkspaceRepository } from '../../core/contracts';
 import { createZip, readZip } from '../../infra/workspaces/zip-archive';
 import type { CollectionService } from '../collections/collection.service';
 import { ENVIRONMENTS_BACKUP_FILE, restoreEnvironments, serializeEnvironments } from '../collections/environment-backup';
 import { slugify } from '../collections/slug';
+
+/** Move uma pasta inteira (rename, ou cópia + remoção entre discos). Falha se o destino existir. */
+export type FolderMover = (from: string, to: string) => Promise<void>;
+
+/** Caminho dentro de `folder` (ou o próprio). */
+function isInside(folder: string, target: string): boolean {
+    const relative = path.relative(folder, target);
+
+    return !relative.startsWith('..') && !path.isAbsolute(relative);
+}
 
 /** Pasta (dentro do workspace) onde novas coleções são criadas por padrão. */
 const COLLECTIONS_FOLDER = 'collections';
@@ -69,7 +79,8 @@ export class WorkspaceService {
         private readonly environments: IEnvironmentRepository,
         private readonly clock: IClock,
         /** Pasta base atual (preferência `workspaces.baseDirectory` ou o padrão). */
-        private readonly baseDirectory: () => string
+        private readonly baseDirectory: () => string,
+        private readonly moveFolder: FolderMover
     ) {}
 
     active(): Workspace {
@@ -132,6 +143,62 @@ export class WorkspaceService {
         }
 
         return { workspace, collections: opened, failed, missing: false, collectionsLocation: workspace.path ? path.join(workspace.path, COLLECTIONS_FOLDER) : null };
+    }
+
+    /**
+     * Move as pastas dos workspaces que estão diretamente em `from` para `to` (ao trocar a pasta base)
+     * e atualiza os caminhos do workspace e das coleções dentro dele. Os que já existem no destino ficam.
+     * O renderer recarrega o workspace ativo depois (os watchers das coleções são fechados aqui).
+     */
+    async moveAll(from: string, to: string): Promise<WorkspaceMoveResult> {
+        const source = path.resolve(from);
+        const target = path.resolve(to);
+        const result: WorkspaceMoveResult = { moved: [], skipped: [] };
+
+        if (source === target) {
+            return result;
+        }
+
+        if (isInside(source, target)) {
+            throw new Error('The new folder cannot be inside the current workspaces folder.');
+        }
+
+        this.collectionService.closeAll();
+
+        for (const workspace of this.workspaces.findAll()) {
+            if (!workspace.path || path.dirname(path.resolve(workspace.path)) !== source) {
+                continue;
+            }
+
+            const destination = path.join(target, path.basename(workspace.path));
+
+            if (await this.store.isDirectory(workspace.path).then((dir) => !dir, () => true)) {
+                result.skipped.push({ name: workspace.name, reason: 'The folder was not found' });
+                continue;
+            }
+
+            try {
+                await this.moveFolder(workspace.path, destination);
+            } catch (error) {
+                const code = (error as NodeJS.ErrnoException).code;
+
+                result.skipped.push({ name: workspace.name, reason: code === 'EEXIST' || code === 'ENOTEMPTY' ? `A folder named "${path.basename(destination)}" already exists in the new location` : error instanceof Error ? error.message : String(error) });
+                continue;
+            }
+
+            for (const collection of this.collections.findAll()) {
+                if (isInside(workspace.path, collection.path)) {
+                    this.collections.update(collection.id, { path: path.join(destination, path.relative(workspace.path, collection.path)) });
+                }
+            }
+
+            this.workspaces.update(workspace.id, { path: destination });
+            result.moved.push(workspace.name);
+        }
+
+        this.emitChanged();
+
+        return result;
     }
 
     switch(id: EntityId): Workspace {

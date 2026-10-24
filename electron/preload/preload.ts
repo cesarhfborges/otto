@@ -83,6 +83,7 @@ const api: OttoApi = {
         export: (id, file) => invoke('workspaces:export', id, file),
         import: (file) => invoke('workspaces:import', file),
         reveal: (id) => invoke('workspaces:reveal', id),
+        moveAll: (from, to) => invoke('workspaces:move-all', from, to),
         onChanged: (listener) => subscribe('workspaces:changed', () => listener())
     },
     environments: {
@@ -106,6 +107,7 @@ const api: OttoApi = {
         tree: (id) => invoke('collections:tree', id),
         manifest: (id) => invoke('collections:manifest', id),
         updateManifest: (id, patch) => invoke('collections:update-manifest', id, patch),
+        updateFolder: (id, folder, patch) => invoke('collections:update-folder', id, folder, patch),
         onChanged: (listener) => subscribe('collections:changed', listener)
     },
     collectionFiles: {

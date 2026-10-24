@@ -24,9 +24,11 @@ import type {
     WindowState,
     LoadedWorkspace,
     Workspace,
+    WorkspaceMoveResult,
     WorkspaceSummary,
     CollectionManifest,
     CollectionManifestPatch,
+    FolderSettings,
     OpenApiConfig,
     OpenApiStatus,
     UpdateState
@@ -277,6 +279,10 @@ export class ElectronWorkspacesGateway extends WorkspacesGateway {
         return requireOttoApi(this.api).workspaces.reveal(id);
     }
 
+    moveAll(from: string, to: string): Promise<WorkspaceMoveResult> {
+        return requireOttoApi(this.api).workspaces.moveAll(from, to);
+    }
+
     onChanged(listener: () => void): () => void {
         return this.api?.workspaces.onChanged(listener) ?? (() => undefined);
     }
@@ -361,6 +367,10 @@ export class ElectronCollectionsGateway extends CollectionsGateway {
 
     updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<CollectionManifest> {
         return requireOttoApi(this.api).collections.updateManifest(id, patch);
+    }
+
+    updateFolder(id: EntityId, folder: string, patch: Partial<FolderSettings>): Promise<FolderSettings> {
+        return requireOttoApi(this.api).collections.updateFolder(id, folder, patch);
     }
 
     onChanged(listener: (event: { collectionId: EntityId }) => void): () => void {

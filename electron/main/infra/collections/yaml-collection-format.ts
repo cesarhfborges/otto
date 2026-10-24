@@ -1,6 +1,6 @@
-import { COLLECTION_FORMAT_VERSION, newRequestId, type CollectionManifest, type KeyValue, type RequestDefinition } from '../../../shared/models';
+import { COLLECTION_FORMAT_VERSION, newRequestId, type CollectionManifest, type KeyValue, type RequestDefinition, type RequestScripts } from '../../../shared/models';
 import type { FolderMetadata, ICollectionFormat } from '../../core/contracts';
-import { parseCookies, parseKeyValues, parseOpenApiConfig, parseRequestDefinition, requireInteger, requireRecord, requireString } from '../../core/validation';
+import { parseCollectionAuth, parseCookies, parseKeyValues, parseOpenApiConfig, parseRequestAuth, parseRequestDefinition, parseScripts, requireInteger, requireRecord, requireString } from '../../core/validation';
 import { parseYaml, toYaml } from '../yaml';
 
 const MANIFEST_FILE = 'otto.yaml';
@@ -10,6 +10,14 @@ const FOLDER_FILE = '_folder.yaml';
 
 /** Só grava `enabled` quando for `false`, deixando os arquivos enxutos. */
 const compactKeyValues = (items: KeyValue[]) => items.map(({ key, value, enabled, description }) => ({ key, value, ...(!enabled && { enabled }), ...(description && { description }) }));
+
+/** Só os scripts com conteúdo; `undefined` quando não há nenhum. */
+const compactScripts = (scripts: RequestScripts | undefined): RequestScripts | undefined => {
+    const preRequest = scripts?.preRequest?.trim() ? scripts.preRequest : undefined;
+    const postResponse = scripts?.postResponse?.trim() ? scripts.postResponse : undefined;
+
+    return preRequest || postResponse ? { ...(preRequest && { preRequest }), ...(postResponse && { postResponse }) } : undefined;
+};
 
 /**
  * Formato YAML legível e amigável a diffs: chaves em ordem fixa e campos com
@@ -26,11 +34,24 @@ export class YamlCollectionFormat implements ICollectionFormat {
     parseFolder(content: string): FolderMetadata {
         const folder = requireRecord(parseYaml(content) ?? {}, FOLDER_FILE);
 
-        return { seq: folder['seq'] === undefined || folder['seq'] === null ? null : requireInteger(folder['seq'], 'seq', 0) };
+        return {
+            seq: folder['seq'] === undefined || folder['seq'] === null ? null : requireInteger(folder['seq'], 'seq', 0),
+            // Sem `auth` no arquivo: herda (o padrão das pastas).
+            auth: folder['auth'] === undefined || folder['auth'] === null ? { type: 'inherit' } : parseRequestAuth(folder['auth']),
+            variables: parseKeyValues(folder['variables'], 'variables'),
+            scripts: parseScripts(folder['scripts'], 'scripts')
+        };
     }
 
     serializeFolder(folder: FolderMetadata): string {
-        return toYaml(folder.seq === null ? {} : { seq: folder.seq });
+        const scripts = compactScripts(folder.scripts);
+
+        return toYaml({
+            ...(folder.seq !== null && { seq: folder.seq }),
+            ...(folder.auth.type !== 'inherit' && { auth: folder.auth }),
+            ...(folder.variables.length && { variables: compactKeyValues(folder.variables) }),
+            ...(scripts && { scripts })
+        });
     }
 
     requestFileName(slug: string): string {
@@ -52,11 +73,15 @@ export class YamlCollectionFormat implements ICollectionFormat {
             headers: parseKeyValues(manifest['headers'], 'headers'),
             variables: parseKeyValues(manifest['variables'], 'variables'),
             cookies: parseCookies(manifest['cookies'], 'cookies'),
+            auth: parseCollectionAuth(manifest['auth']),
+            scripts: parseScripts(manifest['scripts'], 'scripts'),
             openapi: manifest['openapi'] === undefined || manifest['openapi'] === null ? null : parseOpenApiConfig(manifest['openapi'])
         };
     }
 
     serializeManifest(manifest: CollectionManifest): string {
+        const scripts = compactScripts(manifest.scripts);
+
         return toYaml({
             version: manifest.version,
             name: manifest.name,
@@ -64,6 +89,8 @@ export class YamlCollectionFormat implements ICollectionFormat {
             ...(manifest.headers.length ? { headers: compactKeyValues(manifest.headers) } : {}),
             ...(manifest.variables.length ? { variables: compactKeyValues(manifest.variables) } : {}),
             ...(manifest.cookies.length ? { cookies: manifest.cookies.map(({ secure, httpOnly, hostOnly, ...cookie }) => ({ ...cookie, ...(secure && { secure }), ...(httpOnly && { httpOnly }), ...(hostOnly && { hostOnly }) })) } : {}),
+            ...(manifest.auth.type !== 'none' && manifest.auth.type !== 'inherit' ? { auth: manifest.auth } : {}),
+            ...(scripts ? { scripts } : {}),
             ...(manifest.openapi ? { openapi: manifest.openapi } : {})
         });
     }
@@ -110,11 +137,10 @@ export class YamlCollectionFormat implements ICollectionFormat {
             document['docs'] = docs;
         }
 
-        const preRequest = request.scripts?.preRequest?.trim() ? request.scripts.preRequest : undefined;
-        const postResponse = request.scripts?.postResponse?.trim() ? request.scripts.postResponse : undefined;
+        const scripts = compactScripts(request.scripts);
 
-        if (preRequest || postResponse) {
-            document['scripts'] = { ...(preRequest && { preRequest }), ...(postResponse && { postResponse }) };
+        if (scripts) {
+            document['scripts'] = scripts;
         }
 
         if (request.examples?.length) {

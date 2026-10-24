@@ -90,7 +90,9 @@ export class WindowManager implements IRendererNotifier {
                 preload: path.join(__dirname, '..', '..', 'preload', 'preload.js'),
                 contextIsolation: true,
                 nodeIntegration: false,
-                sandbox: true
+                sandbox: true,
+                // Visualizador de PDF do Chromium (prévia de respostas application/pdf).
+                plugins: true
             }
         });
 

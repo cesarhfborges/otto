@@ -34,10 +34,11 @@ export class UiState {
     readonly removeCollectionDialog = signal<EntityId | null>(null);
     /** Diálogo de ajuda com os atalhos de teclado (`Mod+Shift+/`). */
     readonly shortcutsDialog = signal(false);
+    readonly commandPalette = signal(false);
     /** Pedido para focar a árvore de coleções (`filter` = abrir e focar o filtro); consumido pela barra lateral. */
     readonly sidebarFocusRequest = signal<{ filter: boolean } | null>(null);
     /** Pedido para abrir a página da coleção numa aba específica (ex.: botão de sync → OpenAPI). */
-    readonly collectionSection = signal<{ collectionId: EntityId; section: 'overview' | 'headers' | 'openapi' | 'mock' } | null>(null);
+    readonly collectionSection = signal<{ collectionId: EntityId; section: 'overview' | 'auth' | 'headers' | 'variables' | 'scripts' | 'openapi' | 'mock' } | null>(null);
 
     constructor() {
         effect(() => {
