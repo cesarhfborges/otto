@@ -80,10 +80,18 @@
         },
         "mac": {
             "target": [
-                "dmg"
+                {
+                    "target": "dmg",
+                    "arch": ["x64", "arm64"]
+                },
+                {
+                    "target": "zip",
+                    "arch": ["x64", "arm64"]
+                }
             ],
             "category": "public.app-category.developer-tools",
-            "icon": "build/icon.png"
+            "icon": "build/icon.png",
+            "artifactName": "Otto-${version}-mac-${arch}.${ext}"
         },
         "deb": {
             "artifactName": "otto_${version}_${arch}.${ext}"

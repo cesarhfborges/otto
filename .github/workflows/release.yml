@@ -20,6 +20,8 @@ jobs:
         runs-on: ubuntu-latest
         # Imagem oficial do electron-builder: já traz Node, git e Wine (gera o .exe do Windows no Linux).
         container: electronuserland/builder:wine
+        outputs:
+            tag: ${{ steps.tag.outputs.tag }}
         steps:
             - uses: actions/checkout@v4
               with:
@@ -32,3 +34,33 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   # O Wine recusa o HOME do Actions (/github/home, de outro dono); usa o HOME do root do container.
                   HOME: /root
+            # Tag criada pelo semantic-release neste commit (vazio quando não houve release).
+            - id: tag
+              run: echo "tag=$(git tag --points-at HEAD --list 'v*' | head -n 1)" >> "$GITHUB_OUTPUT"
+
+    # O .dmg só pode ser gerado no macOS: empacota a tag recém-publicada e anexa à mesma release.
+    mac:
+        needs: release
+        if: needs.release.outputs.tag != ''
+        runs-on: macos-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ needs.release.outputs.tag }}
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+            - run: npm ci
+            # O package.json da tag não tem a versão publicada (ela só é gravada no CI do Linux).
+            - run: npm version "${TAG#v}" --no-git-tag-version --allow-same-version
+              env:
+                  TAG: ${{ needs.release.outputs.tag }}
+            - run: npm run build && node scripts/dist-release.mjs --mac
+              env:
+                  # Sem certificado da Apple: o app sai com assinatura ad-hoc, sem notarização.
+                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+            - run: gh release upload "$TAG" release/*.dmg release/*.zip release/*-mac.yml release/*.blockmap --clobber
+              env:
+                  TAG: ${{ needs.release.outputs.tag }}
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

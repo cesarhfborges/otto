@@ -1,4 +1,5 @@
-// Empacota Linux (AppImage + deb) e Windows (NSIS) com a versão do package.json.
+// Empacota Linux (AppImage + deb) e Windows (NSIS) com a versão do package.json;
+// com `--mac` (só no macOS), gera dmg + zip para Intel e Apple Silicon.
 // Pré-releases (`-beta.N`) saem como "Otto Beta": outro appId, nome e pacote, para
 // conviverem com a versão final na mesma máquina, e publicam no canal de update `beta`.
 import { spawnSync } from 'node:child_process';

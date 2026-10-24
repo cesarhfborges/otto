@@ -109,7 +109,7 @@ O campo `version` do `package.json` **não** define a versão publicada; ele só
    | `chore:`, `docs:`, `ci:`, `refactor:`, `style:`, `test:` | `docs: atualiza README` | nenhuma release |
 
    Vale o maior salto entre os commits. Ex.: 3 `fix:` + 1 `feat:` → minor.
-3. Grava a nova versão no `package.json` (só no CI), empacota (`npm run dist:release`) e publica a tag e a GitHub Release com `.AppImage`, `.deb` e `.exe`.
+3. Grava a nova versão no `package.json` (só no CI), empacota (`npm run dist:release`) e publica a tag e a GitHub Release com `.AppImage`, `.deb` e `.exe`. Em seguida, um job no macOS empacota a mesma tag e anexa `.dmg` e `.zip` (Intel e Apple Silicon) à release.
 
 Na `beta`, a versão sai como pre-release (`0.2.0-beta.1`, `0.2.0-beta.2`, ...) e é empacotada como "Otto Beta".
 
