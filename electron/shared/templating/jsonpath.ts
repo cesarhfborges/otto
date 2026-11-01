@@ -154,6 +154,7 @@ export function jsonPathAll(value: unknown, path: string): unknown[] {
 /** Caminhos das folhas e objetos de um JSON (para o autocomplete), com o valor de cada um. */
 export function jsonPaths(value: unknown, limit = 200): Array<{ path: string; value: unknown }> {
     const found: Array<{ path: string; value: unknown }> = [];
+
     const walk = (node: unknown, path: string, depth: number): void => {
         if (found.length >= limit || depth > 6) {
             return;

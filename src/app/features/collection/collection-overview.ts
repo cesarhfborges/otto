@@ -17,9 +17,11 @@ import { CollectionKeyValues } from './collection-key-values';
 import { MockServerPanel } from './mock-server-panel';
 import { ScopeAuth } from './scope-auth';
 import { ScopeScripts } from './scope-scripts';
+import { CollectionSecurity } from './collection-security';
+import { ScriptSecurityState } from '../../core/scripting/script-security.state';
 import { MockState } from '../../core/state/mock.state';
 
-type Section = 'overview' | 'auth' | 'headers' | 'variables' | 'scripts' | 'cookies' | 'openapi' | 'mock';
+type Section = 'overview' | 'auth' | 'headers' | 'variables' | 'scripts' | 'security' | 'cookies' | 'openapi' | 'mock';
 
 interface TreeStats {
     requests: number;
@@ -49,7 +51,7 @@ const authLabel = (type: string): string => (type === 'none' ? 'None' : type ===
 /** Página da coleção: visão geral, autenticação/scripts herdados, headers base e sincronização OpenAPI. */
 @Component({
     selector: 'app-collection-overview',
-    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, CollectionCookies, OpenApiPanel, MockServerPanel, ScopeAuth, ScopeScripts],
+    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, CollectionCookies, OpenApiPanel, MockServerPanel, ScopeAuth, ScopeScripts, CollectionSecurity],
     template: `
         @if (collection(); as current) {
             <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="px-4 pt-2">
@@ -77,6 +79,12 @@ const authLabel = (type: string): string => (type === 'none' ? 'None' : type ===
                         >Scripts
                         @if (current.manifest.scripts.preRequest || current.manifest.scripts.postResponse) {
                             <span class="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-primary align-middle" aria-hidden="true"></span><span class="sr-only">(configured)</span>
+                        }
+                    </p-tab>
+                    <p-tab value="security"
+                        >Security
+                        @if (securityChanges()) {
+                            <span class="ml-1 rounded-full bg-amber-100 px-1.5 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-300">{{ securityChanges() }}</span><span class="sr-only">script(s) changed since trusted</span>
                         }
                     </p-tab>
                     <p-tab value="cookies"
@@ -198,7 +206,15 @@ const authLabel = (type: string): string => (type === 'none' ? 'None' : type ===
                         </app-collection-key-values>
                     </p-tabpanel>
                     <p-tabpanel value="scripts">
+                        <h2 class="sr-only">Collection scripts</h2>
                         <app-scope-scripts [collectionId]="current.metadata.id" />
+                    </p-tabpanel>
+                    <p-tabpanel value="security">
+                        @defer (on viewport) {
+                            <app-collection-security [collectionId]="current.metadata.id" />
+                        } @placeholder {
+                            <p class="m-0 text-sm text-muted-color">Loading…</p>
+                        }
                     </p-tabpanel>
                     <p-tabpanel value="cookies">
                         <app-collection-cookies [collectionId]="current.metadata.id" />
@@ -234,6 +250,8 @@ export class CollectionOverview {
     protected readonly treeStats = computed(() => stats(this.collection()?.tree.children ?? []));
     protected readonly methods = computed(() => [...this.treeStats().methods].map(([method, count]) => ({ method, count })));
     protected readonly mockRunning = computed(() => !!this.mocks.find(this.collectionId()));
+    private readonly security = inject(ScriptSecurityState);
+    protected readonly securityChanges = computed(() => this.security.changes(this.collectionId()));
     protected readonly pendingUpdates = computed(() => this.openapi.pendingUpdates(this.collectionId()));
     protected readonly description = linkedSignal(() => this.collection()?.manifest.description ?? '');
     protected readonly descriptionDirty = computed(() => this.description() !== (this.collection()?.manifest.description ?? ''));
@@ -268,7 +286,10 @@ export class CollectionOverview {
         effect(() => {
             const id = this.collectionId();
 
-            untracked(() => void this.environments.load(id));
+            untracked(() => {
+                void this.environments.load(id);
+                this.security.ensure(id);
+            });
         });
 
         // Atende pedidos de abrir numa aba específica (ex.: botão de sync no cabeçalho).

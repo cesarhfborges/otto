@@ -4,6 +4,9 @@ import type {
     CollectionExportFormat,
     CollectionImportRequest,
     CollectionMetadata,
+    CollectionScript,
+    ScriptInventory,
+    ScriptPolicyPatch,
     CollectionTree,
     OpenedCollection,
     RequestDefinition,
@@ -371,6 +374,18 @@ export class ElectronCollectionsGateway extends CollectionsGateway {
 
     updateFolder(id: EntityId, folder: string, patch: Partial<FolderSettings>): Promise<FolderSettings> {
         return requireOttoApi(this.api).collections.updateFolder(id, folder, patch);
+    }
+
+    scriptInventory(id: EntityId): Promise<ScriptInventory> {
+        return requireOttoApi(this.api).collections.scriptInventory(id);
+    }
+
+    setScriptPolicy(id: EntityId, patch: ScriptPolicyPatch): Promise<CollectionMetadata> {
+        return requireOttoApi(this.api).collections.setScriptPolicy(id, patch);
+    }
+
+    scriptSources(id: EntityId): Promise<{ trusted: CollectionScript[]; current: CollectionScript[] }> {
+        return requireOttoApi(this.api).collections.scriptSources(id);
     }
 
     onChanged(listener: (event: { collectionId: EntityId }) => void): () => void {

@@ -49,7 +49,10 @@ export abstract class TemplateField implements ControlValueAccessor {
     readonly ariaLabel = input<string | null>(null);
     readonly ariaLabelledBy = input<string | null>(null);
     readonly ariaDescribedBy = input<string | null>(null);
+    // `(focus)`/`(blur)` como num `<input>`: os campos com template substituem inputs nativos.
+    // eslint-disable-next-line @angular-eslint/no-output-rename, @angular-eslint/no-output-native
     readonly focused = output<FocusEvent>({ alias: 'focus' });
+    // eslint-disable-next-line @angular-eslint/no-output-rename, @angular-eslint/no-output-native
     readonly blurred = output<FocusEvent>({ alias: 'blur' });
 
     protected abstract readonly multiline: boolean;

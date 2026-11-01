@@ -7,36 +7,28 @@ export interface ScriptViolation {
 }
 
 /**
- * Globais que o script não pode usar. O `window.otto` do preload é a ponte IPC (arquivos,
- * coleções…): qualquer caminho até o objeto global (`window`, `globalThis`, `self`, `top`…)
- * a expõe, além de UI bloqueante, rede fora do `otto`, armazenamento do app e execução
- * de código dinâmico.
+ * Globais do navegador/Node que **não existem** no sandbox dos scripts (QuickJS, ver
+ * `script-sandbox.ts`). Não é uma barreira de segurança — o isolamento é o próprio
+ * sandbox —, só um aviso no editor antes de o script falhar com `ReferenceError`.
  */
-const BLOCKED_GLOBALS: Record<string, string> = Object.fromEntries(
+const UNAVAILABLE_GLOBALS: Record<string, string> = Object.fromEntries(
     Object.entries({
-        'gives access to the global object (and the app bridge)': ['window', 'self', 'globalThis', 'top', 'parent', 'frames', 'opener', 'document', 'customElements'],
-        'opens a blocking dialog or window': ['alert', 'confirm', 'prompt', 'print', 'open', 'close', 'stop', 'focus', 'blur', 'showOpenFilePicker', 'showSaveFilePicker', 'showDirectoryPicker'],
-        'runs dynamic code': ['eval', 'Function', 'importScripts', 'WebAssembly'],
-        'makes requests outside otto': ['fetch', 'XMLHttpRequest', 'WebSocket', 'WebTransport', 'EventSource', 'RTCPeerConnection'],
-        'reads or changes the app state': ['navigator', 'location', 'history', 'localStorage', 'sessionStorage', 'indexedDB', 'caches', 'cookieStore', 'origin'],
-        'starts background code': ['Worker', 'SharedWorker', 'BroadcastChannel', 'MessageChannel', 'postMessage', 'setInterval', 'requestAnimationFrame', 'requestIdleCallback', 'queueMicrotask'],
-        'is a Node.js/Electron global': ['require', 'process', 'module', 'exports', 'global', 'Buffer', '__dirname', '__filename']
+        'there is no window or DOM in scripts': ['window', 'self', 'top', 'parent', 'frames', 'opener', 'document', 'customElements', 'DOMParser'],
+        'scripts cannot open dialogs or windows': ['alert', 'confirm', 'prompt', 'print', 'open', 'close', 'showOpenFilePicker', 'showSaveFilePicker', 'showDirectoryPicker'],
+        'scripts send requests only through otto (otto.request(…))': ['fetch', 'XMLHttpRequest', 'WebSocket', 'WebTransport', 'EventSource', 'RTCPeerConnection'],
+        'scripts cannot read the app state': ['navigator', 'location', 'history', 'localStorage', 'sessionStorage', 'indexedDB', 'caches', 'cookieStore'],
+        'there are no timers in scripts: use await otto.sleep(ms)': ['setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'requestIdleCallback'],
+        'scripts cannot start background code': ['Worker', 'SharedWorker', 'BroadcastChannel', 'MessageChannel', 'postMessage', 'importScripts', 'WebAssembly'],
+        'Node.js/Electron APIs do not exist in scripts': ['require', 'process', 'module', 'exports', 'global', 'Buffer', '__dirname', '__filename'],
+        'use otto.base64, otto.hash, otto.hmac or otto.uuid instead': ['crypto', 'atob', 'btoa', 'TextEncoder', 'TextDecoder', 'structuredClone']
     }).flatMap(([reason, names]) => names.map((name) => [name, reason]))
 );
-
-/** Propriedades que levam ao construtor `Function` ou ao protótipo (`(() => {}).constructor('…')`). */
-const BLOCKED_PROPERTIES = new Set(['constructor', '__proto__', '__defineGetter__', '__defineSetter__', '__lookupGetter__', '__lookupSetter__']);
-
-/** Nomes que podem virar parâmetros `undefined` na execução (`eval` não pode em strict mode). */
-export const SHADOWED_GLOBALS = Object.keys(BLOCKED_GLOBALS).filter((name) => name !== 'eval');
 
 type SyntaxNode = ReturnType<typeof javascriptLanguage.parser.parse>['topNode'];
 
 const text = (code: string, node: SyntaxNode) => code.slice(node.from, node.to);
 
-const unquote = (literal: string) => (/^(['"`]).*\1$/s.test(literal) ? literal.slice(1, -1) : null);
-
-/** Análise estática: usos de globais/propriedades bloqueados e `import()`. */
+/** Análise estática: globais inexistentes no sandbox e `import()`/`import`. */
 export function checkScript(code: string): ScriptViolation[] {
     const tree = javascriptLanguage.parser.parse(code);
     const declared = new Set<string>();
@@ -57,21 +49,13 @@ export function checkScript(code: string): ScriptViolation[] {
 
             if (ref.name === 'VariableName') {
                 const name = text(code, node);
-                const reason = Object.hasOwn(BLOCKED_GLOBALS, name) && !declared.has(name) ? BLOCKED_GLOBALS[name] : null;
+                const reason = Object.hasOwn(UNAVAILABLE_GLOBALS, name) && !declared.has(name) ? UNAVAILABLE_GLOBALS[name] : null;
 
                 if (reason) {
-                    found.push({ from: node.from, to: node.to, message: `'${name}' is not allowed in scripts: it ${reason}.` });
+                    found.push({ from: node.from, to: node.to, message: `'${name}' is not available: ${reason}.` });
                 }
-            } else if (ref.name === 'PropertyName' && node.parent?.name === 'MemberExpression' && BLOCKED_PROPERTIES.has(text(code, node))) {
-                found.push({ from: node.from, to: node.to, message: `'${text(code, node)}' is not allowed in scripts.` });
-            } else if ((ref.name === 'String' || ref.name === 'TemplateString') && node.parent?.name === 'MemberExpression' && node.prevSibling?.name === '[') {
-                const name = unquote(text(code, node));
-
-                if (name !== null && BLOCKED_PROPERTIES.has(name)) {
-                    found.push({ from: node.from, to: node.to, message: `'${name}' is not allowed in scripts.` });
-                }
-            } else if (ref.name === 'DynamicImport') {
-                found.push({ from: node.from, to: node.firstChild?.to ?? node.to, message: "'import()' is not allowed in scripts." });
+            } else if (ref.name === 'DynamicImport' || ref.name === 'ImportDeclaration') {
+                found.push({ from: node.from, to: node.firstChild?.to ?? node.to, message: 'Scripts cannot import modules.' });
             }
         }
     });
@@ -79,9 +63,38 @@ export function checkScript(code: string): ScriptViolation[] {
     return found;
 }
 
-/** Posição legível (`linha:coluna`) para mensagens de erro na execução. */
-export function describeViolation(code: string, violation: ScriptViolation): string {
-    const before = code.slice(0, violation.from).split('\n');
+/** O que um script parece usar (indicativo: as permissões valem na execução). */
+export type ScriptCapability = 'modifyRequest' | 'writeVariables' | 'writeCookies' | 'sendRequests' | 'readVariables';
 
-    return `${violation.message} (line ${before.length}, column ${before[before.length - 1].length + 1})`;
+const CAPABILITY_PATTERNS: ReadonlyArray<[ScriptCapability, RegExp]> = [
+    ['modifyRequest', /^otto\.request\.(set|add|remove)\w*$/],
+    ['writeVariables', /^otto\.(environment|collectionVariables)\.(set|unset)$/],
+    ['writeCookies', /^otto\.cookies\.(set|remove|clear)$/],
+    ['sendRequests', /^otto\.request$/],
+    ['readVariables', /^otto\.(environment|variables)\.(get|all)$/]
+];
+
+/** Análise estática das chamadas `otto.*` (ignora comentários e textos). */
+export function scriptCapabilities(code: string): Set<ScriptCapability> {
+    const found = new Set<ScriptCapability>();
+    const tree = javascriptLanguage.parser.parse(code);
+
+    tree.iterate({
+        enter: (ref) => {
+            if (ref.name !== 'CallExpression') {
+                return;
+            }
+
+            const callee = ref.node.firstChild;
+            const name = callee ? code.slice(callee.from, callee.to).replace(/\s+/g, '').replace(/\?\./g, '.') : '';
+
+            for (const [capability, pattern] of CAPABILITY_PATTERNS) {
+                if (pattern.test(name)) {
+                    found.add(capability);
+                }
+            }
+        }
+    });
+
+    return found;
 }

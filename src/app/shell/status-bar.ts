@@ -8,6 +8,7 @@ import { ThemeService } from '../core/theme/theme.service';
 import { MenuItem, TooltipOptions } from 'primeng/api';
 import { SettingsDialog } from '../features/settings/settings-dialog.service';
 import { UpdateDialog } from '../features/updates/update-dialog';
+import { ScriptSecurityIndicator } from './script-security-indicator';
 import { UpdatesState } from '../core/state/updates.state';
 import { MockState } from '../core/state/mock.state';
 import { TabsState } from '../core/state/tabs.state';
@@ -23,7 +24,7 @@ const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[]
 /** Barra de status: atalhos para preferências e tema, versão do app. */
 @Component({
     selector: 'app-status-bar',
-    imports: [TooltipModule, TieredMenuModule, UpdateDialog],
+    imports: [TooltipModule, TieredMenuModule, UpdateDialog, ScriptSecurityIndicator],
     template: `
         <button type="button" class="otto-icon-button !h-6 !w-7" aria-label="Preferences" pTooltip [tooltipOptions]="tooltipConfig" (click)="settingsDialog.open()">
             <i class="pi pi-cog text-xs" aria-hidden="true"></i>
@@ -54,6 +55,7 @@ const THEME_OPTIONS: readonly { mode: ThemeMode; label: string; icon: string }[]
                 Mock :{{ server.port }}
             </button>
         }
+        <app-script-security-indicator />
         <span class="ml-auto" aria-live="polite">
             @if (updates.pending()) {
                 <button type="button" class="flex h-6 items-center gap-1.5 rounded px-2 text-xs font-medium text-primary hover:bg-surface-200 dark:hover:bg-surface-800" [attr.aria-label]="updateLabel()" (click)="updates.open()">

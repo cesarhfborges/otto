@@ -78,11 +78,11 @@ async function format(view: EditorView): Promise<void> {
     view.dispatch({ changes: { from: 0, to: code.length, insert: formatted }, selection: { anchor: Math.min(view.state.selection.main.head, formatted.length) }, scrollIntoView: true });
 }
 
-/** Comandos bloqueados (os mesmos que impedem a execução) e erros de sintaxe. */
+/** Globais que não existem no sandbox (aviso) e erros de sintaxe. */
 const scriptLinter = linter(
     (view) => {
         const code = view.state.doc.toString();
-        const diagnostics: Diagnostic[] = checkScript(code).map((violation) => ({ ...violation, severity: 'error', source: 'otto' }));
+        const diagnostics: Diagnostic[] = checkScript(code).map((violation) => ({ ...violation, severity: 'warning', source: 'otto' }));
 
         syntaxTree(view.state).iterate({
             enter: (node) => {
@@ -130,7 +130,7 @@ const scriptTheme = EditorView.theme({
     imports: [ContextMenu],
     template: `
         <div #mount class="h-full"></div>
-        <p-contextmenu #menu [model]="menuItems()" appendTo="body" (onHide)="focus()" />
+        <p-context-menu #menu [model]="menuItems()" appendTo="body" (onHide)="focus()" />
     `,
     host: {
         class: 'block min-h-64 overflow-hidden rounded-md border border-surface-300 bg-surface-0 focus-within:border-primary dark:border-surface-700 dark:bg-surface-950',

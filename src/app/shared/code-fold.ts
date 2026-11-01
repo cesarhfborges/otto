@@ -89,6 +89,8 @@ function foldRanges(lines: string[], language: FoldLanguage): Map<number, number
  * e oculta as linhas internas ao recolher (a linha de fechamento continua visível).
  */
 @Directive({
+    // Complementa os atributos do ngx-highlightjs (`highlight`, `lineNumbers`) no próprio `<code>`.
+    // eslint-disable-next-line @angular-eslint/directive-selector
     selector: 'code[highlight][lineNumbers][codeFold]',
     host: { '(click)': 'onClick($event)' }
 })

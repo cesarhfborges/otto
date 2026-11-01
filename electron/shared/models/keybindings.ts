@@ -87,6 +87,7 @@ export const COMMANDS = [
     { id: 'collection.new', label: 'New collection', category: 'Collections', scope: 'global', defaults: ['Mod+Shift+N'] },
     { id: 'collection.import', label: 'Import collection', category: 'Collections', scope: 'global', defaults: ['Mod+O'] },
     { id: 'collection.overview', label: 'Open collection overview', category: 'Collections', scope: 'global', defaults: [] },
+    { id: 'collection.security', label: 'Open collection security (scripts)', category: 'Collections', scope: 'global', defaults: [] },
     { id: 'sidebar.focus', label: 'Focus the collections sidebar', category: 'Collections', scope: 'global', defaults: ['Mod+Shift+E'] },
     { id: 'sidebar.filter', label: 'Filter requests', category: 'Collections', scope: 'global', defaults: ['Mod+Shift+F'] },
     { id: 'sidebar.rename', label: 'Rename selected item', category: 'Collections', scope: 'focus', defaults: ['F2'], singleKey: true },

@@ -486,5 +486,6 @@ function prettySpec(text: string): string {
 
 function isJson(text: string): boolean {
     const start = text.trimStart()[0];
+
     return start === '{' || start === '[';
 }

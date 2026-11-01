@@ -401,15 +401,20 @@ export class FetchHttpExecutor implements IHttpExecutor {
                 if (oauth2Token) {
                     OAuth2TokenProvider.apply(auth, oauth2Token, context);
                 }
+
                 return;
+
             case 'netrc': {
                 const file = await signNetrc(context);
 
                 context.trace.info(file ? `Using credentials for ${context.url.hostname} from ${file}` : `No .netrc credentials found for ${context.url.hostname}`);
+
                 return;
             }
+
             case 'ntlm':
                 context.headers.set('authorization', negotiateMessage());
+
                 return;
             case 'digest':
                 // Só depois do desafio do servidor (401).

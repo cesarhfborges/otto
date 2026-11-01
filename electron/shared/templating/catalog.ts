@@ -142,6 +142,8 @@ export const OTTO_CATALOG: CatalogNode = ns('otto', 'Otto commands and request d
     variableStore('collectionVariables', 'Variables of the collection (otto.yaml)', true),
     variableStore('variables', 'Resolved variables, as {{$.name}} reads them', false),
     COOKIES,
+    // Implementado pelo ScriptRunner (scripts não têm setTimeout).
+    { ...fn('sleep', 'void', 'Wait before continuing (milliseconds, up to 60000): await otto.sleep(500)', [arg('ms')], undefined, { example: 'await otto.sleep(500)' }), where: ['Pre', 'Post'] },
     ns('collection', 'This collection', [prop('name', 'string', 'Collection name'), prop('id', 'string', 'Collection id')]),
     {
         ...ns('info', 'Environment, collection, workspace and app', [

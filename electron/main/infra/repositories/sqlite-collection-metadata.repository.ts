@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
-import type { CollectionMetadata, CollectionSource, EntityId, NewCollectionMetadata } from '../../../shared/models';
+import { defaultScriptPermissions, SCRIPT_PERMISSIONS, type CollectionMetadata, type CollectionSource, type EntityId, type NewCollectionMetadata, type ScriptMode, type ScriptPermissions } from '../../../shared/models';
 import type { IClock, ICollectionMetadataRepository, IIdGenerator } from '../../core/contracts';
 import { fromSqlJson, toSqlJson, toSqlNullable } from '../database/sqlite';
 
@@ -9,19 +9,46 @@ interface CollectionRow {
     path: string;
     source: string | null;
     last_opened_at: string | null;
+    script_mode: ScriptMode;
+    script_permissions: string | null;
+    trusted_fingerprint: string | null;
+    trusted_at: string | null;
     created_at: string;
     updated_at: string;
 }
 
-const toCollection = (row: CollectionRow): CollectionMetadata => ({
-    id: row.id,
-    name: row.name,
-    path: row.path,
-    source: fromSqlJson<CollectionSource | null>(row.source, null),
-    lastOpenedAt: row.last_opened_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-});
+/** Permissões gravadas (JSON) sobre o padrão do modo; chaves desconhecidas ou inválidas são ignoradas. */
+function permissionsOf(mode: ScriptMode, raw: string | null): { permissions: ScriptPermissions; custom: boolean } {
+    const stored = fromSqlJson<Record<string, unknown> | null>(raw, null);
+    const permissions = defaultScriptPermissions(mode);
+
+    if (!stored || typeof stored !== 'object') {
+        return { permissions, custom: false };
+    }
+
+    for (const key of SCRIPT_PERMISSIONS) {
+        if (typeof stored[key] === 'boolean') {
+            permissions[key] = stored[key];
+        }
+    }
+
+    return { permissions, custom: true };
+}
+
+const toCollection = (row: CollectionRow): CollectionMetadata => {
+    const { permissions, custom } = permissionsOf(row.script_mode, row.script_permissions);
+
+    return {
+        id: row.id,
+        name: row.name,
+        path: row.path,
+        source: fromSqlJson<CollectionSource | null>(row.source, null),
+        lastOpenedAt: row.last_opened_at,
+        scriptPolicy: { mode: row.script_mode, permissions, customPermissions: custom, trustedFingerprint: row.trusted_fingerprint, trustedAt: row.trusted_at },
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+    };
+};
 
 export class SqliteCollectionMetadataRepository implements ICollectionMetadataRepository {
     constructor(
@@ -55,13 +82,14 @@ export class SqliteCollectionMetadataRepository implements ICollectionMetadataRe
         }
 
         const now = this.clock.now();
-        const created: CollectionMetadata = { ...input, id: this.ids.next(), createdAt: now, updatedAt: now };
+        const id = this.ids.next();
 
+        // `scripts_trusted` é legado (migração 006): o modo vale.
         this.db
-            .prepare('INSERT INTO collections_metadata (id, name, path, source, last_opened_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-            .run(created.id, created.name, created.path, toSqlJson(created.source), toSqlNullable(created.lastOpenedAt), created.createdAt, created.updatedAt);
+            .prepare('INSERT INTO collections_metadata (id, name, path, source, last_opened_at, script_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(id, input.name, input.path, toSqlJson(input.source), toSqlNullable(input.lastOpenedAt), input.scriptMode ?? 'ask', now, now);
 
-        return created;
+        return this.findById(id)!;
     }
 
     update(id: EntityId, patch: Partial<NewCollectionMetadata>): CollectionMetadata | null {
@@ -71,7 +99,7 @@ export class SqliteCollectionMetadataRepository implements ICollectionMetadataRe
             return null;
         }
 
-        const updated: CollectionMetadata = { ...current, ...patch, id, updatedAt: this.clock.now() };
+        const updated = { ...current, ...patch, id, updatedAt: this.clock.now() };
         const owner = updated.path !== current.path ? this.findByPath(updated.path) : null;
 
         if (owner) {
@@ -82,7 +110,15 @@ export class SqliteCollectionMetadataRepository implements ICollectionMetadataRe
             .prepare('UPDATE collections_metadata SET name = ?, path = ?, source = ?, last_opened_at = ?, updated_at = ? WHERE id = ?')
             .run(updated.name, updated.path, toSqlJson(updated.source), toSqlNullable(updated.lastOpenedAt), updated.updatedAt, id);
 
-        return updated;
+        return this.findById(id);
+    }
+
+    setScriptPolicy(id: EntityId, policy: { mode: ScriptMode; permissions: ScriptPermissions | null; trustedFingerprint: string | null; trustedAt: string | null }): CollectionMetadata | null {
+        const changes = this.db
+            .prepare('UPDATE collections_metadata SET script_mode = ?, script_permissions = ?, trusted_fingerprint = ?, trusted_at = ?, updated_at = ? WHERE id = ?')
+            .run(policy.mode, toSqlJson(policy.permissions), toSqlNullable(policy.trustedFingerprint), toSqlNullable(policy.trustedAt), this.clock.now(), id).changes;
+
+        return Number(changes) > 0 ? this.findById(id) : null;
     }
 
     delete(id: EntityId): boolean {

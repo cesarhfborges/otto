@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { commandMeta, type CommandId, type EntityId, hasBody, HTTP_METHODS, type HttpMethod, type RequestDefinition, type ResponseExample } from '@shared/models';
 import { looksLikeCurl, parseCurl } from '@shared/http/curl-import';
 import { querySuffix } from '@shared/http/url-query';
@@ -28,7 +28,6 @@ import { AuthEditor } from './auth-editor';
 import { BodyEditor } from './body-editor';
 import { KeyValueEditor } from './key-value-editor';
 import { ResponsePanel } from './response-panel';
-import { EditorModule } from 'primeng/editor';
 import { ScriptEditor } from '../../shared/script-editor/script-editor';
 import { CodeDialog } from './code-dialog';
 import { ExamplesEditor } from './examples-editor';
@@ -81,7 +80,6 @@ import { OttoInput } from '../../shared/template-editor';
     providers: [TemplateScope],
     imports: [
         ReactiveFormsModule,
-        FormsModule,
         TabsModule,
         ButtonModule,
         InputTextModule,
@@ -94,7 +92,6 @@ import { OttoInput } from '../../shared/template-editor';
         BodyEditor,
         AuthEditor,
         ResponsePanel,
-        EditorModule,
         ScriptEditor,
         CodeDialog,
         ExamplesEditor,
@@ -246,7 +243,6 @@ import { OttoInput } from '../../shared/template-editor';
                                             placeholder="Describe what this request does, its parameters and expected responses."
                                             (input)="update({ docs: $any($event.target).value })"
                                         ></textarea>
-                                        <!-- <p-editor [(ngModel)]="req.docs" [style]="{ height: '320px' }" (ngModelChange)="update({ docs: $event }); teste($event)" [formats]="quillFormats" [modules]="quillModules" />-->
                                     </p-tabpanel>
                                     <p-tabpanel value="preRequest" class="min-h-0 flex-1 flex-col data-[p-active=true]:flex">
                                         <div class="mb-2 flex items-start gap-2">
@@ -398,7 +394,9 @@ export class RequestView {
             const collectionId = this.collectionId();
             const path = this.path();
 
-            this.collections.find(collectionId)?.tree;
+            // Lido só para reler o arquivo quando a árvore da coleção muda.
+            const _tree = this.collections.find(collectionId)?.tree;
+
             untracked(() => void this.load(collectionId, path));
         });
 
@@ -525,10 +523,6 @@ export class RequestView {
 
     protected cancel(): void {
         this.responses.cancel(responseKey(this.collectionId(), this.path()));
-    }
-
-    protected teste(event: any): void {
-        console.log(event);
     }
 
     private async load(collectionId: EntityId, path: string): Promise<void> {

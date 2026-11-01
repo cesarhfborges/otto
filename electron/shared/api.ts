@@ -7,6 +7,9 @@ import type {
     CollectionImportRequest,
     AppInfo,
     CollectionMetadata,
+    CollectionScript,
+    ScriptInventory,
+    ScriptPolicyPatch,
     CollectionTree,
     OpenedCollection,
     RequestDefinition,
@@ -166,6 +169,12 @@ export interface CollectionsApi {
     updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<CollectionManifest>;
     /** Autenticação, variáveis e scripts de uma pasta (`_folder.yaml`). */
     updateFolder(id: EntityId, folder: string, patch: Partial<FolderSettings>): Promise<FolderSettings>;
+    /** Scripts da coleção, impressão digital e o que mudou desde a confiança. */
+    scriptInventory(id: EntityId): Promise<ScriptInventory>;
+    /** Modo/permissões dos scripts; `trusted` (ou `retrust`) confia no conteúdo atual. */
+    setScriptPolicy(id: EntityId, patch: ScriptPolicyPatch): Promise<CollectionMetadata>;
+    /** Código confiado × atual (para revisar as mudanças). */
+    scriptSources(id: EntityId): Promise<{ trusted: CollectionScript[]; current: CollectionScript[] }>;
     /** Disparado quando arquivos da coleção mudam (pelo app, git, editor...). */
     onChanged(listener: (event: { collectionId: EntityId }) => void): () => void;
 }

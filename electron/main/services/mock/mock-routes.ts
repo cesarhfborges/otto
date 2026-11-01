@@ -151,11 +151,13 @@ export function renderMockTemplate(text: string, context: MockRequestContext): s
                 return key ? (context.params[key] ?? '') : asText(context.params);
             case 'query':
                 return key ? (context.query.get(key) ?? '') : asText(Object.fromEntries(context.query));
+
             case 'header': {
                 const value = key ? context.headers[key.toLowerCase()] : undefined;
 
                 return Array.isArray(value) ? value.join(', ') : (value ?? '');
             }
+
             case 'body':
                 return asText(key ? lookup(context.body, key) : context.body);
             case 'uuid':

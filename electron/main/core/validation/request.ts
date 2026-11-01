@@ -61,11 +61,13 @@ export function parseRequestAuth(raw: unknown): RequestAuth {
         case 'none':
         case 'inherit':
             return { type };
+
         case 'bearer': {
             const prefix = text(auth['prefix'], 'auth.prefix', 1_000);
 
             return { type, token: text(auth['token'], 'auth.token'), ...(prefix && { prefix }) };
         }
+
         case 'basic':
             return { type, username: text(auth['username'], 'auth.username'), password: text(auth['password'], 'auth.password') };
         case 'apikey':

@@ -65,11 +65,13 @@ export function parseResponseRef(expression: string): ResponseRef | null {
     }
 
     const [, request, rawOptions = '', accessor] = match;
+
     const option = (key: string): string | null => {
         const found = new RegExp(String.raw`\b${key}\s*:\s*(?:${STRING}|(\d+))`).exec(rawOptions);
 
         return found ? (found[1] !== undefined ? unquote(found[1]) : (found[2] ?? null)) : null;
     };
+
     const send = option('send');
 
     for (const [pattern, source] of ACCESSORS) {

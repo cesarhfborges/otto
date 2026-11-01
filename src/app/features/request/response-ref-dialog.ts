@@ -251,6 +251,7 @@ export class ResponseRefDialog {
                         .map(([, value]) => parseSetCookie(value))
                         .find((cookie) => cookie?.name === argument.trim())?.value ?? '(not found)'
                 );
+
             case 'json': {
                 try {
                     const body = JSON.parse(snapshot.body) as unknown;

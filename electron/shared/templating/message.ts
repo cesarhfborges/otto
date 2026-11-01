@@ -116,11 +116,13 @@ const found = <T>(value: T | undefined, what: string): T => {
 export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGuard = {}, extra: Record<string, unknown> = {}): Record<string, unknown> {
     const isResponse = message.kind === 'response';
     const headers = new HeaderList(message.headers);
+
     const readHeader = (name: string): void => {
         if (guard.header && guard.header.toLowerCase() === String(name).toLowerCase()) {
             throw new CircularReferenceError(`Circular reference: header "${name}" reads itself`);
         }
     };
+
     const text = (): string => {
         if (guard.body) {
             throw new CircularReferenceError('Circular reference: the body reads itself');
@@ -128,6 +130,7 @@ export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGu
 
         return message.bodyEncoding === 'base64' ? utf8(message.body) : message.body;
     };
+
     const json = (): unknown => {
         try {
             return JSON.parse(text());
@@ -139,6 +142,7 @@ export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGu
             throw new TemplateError('Body is not valid JSON');
         }
     };
+
     const select = (path: string): unknown[] => {
         if (String(path).startsWith('/')) {
             throw new TemplateError('This is an XPath: use body.xml(…) (json() takes a JSONPath, $.…)');
@@ -146,6 +150,7 @@ export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGu
 
         return jsonPathAll(json(), String(path));
     };
+
     const parsed = (): unknown => {
         switch (message.bodyType) {
             case 'json':
@@ -156,6 +161,7 @@ export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGu
                 return text();
         }
     };
+
     /** Com JSONPath: o primeiro valor encontrado; sem: o objeto inteiro. */
     const jsonAt = (path?: string): unknown => (path === undefined || path === '' ? json() : found(select(path)[0], `"${path}"`));
     const body = {
@@ -181,6 +187,7 @@ export function messageReader(message: MessageSnapshot, now: Date, guard: ReadGu
                   return info ? [[info.name, info.value] as [string, string]] : [];
               })
             : parseCookieHeader(headers.get('cookie') ?? '');
+
     const cookies = (): Cookies => {
         readHeader('Cookie');
 

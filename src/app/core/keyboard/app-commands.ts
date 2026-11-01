@@ -3,6 +3,7 @@ import type { CommandId } from '@shared/models';
 import { MessageService } from 'primeng/api';
 import { SettingsDialog } from '../../features/settings/settings-dialog.service';
 import { MenuEventsGateway } from '../ports';
+import { ScriptSecurityState } from '../scripting/script-security.state';
 import { CollectionsState } from '../state/collections.state';
 import { RequestDraftsState } from '../state/request-drafts.state';
 import { SettingsState } from '../state/settings.state';
@@ -28,6 +29,7 @@ export function registerAppCommands(): void {
     const settingsDialog = inject(SettingsDialog);
     const messages = inject(MessageService);
     const keyboard = inject(KeybindingService);
+    const scriptSecurity = inject(ScriptSecurityState);
 
     const visible = () => tabs.visibleTabs();
     const activeIndex = () => visible().findIndex((tab) => tab.id === tabs.activeId());
@@ -100,6 +102,7 @@ export function registerAppCommands(): void {
     registerCommand('collection.new', { run: () => ui.newCollectionDialog.set(true) });
     registerCommand('collection.import', { run: () => ui.importCollectionDialog.set(true) });
     registerCommand('collection.overview', { when: () => !!tabs.context(), run: () => tabs.open({ kind: 'collection', title: 'Overview', collectionId: tabs.context() }) });
+    registerCommand('collection.security', { when: () => !!tabs.context(), run: () => scriptSecurity.openSecurity(tabs.context()!) });
 
     const focusSidebar = (filter: boolean) => () => {
         ui.sidebarVisible.set(true);

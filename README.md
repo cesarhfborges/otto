@@ -82,6 +82,8 @@ O `npm start` sobe o `ng serve` (porta 4200), compila o processo main em modo wa
 | `npm run typecheck`        | Checagem de tipos do main/preload e do Angular                      |
 | `npm test`                 | Testes unitários do Angular (Karma/Jasmine)                         |
 | `npm run test:electron`    | Testes unitários do processo main (`node --test`)                   |
+| `npm run lint`             | ESLint (TypeScript, Angular e acessibilidade dos templates)         |
+| `npm run audit:a11y`       | Auditoria axe-core no app real (temas claro/escuro) e violações de CSP; rode depois do `npm run build` (sem tela: `xvfb-run -a npm run audit:a11y`) |
 | `npm run format`           | Formata o código com Prettier                                       |
 
 > **Dependências:** o Angular já é empacotado em `dist/otto`, então todos os pacotes ficam em `devDependencies` e não entram no instalador. Use `dependencies` apenas para módulos que o processo main (`electron/`) precisa em tempo de execução.
@@ -268,6 +270,14 @@ docs: |
 
 Campos com valor padrão (lista vazia, `auth: none`, `body: none`, sem docs) são omitidos, então os diffs no Git ficam pequenos. Arquivos editados à mão podem omiti-los também. Ambientes, histórico e abas ficam no banco local do app (SQLite), fora da pasta versionada.
 
+## Segurança dos scripts
+
+Os scripts pre-request e post-response rodam no **QuickJS compilado para WebAssembly**, num realm separado do app: não existem `window`, a ponte do Electron, o DOM, `fetch` nem timers — só `otto` e `console`. Cada execução tem limite de memória (64 MB), de tempo contínuo (3 s) e total de CPU (10 s); um `while (true) {}` é interrompido sem travar a interface. Para esperar, use `await otto.sleep(ms)`.
+
+Cada coleção tem um **modo de segurança** na aba **Security**: *Trusted* (roda sem perguntar), *Ask before running* (pergunta uma vez por sessão) ou *Scripts disabled* (envia as requisições sem rodar scripts). Coleções que o app não criou (importadas ou vindas do Git) começam em *Ask*. A confiança fica presa ao conteúdo: se um script mudar depois (um `git pull`, outro editor), o Otto volta a perguntar e mostra o diff. Permissões por coleção limitam o que os scripts fazem (alterar a requisição, gravar variáveis, cookies, enviar outras requisições, ler segredos). Tudo isso fica no banco local do app, nunca no `otto.yaml`. A barra de status mostra o estado dos scripts da coleção em uso.
+
+O renderer tem Content-Security-Policy sem scripts inline nem `eval` (só `'wasm-unsafe-eval'`, para o sandbox).
+
 ## Roadmap
 
 - [x] Estrutura Electron + Angular em TypeScript
@@ -275,10 +285,12 @@ Campos com valor padrão (lista vazia, `auth: none`, `body: none`, sem docs) sã
 - [x] Execução de requisições HTTP no processo main (sem CORS, com cancelamento e timeout)
 - [x] Banco local (SQLite), configurações (tema Light/Dark/Auto, timeout, redirects) e coleções em disco (YAML)
 - [x] Proxy HTTP/HTTPS com exceções, verificação SSL e CA personalizada (além das CAs do sistema), métricas da resposta e histórico com retenção configurável
-- [ ] **MVP:** editor de requisição (método, URL, params, headers, body), visualização da resposta (status, tempo, tamanho, headers, JSON formatado), environments e variáveis
-- [ ] Autenticação (Basic, Bearer, API Key), multipart/upload de arquivos, histórico, múltiplas abas, editor com syntax highlight
-- [ ] Importar coleções do Postman, Insomnia e OpenAPI; gerar código (cURL, fetch)
-- [ ] Scripts pre-request e testes
+- [x] **MVP:** editor de requisição (método, URL, params, headers, body), visualização da resposta (status, tempo, tamanho, headers, JSON formatado), environments e variáveis
+- [x] Autenticação (Basic, Bearer, API Key, Digest, NTLM, OAuth2…), multipart/upload de arquivos, histórico, múltiplas abas, editor com syntax highlight
+- [x] Importar OpenAPI e cURL; gerar código (cURL, fetch, axios, Python, Go, PowerShell)
+- [ ] Importar coleções do Postman e do Insomnia
+- [x] Scripts pre-request/post-response num sandbox isolado (QuickJS), com confirmação para coleções importadas
+- [ ] Testes/asserções nos scripts
 - [ ] GraphQL, WebSocket, OAuth2 e CLI runner (`otto run`)
 
 ## Contribuindo

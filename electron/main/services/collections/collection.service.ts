@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
-import { COLLECTION_FORMAT_VERSION, emptyFolderSettings, type CollectionManifest, type FolderSettings, type CollectionMetadata, type CollectionNode, type CollectionTree, type EntityId, type OpenedCollection, type RequestDefinition } from '../../../shared/models';
+import { COLLECTION_FORMAT_VERSION, emptyFolderSettings, type CollectionManifest, type FolderSettings, type CollectionMetadata, type CollectionNode, type CollectionTree, type CollectionScript, type EntityId, type OpenedCollection, type RequestDefinition, type RequestScripts, type ScriptLocation, type ScriptMode } from '../../../shared/models';
 import type { CollectionEntry, FolderMetadata, IClock, ICollectionFormat, ICollectionMetadataRepository, ICollectionStore, ICollectionWatcher } from '../../core/contracts';
 import { slugify } from './slug';
 
@@ -91,16 +91,20 @@ export class CollectionService {
     ) {}
 
     /** Abre uma pasta existente que contenha o manifesto: registra/atualiza no banco, observa e lê a árvore. */
-    async open(directory: string): Promise<OpenedCollection> {
-        const { metadata, manifest } = await this.register(directory, this.clock.now());
+    async open(directory: string, scriptMode: ScriptMode = 'ask'): Promise<OpenedCollection> {
+        const { metadata, manifest } = await this.register(directory, this.clock.now(), scriptMode);
 
         this.startWatching(metadata);
 
         return { metadata, manifest, tree: await this.buildTree(metadata.path, manifest.name) };
     }
 
-    /** Valida a pasta e registra/atualiza a coleção no banco, sem observar nem ler a árvore. */
-    async register(directory: string, lastOpenedAt?: string): Promise<{ metadata: CollectionMetadata; manifest: CollectionManifest }> {
+    /**
+     * Valida a pasta e registra/atualiza a coleção no banco, sem observar nem ler a árvore.
+     * Uma pasta que o app ainda não conhecia (importada, vinda do Git) nasce com os
+     * scripts em modo `ask`; `trusted` vale só para as criadas pelo próprio app.
+     */
+    async register(directory: string, lastOpenedAt?: string, scriptMode: ScriptMode = 'ask'): Promise<{ metadata: CollectionMetadata; manifest: CollectionManifest }> {
         const root = path.resolve(directory);
 
         if (!(await this.store.isDirectory(root))) {
@@ -110,9 +114,56 @@ export class CollectionService {
         const manifest = await this.readManifest(root);
         const existing = this.metadata.findByPath(root);
         const patch = { name: manifest.name, ...(lastOpenedAt && { lastOpenedAt }) };
-        const metadata = existing ? this.metadata.update(existing.id, patch)! : this.metadata.create({ name: manifest.name, path: root, source: null, lastOpenedAt: lastOpenedAt ?? null });
+        const metadata = existing ? this.metadata.update(existing.id, patch)! : this.metadata.create({ name: manifest.name, path: root, source: null, lastOpenedAt: lastOpenedAt ?? null, scriptMode });
 
         return { metadata, manifest };
+    }
+
+    /**
+     * Todos os scripts da coleção (`otto.yaml`, cada `_folder.yaml` e cada requisição), em
+     * ordem estável. Arquivos inválidos ficam de fora (não rodam). `names` dá o nome
+     * legível de cada local (`folder:a/b`, `request:a/b.yaml`).
+     */
+    async scripts(id: EntityId): Promise<{ scripts: CollectionScript[]; names: Map<string, string> }> {
+        const root = this.resolve(id).path;
+        const manifest = await this.readManifest(root);
+        const scripts: CollectionScript[] = [];
+        const names = new Map<string, string>([['collection:', 'Collection']]);
+
+        const add = (location: ScriptLocation, entryPath: string, source: RequestScripts | undefined): void => {
+            for (const phase of ['preRequest', 'postResponse'] as const) {
+                const code = source?.[phase];
+
+                if (code?.trim()) {
+                    scripts.push({ location, path: entryPath, phase, code });
+                }
+            }
+        };
+
+        add('collection', '', manifest.scripts);
+
+        const walk = async (entries: CollectionEntry[]): Promise<void> => {
+            for (const entry of entries) {
+                if (entry.kind === 'directory') {
+                    names.set(`folder:${entry.path}`, entry.name);
+                    add('folder', entry.path, (await this.readFolder(root, entry.path)).scripts);
+                    await walk(entry.children);
+                } else if (this.format.isRequestFile(entry.name)) {
+                    try {
+                        const request = this.format.parseRequest(await this.store.readFile(root, entry.path));
+
+                        names.set(`request:${entry.path}`, request.name);
+                        add('request', entry.path, request.scripts);
+                    } catch {
+                        // Arquivo inválido: não roda, então não entra no inventário.
+                    }
+                }
+            }
+        };
+
+        await walk(await this.store.list(root));
+
+        return { scripts, names };
     }
 
     /** Pasta raiz da coleção (para resolver caminhos relativos, ex.: spec OpenAPI local). */
@@ -158,6 +209,7 @@ export class CollectionService {
     async requests(id: EntityId): Promise<Array<{ path: string; request: RequestDefinition }>> {
         const root = this.resolve(id).path;
         const result: Array<{ path: string; request: RequestDefinition }> = [];
+
         const walk = async (entries: CollectionEntry[]): Promise<void> => {
             for (const entry of entries) {
                 if (entry.kind === 'directory') {
@@ -192,6 +244,7 @@ export class CollectionService {
     async files(id: EntityId): Promise<Map<string, Uint8Array>> {
         const root = this.resolve(id).path;
         const files = new Map<string, Uint8Array>();
+
         const collect = async (entries: CollectionEntry[]): Promise<void> => {
             for (const entry of entries) {
                 if (entry.kind === 'directory') {
@@ -221,7 +274,8 @@ export class CollectionService {
 
         await this.store.writeFile(root, this.format.manifestFile, this.format.serializeManifest(manifest), { createOnly: true });
 
-        return this.open(root);
+        // Criada aqui: os scripts são do próprio usuário.
+        return this.open(root, 'trusted');
     }
 
     async tree(id: EntityId): Promise<CollectionTree> {

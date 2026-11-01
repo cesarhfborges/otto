@@ -54,7 +54,9 @@ export function createOAuth2Authorizer(parent: () => BrowserWindow | null): OAut
                     resolve(url!);
                 }
             };
+
             const onAbort = (): void => finish(signal.reason instanceof Error ? signal.reason : new Error('Authorization cancelled'));
+
             const intercept = (event: { preventDefault: () => void }, url: string): void => {
                 if (isCallback(url, callbackUrl)) {
                     event.preventDefault();

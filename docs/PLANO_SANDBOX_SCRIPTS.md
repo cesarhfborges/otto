@@ -1,5 +1,9 @@
 # Plano: sandbox para scripts de usuário (pre-request / post-response)
 
+> Status: **implementado** (2026-11-01), etapas 1 a 6 e 8. Diferença em relação ao plano: o
+> QuickJS roda na thread do renderer, não num Web Worker (ver `docs/PROGRESS.md`). A etapa 7
+> (defesa em profundidade no IPC) continua pendente.
+
 ## Contexto
 
 Hoje os scripts rodam com `new AsyncFunction(...)` no renderer

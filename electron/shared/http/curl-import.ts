@@ -140,6 +140,7 @@ function bodyFrom(data: string[], json: boolean, contentType: string): RequestBo
             .filter(Boolean)
             .map((pair) => {
                 const [key = '', ...value] = pair.split('=');
+
                 const decode = (text: string): string => {
                     try {
                         return decodeURIComponent(text.replace(/\+/g, ' '));
