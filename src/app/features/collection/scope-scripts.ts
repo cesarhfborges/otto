@@ -3,6 +3,7 @@ import type { EntityId, RequestScripts } from '@shared/models';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
+import { ScriptSecurityState } from '../../core/scripting/script-security.state';
 import { CollectionsState } from '../../core/state/collections.state';
 import { TemplateScope } from '../../core/templating/template-scope';
 import { ScriptEditor } from '../../shared/script-editor/script-editor';
@@ -20,6 +21,11 @@ import { ScriptEditor } from '../../shared/script-editor/script-editor';
             Run for every request {{ folder() === null ? 'of this collection' : 'inside this folder' }}, in order: collection, then each folder from the outside in, then the request. Pre-request scripts can change the request with
             <code>otto.request.setHeader(…)</code> and others; an error stops the request. Their output appears in the Console tab of the response, marked with where they came from.
         </p>
+        <div class="mb-4 flex max-w-3xl flex-wrap items-center gap-2 text-sm" role="note">
+            <i class="pi text-xs" [class]="securityIcon()" aria-hidden="true"></i>
+            <span>{{ securityText() }}</span>
+            <p-button label="Security settings" icon="pi pi-arrow-right" iconPos="right" size="small" [text]="true" (onClick)="security.openSecurity(collectionId())" />
+        </div>
         <div class="grid gap-4 xl:grid-cols-2">
             <section class="flex min-h-72 flex-col gap-2" aria-labelledby="scope-pre-request-label">
                 <div class="flex items-center gap-2">
@@ -73,6 +79,28 @@ export class ScopeScripts {
     readonly folder = input<string | null>(null);
 
     private readonly collections = inject(CollectionsState);
+    protected readonly security = inject(ScriptSecurityState);
+
+    protected readonly securityIcon = computed(() => {
+        switch (this.security.policy(this.collectionId())?.mode) {
+            case 'trusted':
+                return 'pi-shield';
+            case 'disabled':
+                return 'pi-ban';
+            default:
+                return 'pi-question-circle';
+        }
+    });
+    protected readonly securityText = computed(() => {
+        switch (this.security.policy(this.collectionId())?.mode) {
+            case 'trusted':
+                return 'Scripts of this collection are trusted: they run in an isolated sandbox, with the permissions set in the Security tab.';
+            case 'disabled':
+                return 'Scripts are disabled for this collection: requests are sent without running them.';
+            default:
+                return 'Otto asks before running the scripts of this collection (it came from outside this app).';
+        }
+    });
 
     protected readonly saved = computed<RequestScripts>(() => {
         const folder = this.folder();

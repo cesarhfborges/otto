@@ -99,6 +99,7 @@ export function buildHttpRequest(definition: RequestDefinition, options: BuildRe
                     headers.set(auth.key.trim(), auth.value);
                 }
             }
+
             break;
         case 'none':
         case 'inherit':
@@ -122,7 +123,9 @@ export function buildHttpRequest(definition: RequestDefinition, options: BuildRe
             if (definitionBody.file) {
                 bodyFile = definitionBody.file;
             }
+
             break;
+
         default:
             body = definitionBody.type === 'form-urlencoded' ? encodePairs(enabled(definitionBody.fields)) : definitionBody.content;
 

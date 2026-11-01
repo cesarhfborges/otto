@@ -28,7 +28,7 @@ describe('YamlCollectionFormat', () => {
 
     it('gera YAML enxuto e legível (padrões omitidos, corpo em bloco)', () => {
         // Arquivo sem `id` ganha um na gravação.
-        assert.match(format.serializeRequest(emptyRequest('Ping')), /^id: rq_[0-9a-z]{10}\nname: Ping\nmethod: GET\nurl: ""\nauth:\n  type: inherit\n$/);
+        assert.match(format.serializeRequest(emptyRequest('Ping')), /^id: rq_[0-9a-z]{10}\nname: Ping\nmethod: GET\nurl: ""\nauth:\n {2}type: inherit\n$/);
 
         const yaml = format.serializeRequest(fullRequest);
 

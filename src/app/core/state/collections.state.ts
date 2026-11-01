@@ -94,6 +94,14 @@ export class CollectionsState {
     }
 
     /** Grava descrição/headers no `otto.yaml`. Lança o erro para a tela exibir. */
+    /** Metadados atualizados por outra parte do app (ex.: política dos scripts). */
+    replaceMetadata(metadata: CollectionMetadata): void {
+        const id = metadata.id;
+
+        this.openedState.update((list) => list.map((c) => (c.metadata.id === id ? { ...c, metadata } : c)));
+        this.knownState.update((list) => list.map((c) => (c.id === id ? metadata : c)));
+    }
+
     async updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<void> {
         const manifest = await this.gateway.updateManifest(id, patch);
 

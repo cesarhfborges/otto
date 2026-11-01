@@ -25,7 +25,7 @@ import { SURFACE_PALETTES } from '../../core/theme/otto-preset';
 import { ClientCertificates } from './client-certificates';
 import { KeyboardShortcutsSettings } from './keyboard-shortcuts';
 import { SettingsDialog } from './settings-dialog.service';
-import { DatePipe, NgOptimizedImage } from '@angular/common';
+import { DatePipe } from '@angular/common';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -95,7 +95,7 @@ const EXAMPLE = {
 
 @Component({
     selector: 'app-settings-page',
-    imports: [ClientCertificates, DatePipe, Highlight, HighlightLineNumbers, KeyboardShortcutsSettings, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, TextareaModule, ButtonModule, MessageModule, NgOptimizedImage],
+    imports: [ClientCertificates, DatePipe, Highlight, HighlightLineNumbers, KeyboardShortcutsSettings, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, TextareaModule, ButtonModule, MessageModule],
     templateUrl: './settings.page.html',
     styles: `
         ::ng-deep {
@@ -124,13 +124,7 @@ export class SettingsPage {
     protected readonly section = linkedSignal<PreferencesSection>(() => this.requestedSection()?.section ?? 'general');
     protected readonly current = computed(() => this.sections.find((s) => s.id === this.section())!);
     protected readonly appInfo = signal<AppInfo | null>(null);
-    protected readonly listLanguages = signal<any[]>([
-        {
-            label: 'English US',
-            value: 'en-US',
-            flag: 'https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg'
-        }
-    ]);
+    protected readonly listLanguages: Array<{ label: string; value: string }> = [{ label: 'English (US)', value: 'en-US' }];
     protected readonly maxTimeoutMs = MAX_TIMEOUT_MS;
     protected readonly status = signal<SaveStatus>('idle');
     private readonly keybindings = inject(KeybindingsState);

@@ -243,6 +243,7 @@ export class ExamplesEditor {
             const selected = this.selected();
 
             this.examples.update((examples) => examples.filter((_, i) => i !== index));
+
             // Mantém o mesmo exemplo aberto quando outro, acima dele, é removido.
             if (index < selected) {
                 this.selected.set(selected - 1);

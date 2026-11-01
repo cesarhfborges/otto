@@ -5,6 +5,17 @@
         <title>Otto</title>
         <base href="./" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!--
+            Sem scripts inline nem eval: só os arquivos do app ('self') e a compilação do
+            WASM do sandbox de scripts ('wasm-unsafe-eval'). O renderer não acessa a rede
+            (HTTP passa pelo processo main). img/style/font/media aceitam http(s) só por
+            causa da prévia de HTML da resposta (iframe sandbox="" com CSP própria e
+            recursos externos opcionais, que herda esta política).
+        -->
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' http: https:; img-src 'self' data: blob: http: https:; font-src 'self' data: http: https:; media-src 'self' data: blob: http: https:; connect-src 'self'; frame-src 'self' blob: data:; object-src 'self' blob:; worker-src 'self'; base-uri 'self'; form-action 'none'"
+        />
         <link rel="icon" type="image/png" href="favicon.png" />
     </head>
 

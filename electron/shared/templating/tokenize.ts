@@ -59,6 +59,7 @@ export function tokenize(source: string): Segment[] {
     const segments: Segment[] = [];
     let text = '';
     let textStart = 0;
+
     const flush = (end: number): void => {
         if (end > textStart) {
             segments.push({ type: 'text', start: textStart, end, value: text });

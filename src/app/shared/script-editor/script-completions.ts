@@ -53,6 +53,7 @@ const ottoCommands: CompletionSource = (context) => {
             } else if (analysis.arg?.source || analysis.arg?.values) {
                 options = argumentOptions(analysis.arg, analysis.target, analysis.quoted, data);
             }
+
             break;
         case 'option':
             options =

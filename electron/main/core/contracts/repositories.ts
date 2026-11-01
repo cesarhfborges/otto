@@ -1,4 +1,4 @@
-import type { CollectionMetadata, EntityId, Environment, NewCollectionMetadata, NewEnvironment, TabState, Workspace } from '../../../shared/models';
+import type { CollectionMetadata, CollectionScript, EntityId, Environment, NewCollectionMetadata, NewEnvironment, ScriptMode, ScriptPermissions, TabState, Workspace } from '../../../shared/models';
 import type { IRepository } from './repository';
 
 /** Abas abertas, por workspace. */
@@ -39,4 +39,13 @@ export interface IWorkspaceRepository {
 
 export interface ICollectionMetadataRepository extends IRepository<CollectionMetadata, EntityId, NewCollectionMetadata> {
     findByPath(path: string): CollectionMetadata | null;
+    /** Modo, permissões (`null` = padrão do modo) e confiança dos scripts. */
+    setScriptPolicy(id: EntityId, policy: { mode: ScriptMode; permissions: ScriptPermissions | null; trustedFingerprint: string | null; trustedAt: string | null }): CollectionMetadata | null;
+}
+
+/** Snapshot dos scripts no momento da confiança (para o diff "o que mudou"). */
+export interface ITrustedScriptsRepository {
+    list(collectionId: EntityId): CollectionScript[];
+    /** Troca o snapshot inteiro (vazio = sem confiança). */
+    replace(collectionId: EntityId, scripts: readonly CollectionScript[]): void;
 }

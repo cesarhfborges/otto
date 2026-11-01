@@ -16,4 +16,8 @@ jobs:
                   cache: npm
             - run: npm ci --loglevel=error
             - run: npm run typecheck
+            - run: npm run lint
             - run: npm run build
+            - run: npm run test:electron
+            # axe-core no app real (claro e escuro) + violações de CSP no console. Sem tela: Xvfb.
+            - run: xvfb-run -a npm run audit:a11y

@@ -3,7 +3,7 @@
 > Fonte da verdade sobre o estado atual do software. Atualizado a cada entrega.
 > Plano original: [PLANO_IMPLEMENTACAO.md](PLANO_IMPLEMENTACAO.md).
 
-**Última atualização:** 2026-10-23 — Mock server local, cofre de segredos, gerar código/importar cURL e histórico com comparação.
+**Última atualização:** 2026-11-01 — Política de segurança dos scripts por coleção (modos, permissões, confiança presa ao conteúdo), indicador na barra de status e aba Security.
 
 ## Visão geral
 
@@ -291,7 +291,7 @@ Plano: [PLANO_ATALHOS.md](PLANO_ATALHOS.md).
 - [x] Verificação automática do OpenAPI: já rodava para todas as coleções do workspace ativo (não depende de abas); só o texto do diálogo foi corrigido
 - [x] **Ambientes globais no `workspace.yaml`** (seção `environments`, segredos sem valor): gravados a cada criar/alterar/excluir; ao carregar o workspace o arquivo é a fonte da verdade (o banco é ajustado pelo nome, mantendo ids e os segredos locais). Arquivos antigos sem a seção recebem os ambientes do banco na primeira carga
 - [x] Verificação: `typecheck` ✅, `ng build` ✅, `test:electron` ✅ (84), helpers conferidos com Node (query dos params, formato do `workspace.yaml`, mesclagem com e sem preservar)
-- [ ] Verificação no app real (CDP) e axe no novo toggle de Connection Settings
+- [x] Verificação no app real (CDP) e axe no novo toggle de Connection Settings (coberto pelo `audit:a11y`)
 
 ## Herança coleção/pastas, prévia da resposta, paleta e encadeamento sem script (pedido do usuário)
 
@@ -303,6 +303,33 @@ Plano: [PLANO_ATALHOS.md](PLANO_ATALHOS.md).
 - [x] **Encadear requisições sem script**: o motor já tinha `otto.request('rq_…', { send, maxAge, expect })`; agora há um **construtor visual** ("Value from another request (builder)…" no autocomplete de qualquer campo, ou duplo clique num chip existente): requisição, o que ler (JSONPath, header, cookie, status, corpo), **quando reenviar** (Never / sem resposta em cache / resposta mais antiga que N s / Always), status esperado, valor atual da resposta em cache e "Send now". `shared/templating/response-ref.ts` gera e lê a tag
 - [x] Acessibilidade: `CodeEditor` aceita `ariaLabel` (corpo da resposta sem rótulo era violação); paleta Seneca clara com contraste AA (`key` `#4a7a16`, `string` `#736a12`)
 - [x] Verificação: `typecheck` ✅, `ng build` (orçamento ok) ✅, `test:electron` ✅ (84; expectativa do YAML de requisição nova ajustada para `auth: inherit`), E2E no Electron real via CDP com perfil isolado e servidor local: 24 cenários (paleta abre requisição/pasta/comando; Bearer herdado da coleção com Login encadeado e reaproveitado do cache; scripts da coleção e da pasta; `$folder`; console com origem; Overview Auth/Scripts; Folder Settings salva no `_folder.yaml` mantendo variáveis/scripts e a requisição passa a herdar da pasta; prévias HTML/imagem/PDF; JSONPath/JMESPath/erro; construtor gera, insere e reabre pelo chip) ✅, **axe-core 4.10 sem violações** em 16 cenários (8 telas × tema claro/escuro) ✅
+
+## Segurança dos scripts, CSP e qualidade (pedido do usuário)
+
+Plano: [PLANO_SANDBOX_SCRIPTS.md](PLANO_SANDBOX_SCRIPTS.md).
+
+- [x] **Sandbox dos scripts** (`src/app/core/scripting/script-sandbox.ts`): QuickJS em WASM (`quickjs-emscripten-core` + `@jitl/quickjs-singlefile-browser-release-sync` 0.32.0, versões fixas, WASM embutido no JS e carregado sob demanda num chunk separado). Um runtime/contexto por execução; o script só enxerga `otto` e `console`. Valores do host entram como cópias (dados) ou funções/getters que recebem apenas cópias JSON dos argumentos; só membros próprios e métodos de classe são expostos (nunca `constructor`/`__proto__`), então não há caminho até `window.otto`. Limites: 64 MB de memória, 1 MB de pilha, 3 s contínuos, 10 s de CPU no total (o tempo gasto no host não conta) e 120 s de relógio. Promises do host viram promises do QuickJS. `AsyncFunction` e os `SHADOWED_GLOBALS` foram removidos; `script-policy.ts` virou só aviso no editor (globais que não existem no sandbox). Novo `otto.sleep(ms)` (até 60 s) no lugar de `setTimeout`; console limitado a 500 linhas de 10 mil caracteres
+- [x] Decisão: o QuickJS roda na thread do renderer, **não num Web Worker** como o plano previa. No worker o `otto` precisaria de RPC assíncrono para tudo (leituras como `otto.response.json()` são síncronas) e não haveria `DOMParser` (`body.xml()`/`html()`). A fronteira de segurança é o realm do QuickJS; o *interrupt handler* garante que um loop infinito para em 3 s (a UI fica parada só esse tempo)
+- [x] **Confiança por coleção**: migração `006` (`collections_metadata.scripts_trusted`; as já conhecidas continuam confiáveis), `CollectionMetadata.scriptsTrusted`, IPC `collections:set-scripts-trusted`. Coleções criadas pelo app nascem confiáveis; as registradas a partir de pastas de fora (importação de coleção/workspace, `workspace.yaml` vindo do Git) não. `ScriptTrust` pergunta uma vez por coleção (*Trust Collection* grava no banco; *Allow Until Restart*/*Don't Run* valem até reiniciar); recusar não envia a requisição. A aba **Scripts** da coleção mostra o estado e permite confiar/deixar de confiar
+- [x] **CSP** no `index.html`: `script-src 'self' 'wasm-unsafe-eval'`, sem `unsafe-inline`/`unsafe-eval`; `connect-src 'self'` (o HTTP passa pelo main); img/style/font/media aceitam http(s) só pela prévia de HTML da resposta (o iframe `srcdoc` herda a política). `inlineCritical` desligado no build (gerava `onload` inline). Removido o `ELECTRON_DISABLE_SECURITY_WARNINGS`
+- [x] **Lint**: `eslint.config.mjs` em flat config de verdade (`typescript-eslint` 8.59 + `angular-eslint` 21.3, incluindo acessibilidade dos templates inline), `npm run lint` sem erros. Removidos `eslint-plugin-import`, `eslint-plugin-prefer-arrow` e `eslint-plugin-prettier` (não usados). Corrigidos: `any` e bandeira carregada de `upload.wikimedia.org` em Preferences (o seletor de idioma também apontava o `<label>` para o campo errado), expressões sem efeito, `case` agrupados
+- [x] **Auditoria de acessibilidade automatizada** (`npm run audit:a11y`, `axe-core` 4.11 como devDependency): abre o app compilado com perfil temporário via DevTools Protocol, cria uma coleção de teste com servidor HTTP local e audita 18 telas nos temas claro e escuro (overview, Preferences, paleta, editor, resposta, console, histórico, exemplos, gerar código, página da coleção e abas Auth/Headers/Variables/Cookies/Scripts, mock server parado e rodando, Connection Settings do OpenAPI com "Preserve values", ambientes com segredo). Falha também com violações de CSP ou exceções no console. Violações encontradas e corrigidas: contraste do item ativo em Preferences e do selo de status do mock, `textarea` sem rótulo no diálogo de código, ordem de títulos na aba Scripts e no mock server
+- [x] CI: `lint`, `test:electron` e `xvfb-run -a npm run audit:a11y` além de `typecheck`/`build`
+- [x] Limpeza da `request-view`: `teste(event: any)` com `console.log`, `<p-editor>` comentado, `EditorModule`/`FormsModule` e a dependência `quill` removidos
+- [x] Verificação: `typecheck` ✅, `lint` ✅, `npm run build` ✅, `test:electron` ✅ (84; expectativa das migrações inclui a 006), `audit:a11y` ✅ (36 auditorias, 0 violações, 0 erros de CSP). Sandbox testado em Node com os payloads do plano (construtor via chave computada, `Reflect`, `setTimeout` com string, poluição de protótipo, `while(true)`, estouro de memória, promise que nunca resolve): todos falham sem efeito no host. No app real (perfil isolado + servidor local): header definido pelo script chega ao servidor, `typeof window/fetch/setTimeout` = `undefined` no console, loop infinito interrompido em ~3,8 s com a UI respondendo, diálogo de confiança (recusar não envia e não pergunta de novo; *Trust Collection* persiste)
+- [ ] Não verificado: o instalador empacotado (`electron-builder`); o QuickJS vem no JS (sem `.wasm` separado), então não depende do `asar`
+
+## Política de segurança dos scripts: indicador e aba Security (pedido do usuário)
+
+Plano: [PLANO_SEGURANCA_SCRIPTS.md](PLANO_SEGURANCA_SCRIPTS.md).
+
+- [x] **Modos** `trusted` / `ask` / `disabled` (migração `007`: `script_mode`, `script_permissions`, `trusted_fingerprint`, `trusted_at` e tabela `trusted_scripts`; `scripts_trusted` da 006 vira legado). `CollectionMetadata.scriptPolicy` substitui `scriptsTrusted`. Coleções criadas pelo app nascem `trusted`; as de fora, `ask`. Em `disabled` a requisição é enviada sem os scripts (console: "script skipped")
+- [x] **Confiança presa ao conteúdo**: `ScriptPolicyService` (main) monta o inventário de todos os scripts (`otto.yaml`, `_folder.yaml`, requisições) com SHA-256 e a impressão digital do conjunto; ao confiar guarda impressão + snapshot. Script alterado/criado/removido depois disso → estado `changed` e o app volta a perguntar, mostrando a lista. O renderer nunca informa o fingerprint (o main calcula). Coleções já confiáveis adotam os scripts atuais na primeira leitura. IPC `collections:script-inventory`, `collections:set-script-policy`, `collections:script-sources` (substituem `collections:set-scripts-trusted`)
+- [x] **Permissões** por coleção, aplicadas no `ScriptRunner`: alterar a requisição, gravar variáveis, mudar cookies, enviar outras requisições (`otto.request('…')` ainda lê respostas guardadas) e ler segredos (sem ela, `otto.environment.get` devolve `••••`; a requisição continua com o valor real). API desligada falha com mensagem que aponta para a aba Security. Padrão: tudo ligado em `trusted`; envio e segredos desligados nos outros modos
+- [x] **`ScriptSecurityState`** (substitui `ScriptTrust`): estado efetivo (`none`/`trusted`/`changed`/`ask`/`session`/`refused`/`disabled`), inventário relido em `collections:changed` e antes de rodar (pega um `git pull` recente), decisões da sessão, atividade (50 últimas, em memória) e o script em execução. `ScriptError.reason` (`timeout`/`memory`/`never-settles`/`error`)
+- [x] **Indicador na barra de status** (`shell/script-security-indicator.ts`): aparece quando a coleção em uso tem scripts; ícone/cor por estado (AA), "Scripts changed (n)", spinner durante a execução, ponto vermelho quando o sandbox/política parou um script (motivo no tooltip e no `aria-label`), anúncio `aria-live`. Clique abre a aba Security; botão direito, Shift+F10 ou a tecla Menu abrem as ações rápidas (confiar, perguntar, desabilitar, esquecer decisão). Usa `p-tiered-menu` anexado ao próprio indicador (o `p-menu` abria para baixo, fora da janela). Comando `collection.security` no catálogo de atalhos e na paleta
+- [x] **Aba Security** na página da coleção (`features/collection/collection-security.ts`, contador quando há mudanças): modo (rádios com descrição; confiar mostra um resumo do que os scripts fazem), estado com *Review Changes* / *Trust Current Scripts* / *Forget Decision*, permissões (personalizar ou voltar ao padrão), inventário (local, fase, o que usa — análise estática com o parser lezer, `scriptCapabilities` —, linhas, situação em relação à confiança, *Open*), limites do sandbox e atividade recente. Diálogo **Script Changes Since Trusted** com o `DiffView` de cada script. A aba Scripts virou uma linha com link para a Security
+- [x] Verificação: `typecheck` ✅, `lint` ✅, `build` ✅, `test:electron` ✅ (84; migrações até a 007 e tabela `trusted_scripts`), `audit:a11y` ✅ (aba Security normal e com mudanças, diálogo de diff e menu do indicador nos dois temas; o menu em `body` violava `region` e foi movido para dentro da barra de status). No app real (perfil isolado + servidor local): coleção nova `trusted` com segredo legível; script editado **por fora do app** → indicador "Scripts changed (1)", envio pergunta e "Don't Run" não envia, diff correto, *Trust Current Scripts* volta a `trusted`; modo Ask → segredo `••••` e `otto.request('echo', { send: 'always' })` bloqueado com a mensagem da política (atividade "blocked", ponto no indicador); modo disabled → requisição enviada sem o script; atividade registrando ok/blocked/skipped com duração
 
 ## Pendências e débitos conhecidos
 
@@ -324,11 +351,16 @@ Plano: [PLANO_ATALHOS.md](PLANO_ATALHOS.md).
 - [x] Ao mudar a pasta base, o app pergunta se move os workspaces da pasta anterior (rename, ou cópia + remoção entre discos); os que já existem no destino ficam e são informados.
 - [ ] `fs.watch` recursivo depende do SO; se falhar, o app segue sem atualização automática.
 
+### Segurança
+- [ ] Defesa em profundidade no IPC (etapa 7 do plano de sandbox): aceitar nos handlers que recebem caminhos (`workspaces:export/import`, `collections:export/import`, `collection-files:*`) só caminhos vindos de diálogos do main ou dentro da pasta base/coleção.
+- [ ] Certificados/arquivos referenciados por dados da coleção (`bodyFile`, multipart) são lidos sem confirmação.
+
 ### Qualidade e build
-- [ ] Verificação no app real (CDP) e axe nas telas de mock server, cofre, código/cURL e histórico.
-- [ ] Sem Content-Security-Policy no `index.html`.
-- [ ] `eslint.config.js` está em formato legado dentro de um flat config, então o lint não funciona. Corrigir ou remover.
-- [ ] `axe-core` não é devDependency, então não há auditoria automatizada.
+- [x] Verificação no app real (CDP) e axe nas telas de mock server, cofre, código/cURL e histórico (agora automatizada em `npm run audit:a11y`).
+- [x] Content-Security-Policy no `index.html`.
+- [x] Lint funcionando (`npm run lint`), também no CI.
+- [x] `axe-core` como devDependency e auditoria automatizada.
+- [ ] O Prettier não está aplicado no repositório inteiro (vários arquivos divergem do `.prettierrc`); rodar `npm run format` num commit separado.
 
 ### Observações (sem ação necessária)
 - `node:sqlite` é experimental no Node 22 (tooling); os testes usam `--disable-warning=ExperimentalWarning`. No Electron 44 (Node 24) ele é estável.

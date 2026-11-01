@@ -98,6 +98,7 @@ class ChipWidget extends WidgetType {
         // o primeiro clique espera o intervalo do duplo clique: se o segundo vier, abre o construtor
         // (entrar na tag antes trocaria o chip pelo texto e o segundo clique não chegaria aqui).
         let pending: ReturnType<typeof setTimeout> | null = null;
+
         const enterTag = () => {
             view.dispatch({ selection: { anchor: this.start + 2 } });
             view.focus();

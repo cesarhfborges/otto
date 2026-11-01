@@ -12,6 +12,7 @@ import { MigrationRunner } from './infra/database/migration-runner';
 import { MIGRATIONS } from './infra/database/migrations';
 import { openDatabase } from './infra/database/sqlite';
 import { SqliteCollectionMetadataRepository } from './infra/repositories/sqlite-collection-metadata.repository';
+import { SqliteTrustedScriptsRepository } from './infra/repositories/sqlite-trusted-scripts.repository';
 import { SqliteEnvironmentRepository } from './infra/repositories/sqlite-environment.repository';
 import { EncryptedEnvironmentRepository } from './infra/repositories/encrypted-environment.repository';
 import { createSafeStorageCipher } from './infra/system/safe-storage-cipher';
@@ -43,6 +44,7 @@ import { MockServerService } from './services/mock/mock-server.service';
 import { createOAuth2Authorizer } from './ui/oauth2-window';
 import { OpenApiService } from './services/openapi/openapi.service';
 import { CollectionService } from './services/collections/collection.service';
+import { ScriptPolicyService } from './services/collections/script-policy.service';
 import { FetchHttpExecutor } from './services/http/fetch-http-executor';
 import { ImporterRegistry } from './services/import/importer-registry';
 import { KeybindingService } from './services/keybindings/keybinding.service';
@@ -199,7 +201,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
             new TabsIpcModule(tabs),
             new WorkspacesIpcModule(workspaceService, window, (folder) => shell.showItemInFolder(path.join(folder, 'workspace.yaml'))),
             new EnvironmentsIpcModule(environments, () => workspaceService.active().id, () => workspaceService.saveEnvironments().catch((error: unknown) => console.warn('[otto] could not write the environments to workspace.yaml', error))),
-            new CollectionsIpcModule(collections, collectionService, workspaceService, openapi, window),
+            new CollectionsIpcModule(collections, collectionService, workspaceService, openapi, new ScriptPolicyService(collectionService, collections, new SqliteTrustedScriptsRepository(db), systemClock), window),
             new OpenApiIpcModule(openapi),
             new CollectionFilesIpcModule(collectionService, (file) => shell.showItemInFolder(file)),
             new UpdatesIpcModule(updates, window),
@@ -210,6 +212,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
             void mocks.dispose();
             collectionService.closeAll();
             void http.dispose();
+
             if (db.isOpen) {
                 db.close();
             }

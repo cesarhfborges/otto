@@ -1,8 +1,9 @@
 import * as path from 'node:path';
 import { COLLECTION_EXPORT_FORMATS, type CollectionExportFormat, type CollectionImportRequest } from '../../shared/models';
 import type { ICollectionMetadataRepository, IIpcModule, IIpcRegistrar, IRendererNotifier } from '../core/contracts';
-import { parseCollectionPatch, parseCollectionPath, parseEntityId, parseEntryName, parseNewCollection, parseCollectionAuth, parseCookies, parseKeyValues, parseOpenApiConfig, parseRelativePath, parseRequestAuth, parseScripts, requireBoolean, requireOneOf, requireRecord, requireString, ValidationError } from '../core/validation';
+import { parseCollectionPatch, parseCollectionPath, parseEntityId, parseEntryName, parseNewCollection, parseCollectionAuth, parseCookies, parseKeyValues, parseOpenApiConfig, parseRelativePath, parseRequestAuth, parseScriptPolicyPatch, parseScripts, requireBoolean, requireOneOf, requireRecord, requireString, ValidationError } from '../core/validation';
 import type { CollectionService } from '../services/collections/collection.service';
+import type { ScriptPolicyService } from '../services/collections/script-policy.service';
 import type { OpenApiService } from '../services/openapi/openapi.service';
 import type { WorkspaceService } from '../services/workspaces/workspace.service';
 import { parseArchivePath } from './workspaces.ipc';
@@ -43,6 +44,7 @@ export class CollectionsIpcModule implements IIpcModule {
         private readonly service: CollectionService,
         private readonly workspaces: WorkspaceService,
         private readonly openapi: OpenApiService,
+        private readonly scriptPolicy: ScriptPolicyService,
         private readonly notifier: IRendererNotifier
     ) {}
 
@@ -117,6 +119,17 @@ export class CollectionsIpcModule implements IIpcModule {
             const scripts = patch['scripts'] === undefined ? undefined : parseScripts(patch['scripts'], 'patch.scripts');
 
             return this.service.updateFolder(parseEntityId(id), parseRelativePath(folder, 'folder'), (settings) => ({ ...settings, ...(auth && { auth }), ...(variables && { variables }), ...(scripts && { scripts }) }));
+        });
+
+        // Política dos scripts: só no banco do app (nunca no otto.yaml, que vem do Git/.zip).
+        ipc.handle('collections:script-inventory', (_event, id) => this.scriptPolicy.inventory(parseEntityId(id)));
+
+        ipc.handle('collections:set-script-policy', (_event, id, patch) => this.scriptPolicy.setPolicy(parseEntityId(id), parseScriptPolicyPatch(patch)));
+
+        ipc.handle('collections:script-sources', async (_event, rawId) => {
+            const id = parseEntityId(rawId);
+
+            return { trusted: this.scriptPolicy.trustedScripts(id), current: await this.scriptPolicy.currentScripts(id) };
         });
 
         this.service.onChanged((collectionId) => this.notifier.notify('collections:changed', { collectionId }));

@@ -21,9 +21,95 @@ export interface CollectionMetadata extends Timestamps {
     path: string;
     source: CollectionSource | null;
     lastOpenedAt: IsoDateTime | null;
+    /**
+     * Política dos scripts (pre-request/post-response). Fica só no banco do app, nunca no
+     * `otto.yaml`: uma coleção vinda do Git ou de um .zip não se autoconfia.
+     */
+    scriptPolicy: ScriptPolicy;
 }
 
-export type NewCollectionMetadata = Omit<CollectionMetadata, 'id' | keyof Timestamps>;
+/** `scriptMode` ausente = `ask` (pasta vinda de fora). */
+export type NewCollectionMetadata = Omit<CollectionMetadata, 'id' | 'scriptPolicy' | keyof Timestamps> & { scriptMode?: ScriptMode };
+
+/**
+ * Modo de segurança dos scripts da coleção: `trusted` roda sem perguntar enquanto os
+ * scripts forem os mesmos de quando a confiança foi dada; `ask` pergunta uma vez por
+ * sessão; `disabled` envia as requisições sem rodar nenhum script.
+ */
+export const SCRIPT_MODES = ['trusted', 'ask', 'disabled'] as const;
+export type ScriptMode = (typeof SCRIPT_MODES)[number];
+
+/** O que os scripts podem fazer, além do isolamento do sandbox. */
+export const SCRIPT_PERMISSIONS = ['modifyRequest', 'writeVariables', 'writeCookies', 'sendRequests', 'readSecrets'] as const;
+export type ScriptPermission = (typeof SCRIPT_PERMISSIONS)[number];
+export type ScriptPermissions = Record<ScriptPermission, boolean>;
+
+/** Padrão de cada modo: fora do `trusted`, os scripts não enviam outras requisições nem leem segredos. */
+export const defaultScriptPermissions = (mode: ScriptMode): ScriptPermissions => ({
+    modifyRequest: true,
+    writeVariables: true,
+    writeCookies: true,
+    sendRequests: mode === 'trusted',
+    readSecrets: mode === 'trusted'
+});
+
+export interface ScriptPolicy {
+    mode: ScriptMode;
+    /** Já resolvidas (as personalizadas ou o padrão do modo). */
+    permissions: ScriptPermissions;
+    /** Se o usuário personalizou as permissões (senão seguem o padrão do modo). */
+    customPermissions: boolean;
+    /** Impressão digital dos scripts no momento da confiança (`null` = ainda não calculada). */
+    trustedFingerprint: string | null;
+    trustedAt: IsoDateTime | null;
+}
+
+export type ScriptLocation = 'collection' | 'folder' | 'request';
+export type ScriptPhaseName = 'preRequest' | 'postResponse';
+
+/** Um script da coleção (`path`: '' na coleção, a pasta ou o arquivo da requisição). */
+export interface CollectionScript {
+    location: ScriptLocation;
+    path: string;
+    phase: ScriptPhaseName;
+    code: string;
+}
+
+/** Situação do script em relação à versão confiada. */
+export type ScriptTrustState = 'same' | 'changed' | 'new';
+
+export interface ScriptInventoryEntry {
+    location: ScriptLocation;
+    path: string;
+    /** Nome legível: "Collection", nome da pasta ou da requisição. */
+    name: string;
+    phase: ScriptPhaseName;
+    /** SHA-256 do código. */
+    hash: string;
+    size: number;
+    lines: number;
+    /** Em relação ao snapshot confiado (`same` quando não há confiança). */
+    trust: ScriptTrustState;
+}
+
+/** Todos os scripts da coleção e a impressão digital atual (comparada com a confiada). */
+export interface ScriptInventory {
+    fingerprint: string;
+    /** Política atual (o main pode ter adotado a impressão digital de uma coleção já confiável). */
+    policy: ScriptPolicy;
+    entries: ScriptInventoryEntry[];
+    /** Confiados que não existem mais. */
+    removed: Array<Pick<CollectionScript, 'location' | 'path' | 'phase'> & { name: string }>;
+}
+
+/** Alteração da política pela UI (o fingerprint é sempre calculado no main). */
+export interface ScriptPolicyPatch {
+    mode: ScriptMode;
+    /** `null` = voltar ao padrão do modo. */
+    permissions: ScriptPermissions | null;
+    /** Com `mode: 'trusted'`: confia nos scripts atuais (mesmo que já fosse `trusted`). */
+    retrust?: boolean;
+}
 
 /** Versão do formato em disco (`otto.yaml`). */
 export const COLLECTION_FORMAT_VERSION = 1;

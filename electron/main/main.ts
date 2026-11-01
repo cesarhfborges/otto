@@ -5,10 +5,6 @@ import { createContainer, openAppDatabase, readStartupSettings, type Container }
 import { ElectronIpcRegistrar } from './ipc/handle';
 import { buildAppMenu } from './ui/menu';
 
-// O CSP permissivo é intencional: silencia o aviso de segurança no console do renderer.
-// Precisa ser definido antes de criar as janelas, pois os renderers herdam o env do main.
-process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
-
 app.setName(APP_NAME);
 
 if (isWindows) {

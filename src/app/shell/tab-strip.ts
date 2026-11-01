@@ -22,6 +22,8 @@ export const TAB_PANEL_ID = 'otto-tab-panel';
     selector: 'app-tab-strip',
     imports: [MenuModule, TooltipModule, MethodBadge],
     template: `
+        <!-- O teclado (foco itinerante) é tratado no contêiner; o foco fica em cada role="tab". -->
+        <!-- eslint-disable-next-line @angular-eslint/template/interactive-supports-focus -->
         <div #tablist role="tablist" aria-label="Open tabs" class="flex min-w-0 items-end gap-0.5 overflow-x-auto px-2 pt-px" (keydown)="onKeydown($event)">
             @for (tab of tabs.visibleTabs(); track tab.id) {
                 <div

@@ -12,6 +12,7 @@ import type { AppCommands } from './commands';
  */
 export function buildAppMenu(commands: AppCommands, overrides: KeybindingOverrides): Menu {
     const separator: MenuItemConstructorOptions = { type: 'separator' };
+
     const command = (id: CommandId, label: string): MenuItemConstructorOptions => {
         const chord = effectiveChords(commandMeta(id), overrides, isMac)[0];
 

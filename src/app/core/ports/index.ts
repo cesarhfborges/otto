@@ -9,6 +9,9 @@ import type {
     CollectionExportFormat,
     CollectionImportRequest,
     CollectionMetadata,
+    CollectionScript,
+    ScriptInventory,
+    ScriptPolicyPatch,
     CollectionTree,
     OpenedCollection,
     RequestDefinition,
@@ -137,6 +140,9 @@ export abstract class CollectionsGateway implements CollectionsApi {
     abstract manifest(id: EntityId): Promise<CollectionManifest>;
     abstract updateManifest(id: EntityId, patch: CollectionManifestPatch): Promise<CollectionManifest>;
     abstract updateFolder(id: EntityId, folder: string, patch: Partial<FolderSettings>): Promise<FolderSettings>;
+    abstract scriptInventory(id: EntityId): Promise<ScriptInventory>;
+    abstract setScriptPolicy(id: EntityId, patch: ScriptPolicyPatch): Promise<CollectionMetadata>;
+    abstract scriptSources(id: EntityId): Promise<{ trusted: CollectionScript[]; current: CollectionScript[] }>;
     abstract onChanged(listener: (event: { collectionId: EntityId }) => void): () => void;
 }
 

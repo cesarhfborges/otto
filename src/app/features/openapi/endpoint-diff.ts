@@ -53,6 +53,7 @@ function fields(request: RequestDefinition): Record<string, Array<[string, strin
         case 'apikey':
             authFields.push(['Key', auth.key], ['Value', auth.value], ['Add to', auth.in]);
             break;
+
         default:
             for (const [name, value] of Object.entries(auth)) {
                 if (name !== 'type') {

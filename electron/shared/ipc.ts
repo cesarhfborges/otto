@@ -10,6 +10,9 @@ import type {
     CollectionImportRequest,
     AppInfo,
     CollectionMetadata,
+    CollectionScript,
+    ScriptInventory,
+    ScriptPolicyPatch,
     CollectionTree,
     OpenedCollection,
     RequestDefinition,
@@ -98,6 +101,9 @@ export interface IpcInvokeContract {
     'collections:tree': { args: [id: EntityId]; result: CollectionTree };
     'collections:manifest': { args: [id: EntityId]; result: CollectionManifest };
     'collections:update-manifest': { args: [id: EntityId, patch: CollectionManifestPatch]; result: CollectionManifest };
+    'collections:script-inventory': { args: [id: EntityId]; result: ScriptInventory };
+    'collections:set-script-policy': { args: [id: EntityId, patch: ScriptPolicyPatch]; result: CollectionMetadata };
+    'collections:script-sources': { args: [id: EntityId]; result: { trusted: CollectionScript[]; current: CollectionScript[] } };
     'collections:update-folder': { args: [id: EntityId, folder: string, patch: Partial<FolderSettings>]; result: FolderSettings };
     'openapi:status': { args: [collectionId: EntityId, refresh?: boolean]; result: OpenApiStatus };
     'openapi:connect': { args: [collectionId: EntityId, config: OpenApiConfig]; result: OpenApiStatus };

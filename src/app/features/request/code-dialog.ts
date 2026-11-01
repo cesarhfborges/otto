@@ -63,7 +63,7 @@ function savedTarget(): CodegenTarget {
                     <p-message class="shrink-0" severity="warn" size="small">{{ problem }}</p-message>
                 }
 
-                <app-code-editor class="!min-h-0 flex-1" inputId="codegen-code" [value]="code()" language="plaintext" readonly />
+                <app-code-editor class="!min-h-0 flex-1" inputId="codegen-code" ariaLabel="Generated code" [value]="code()" language="plaintext" readonly />
             </div>
             <ng-template #footer>
                 <p-button label="Close" severity="secondary" [text]="true" (onClick)="visible.set(false)" />

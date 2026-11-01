@@ -39,6 +39,7 @@ async function mapFields(definition: RequestDefinition, render: Render): Promise
                 return { ...current, token: await render(current.token, { header: 'Authorization' }), ...(current.prefix && { prefix: await render(current.prefix) }) };
             case 'apikey':
                 return { ...current, key: await render(current.key), value: await render(current.value, current.in === 'header' ? { header: current.key } : {}) };
+
             default: {
                 // Demais tipos: todo campo de texto aceita `{{variáveis}}` (enums não têm tags e saem iguais).
                 const rendered: Record<string, unknown> = { ...current };
@@ -124,7 +125,9 @@ export function templateVariables(definition: RequestDefinition): string[] {
         for (const segment of tokenize(text)) {
             const parsed = segment.type === 'tag' ? tryParse(segment.inner) : null;
 
-            parsed?.expr && variableRefs(parsed.expr).forEach((name) => names.add(name));
+            if (parsed?.expr) {
+                variableRefs(parsed.expr).forEach((name) => names.add(name));
+            }
         }
     }
 

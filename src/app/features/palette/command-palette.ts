@@ -108,6 +108,8 @@ const flatten = (nodes: readonly CollectionNode[], trail: string): FlatNode[] =>
                             <div role="group" [attr.aria-labelledby]="'palette-group-' + group.name">
                                 <div [id]="'palette-group-' + group.name" role="presentation" class="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-color">{{ group.name }}</div>
                                 @for (entry of group.items; track entry.item.id) {
+                                    <!-- Opção de listbox: o teclado fica no combobox (aria-activedescendant); o clique é atalho de mouse. -->
+                                    <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
                                     <div
                                         [id]="'palette-option-' + entry.index"
                                         role="option"
@@ -295,12 +297,14 @@ export class CommandPalette {
 
                 break;
             }
+
             case 'PageDown':
             case 'PageUp':
                 event.preventDefault();
                 this.activeIndex.update((i) => Math.max(0, Math.min(count - 1, i + (event.key === 'PageDown' ? 8 : -8))));
                 this.scrollToActive();
                 break;
+
             case 'Enter': {
                 event.preventDefault();
                 const item = this.activeItem();

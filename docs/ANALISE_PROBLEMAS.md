@@ -1,5 +1,7 @@
 # Plano de alterações: análise do Otto
 
+> **Status (revisado em 2026-11-01):** resolvidos — **11** (`auth: inherit` implementado), **15** (segredos cifrados com `safeStorage` e omitidos dos backups) e **20** (código de debug e Quill removidos). Parcial — **1** (o aviso existe ao sair do app; trocar/remover workspace e remover coleção ainda descartam rascunhos). Os demais continuam pendentes.
+
 Análise feita em 2026-10-20, sem alterações no código. Foram lidos os serviços principais do Electron (coleções, workspaces, HTTP, OpenAPI, zip, watcher) e o estado do Angular (abas, rascunhos, respostas, coleções, OpenAPI, sidebar, request-view). Os problemas estão ordenados do mais grave ao menos grave.
 
 ---

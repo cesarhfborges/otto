@@ -40,6 +40,7 @@ export const SECTIONS: Record<string, CompletionSection> = {
 };
 
 export const quote = (value: string): string => `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+
 const preview = (value: unknown): string => {
     const text = typeof value === 'string' ? JSON.stringify(value) : Array.isArray(value) ? '[…]' : value && typeof value === 'object' ? '{…}' : String(value);
 

@@ -33,6 +33,7 @@ export class RemoveCollectionDialog {
 
     private async run(id: string): Promise<void> {
         const collection = this.collections.find(id);
+
         this.ui.removeCollectionDialog.set(null);
 
         if (!collection) {

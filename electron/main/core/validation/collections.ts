@@ -1,6 +1,6 @@
 import * as path from 'node:path';
-import type { CollectionSource, NewCollectionMetadata } from '../../../shared/models';
-import { optionalString, pickDefined, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
+import { SCRIPT_MODES, SCRIPT_PERMISSIONS, type CollectionSource, type NewCollectionMetadata, type ScriptPermissions, type ScriptPolicyPatch } from '../../../shared/models';
+import { requireBoolean, optionalString, pickDefined, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
 const SOURCE_KINDS = ['openapi'] as const;
 
@@ -52,4 +52,20 @@ export function parseCollectionPatch(raw: unknown): Partial<NewCollectionMetadat
         source: parseCollectionSource,
         lastOpenedAt: parseLastOpenedAt
     });
+}
+
+/** Modo e permissões dos scripts; o fingerprint nunca vem do renderer. */
+export function parseScriptPolicyPatch(raw: unknown): ScriptPolicyPatch {
+    const patch = requireRecord(raw, 'patch');
+    const mode = requireOneOf(patch['mode'], SCRIPT_MODES, 'patch.mode');
+    const rawPermissions = patch['permissions'];
+    let permissions: ScriptPermissions | null = null;
+
+    if (rawPermissions !== null && rawPermissions !== undefined) {
+        const record = requireRecord(rawPermissions, 'patch.permissions');
+
+        permissions = Object.fromEntries(SCRIPT_PERMISSIONS.map((key) => [key, requireBoolean(record[key], `patch.permissions.${key}`)])) as ScriptPermissions;
+    }
+
+    return { mode, permissions, ...(patch['retrust'] !== undefined && { retrust: requireBoolean(patch['retrust'], 'patch.retrust') }) };
 }

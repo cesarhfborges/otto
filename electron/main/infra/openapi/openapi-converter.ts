@@ -159,6 +159,7 @@ function bodyFromContent(content: Json, refs: RefResolver): { body: RequestBody;
     const text = pick((t) => t.startsWith('text/'));
     const binary = pick((t) => t === 'application/octet-stream' || t.startsWith('image/') || t.startsWith('application/pdf'));
     const mediaOf = (type: string): Json => (isObject(content[type]) ? content[type] : {});
+
     const exampleOf = (media: Json): unknown => {
         if (media['example'] !== undefined) {
             return media['example'];

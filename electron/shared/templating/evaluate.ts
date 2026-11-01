@@ -88,6 +88,7 @@ export async function evaluate(expr: Expr, env: EvalEnv): Promise<unknown> {
     switch (expr.kind) {
         case 'literal':
             return expr.value;
+
         case 'array': {
             const items: unknown[] = [];
 
@@ -97,6 +98,7 @@ export async function evaluate(expr: Expr, env: EvalEnv): Promise<unknown> {
 
             return items;
         }
+
         case 'object': {
             const object: Record<string, unknown> = {};
 
@@ -106,13 +108,16 @@ export async function evaluate(expr: Expr, env: EvalEnv): Promise<unknown> {
 
             return object;
         }
+
         case 'legacy':
             return env.variable(expr.name, null);
+
         case 'var': {
             const value = await env.variable(expr.name, expr.scope);
 
             return expr.access.length ? applyAccess(jsonish(value), expr.access, env, `$.${expr.name}`) : value;
         }
+
         case 'otto':
             return applyAccess(env.otto, expr.access, env, 'otto');
     }

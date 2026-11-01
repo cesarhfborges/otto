@@ -118,6 +118,7 @@ export class OAuth2TokenProvider {
                 log('OAuth 2.0: requesting access token (password)');
 
                 return this.requestToken(auth, { grant_type: 'password', username: auth.username, password: auth.password, ...scope }, dispatcher, signal);
+
             case 'authorization_code': {
                 const verifier = randomBytes(32).toString('base64url');
                 const extra: Record<string, string> = auth.pkce ? { code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256' } : {};
@@ -132,6 +133,7 @@ export class OAuth2TokenProvider {
 
                 return this.requestToken(auth, { grant_type: 'authorization_code', code, redirect_uri: auth.callbackUrl, ...(auth.pkce && { code_verifier: verifier }) }, dispatcher, signal);
             }
+
             case 'implicit': {
                 const callback = await this.authorize(auth, 'token', {}, signal, log);
 

@@ -3,7 +3,7 @@ name: Release
 # Merge em `master` gera a versão final; merge em `beta` gera uma pre-release (`-beta.N`).
 # A versão vem dos commits (Conventional Commits) via semantic-release.
 #
-# Etapas: version → (linux-windows + mac, em paralelo) → publish.
+# Etapas: version → (linux + windows + mac, em paralelo) → publish.
 # A release só é publicada se todos os builds passarem; qualquer falha interrompe o processo
 # antes de criar tag ou release.
 on:
@@ -39,28 +39,56 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    linux-windows:
+    linux:
         needs: version
         if: needs.version.outputs.version != ''
         runs-on: ubuntu-latest
-        # Imagem oficial do electron-builder: já traz Node, git e Wine (gera o .exe do Windows no Linux).
-        container: electronuserland/builder:wine
+        # Imagem oficial do electron-builder: já traz Node, git e as dependências do AppImage/.deb.
+        container: electronuserland/builder
         steps:
             - uses: actions/checkout@v4
             - run: npm ci
             - run: npm version "$VERSION" --no-git-tag-version --allow-same-version
               env:
                   VERSION: ${{ needs.version.outputs.version }}
-            - run: npm run dist:release
+            - run: npm run dist:linux
               env:
-                  # O Wine recusa o HOME do Actions (/github/home, de outro dono); usa o HOME do root do container.
                   HOME: /root
             - uses: actions/upload-artifact@v4
               with:
-                  name: release-linux-windows
+                  name: release-linux
                   path: |
                       release/*.AppImage
                       release/*.deb
+                      release/*.yml
+                      release/*.blockmap
+                  if-no-files-found: error
+
+    # O instalador NSIS roda nativamente no Windows (o Wine falha dentro de containers do Actions).
+    windows:
+        needs: version
+        if: needs.version.outputs.version != ''
+        runs-on: windows-latest
+        defaults:
+            run:
+                shell: bash
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+            - run: npm ci
+            - run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+              env:
+                  VERSION: ${{ needs.version.outputs.version }}
+            - run: npm run dist:win
+              env:
+                  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: release-windows
+                  path: |
                       release/*.exe
                       release/*.yml
                       release/*.blockmap
@@ -97,7 +125,7 @@ jobs:
 
     # Só roda com todos os builds aprovados: cria a tag e a release com os arquivos de todas as plataformas.
     publish:
-        needs: [version, linux-windows, mac]
+        needs: [version, linux, windows, mac]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4

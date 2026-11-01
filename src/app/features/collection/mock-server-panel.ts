@@ -30,13 +30,13 @@ function savedPort(collectionId: EntityId): number {
                 <!-- Controle do servidor -->
                 <section class="flex flex-col gap-4 rounded-lg border border-surface-200 p-4 dark:border-surface-700" aria-labelledby="mock-server-heading">
                     <div class="flex flex-wrap items-center gap-3">
-                        <h3 id="mock-server-heading" class="m-0 text-base font-semibold">Local mock server</h3>
+                        <h2 id="mock-server-heading" class="m-0 text-base font-semibold">Local mock server</h2>
                         @if (server()) {
                             <span class="flex items-center gap-1.5 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-950 dark:text-green-300" role="status"
                                 ><i class="pi pi-circle-fill text-[0.5rem]" aria-hidden="true"></i>Running</span
                             >
                         } @else {
-                            <span class="flex items-center gap-1.5 rounded-full bg-surface-100 px-2 py-0.5 text-xs font-medium text-muted-color dark:bg-surface-800" role="status"
+                            <span class="flex items-center gap-1.5 rounded-full bg-surface-100 px-2 py-0.5 text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-300" role="status"
                                 ><i class="pi pi-circle text-[0.5rem]" aria-hidden="true"></i>Stopped</span
                             >
                         }

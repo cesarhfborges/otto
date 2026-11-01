@@ -175,6 +175,7 @@ export function createOtto(host: OttoHost, currentRequest?: () => Promise<Messag
 /** `otto.cookies`: leitura e alteração dos cookies da coleção (alterações não valem no preview). */
 function cookiesApi(host: OttoHost): object {
     const list = (): readonly CollectionCookie[] => host.cookies?.list() ?? [];
+
     const save = async (cookies: CollectionCookie[]): Promise<string> => {
         if (!host.preview) {
             await host.cookies?.save(cookies);
@@ -182,6 +183,7 @@ function cookiesApi(host: OttoHost): object {
 
         return '';
     };
+
     const ofDomain = (cookie: CollectionCookie, domain: unknown): boolean => domain === undefined || normalizeDomain(cookie.domain) === normalizeDomain(String(domain));
 
     return runtime({

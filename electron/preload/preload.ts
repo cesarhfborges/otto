@@ -108,6 +108,9 @@ const api: OttoApi = {
         manifest: (id) => invoke('collections:manifest', id),
         updateManifest: (id, patch) => invoke('collections:update-manifest', id, patch),
         updateFolder: (id, folder, patch) => invoke('collections:update-folder', id, folder, patch),
+        scriptInventory: (id) => invoke('collections:script-inventory', id),
+        setScriptPolicy: (id, patch) => invoke('collections:set-script-policy', id, patch),
+        scriptSources: (id) => invoke('collections:script-sources', id),
         onChanged: (listener) => subscribe('collections:changed', listener)
     },
     collectionFiles: {
