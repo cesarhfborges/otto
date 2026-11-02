@@ -301,6 +301,26 @@ O renderer tem Content-Security-Policy sem scripts inline nem `eval` (só `'wasm
 4. Envie: `git push origin feat/minha-feature`
 5. Abra um Pull Request
 
+## Atalho de menu no linux para AppImage
+```bash
+nano ~/.local/share/applications/otto.desktop
+```
+ou
+```bash
+vim ~/.local/share/applications/otto.desktop
+```
+
+```
+[Desktop Entry]
+Type=Application
+Name=Otto
+Comment=API Client open-source, offline-first and Git-friendly for desktop.
+Exec="{LOCATION}/Otto.AppImage"
+Icon={LOCATION}/icon.png
+Terminal=false
+Categories=Utility;Development;
+```
+
 ## Licença
 
 Distribuído sob a licença MIT. Veja [LICENSE.md](LICENSE.md).
