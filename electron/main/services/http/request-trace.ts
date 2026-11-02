@@ -171,6 +171,12 @@ const formatDistinguishedName = (name: Record<string, string | string[] | undefi
 
 const storage = new AsyncLocalStorage<RequestTrace>();
 const connections = new WeakMap<Socket, Connection>();
+/**
+ * Trace de cada requisição do undici, gravado na criação (contexto da execução).
+ * Os eventos da resposta saem do callback do socket, que herda o contexto de quem o
+ * abriu: numa conexão reutilizada o `AsyncLocalStorage` apontaria para a execução antiga.
+ */
+const traces = new WeakMap<object, RequestTrace>();
 let connectionCount = 0;
 let listening = false;
 
@@ -184,12 +190,21 @@ function listen(): void {
 
     const on = <T>(channel: string, handler: (trace: RequestTrace, message: T) => void): void =>
         subscribe(channel, (message) => {
-            const trace = storage.getStore();
+            const request = (message as { request?: object }).request;
+            const trace = (request && traces.get(request)) ?? storage.getStore();
 
             if (trace) {
                 handler(trace, message as T);
             }
         });
+
+    subscribe('undici:request:create', (message) => {
+        const trace = storage.getStore();
+
+        if (trace) {
+            traces.set((message as { request: object }).request, trace);
+        }
+    });
 
     on<{ connectParams: ConnectParams }>('undici:client:beforeConnect', (trace, { connectParams }) => trace.onConnecting(connectParams));
     on<{ connectParams: ConnectParams; socket: Socket }>('undici:client:connected', (trace, { connectParams, socket }) => trace.onConnected(connectParams, socket));
