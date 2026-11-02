@@ -15,7 +15,9 @@ export const templateTheme = EditorView.theme({
     // Números de linha como a calha do app-code-editor.
     '.cm-gutters': { backgroundColor: 'transparent', color: 'var(--p-text-muted-color)', borderRight: '1px solid var(--p-content-border-color)', marginRight: '0.75rem' },
     '.cm-lineNumbers .cm-gutterElement': { padding: '0 0.75rem 0 0', minWidth: '2ch', textAlign: 'right' },
-    '.cm-placeholder': { color: 'var(--p-inputtext-placeholder-color)' },
+    // O padrão do CodeMirror é `inline-block`: um exemplo com várias linhas vira um bloco alto e
+    // o cursor nativo (sem `drawSelection`) assume a altura dele. `inline` mantém a altura de uma linha.
+    '.cm-placeholder': { color: 'var(--p-inputtext-placeholder-color)', display: 'inline', verticalAlign: 'baseline' },
     '.cm-tooltip': {
         border: '1px solid var(--p-content-border-color)',
         backgroundColor: 'var(--p-content-background)',
