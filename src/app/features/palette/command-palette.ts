@@ -103,11 +103,11 @@ const flatten = (nodes: readonly CollectionNode[], trail: string): FlatNode[] =>
                         />
                     </div>
                     <p id="palette-hint" class="sr-only">Type &gt; for commands only, @ for environments, / for folders. Use the arrow keys to move and Enter to run.</p>
-                    <div id="palette-list" role="listbox" aria-label="Results" class="max-h-[55vh] overflow-auto py-1" #list>
+                    <div id="palette-list" tabindex="-1" role="listbox" aria-label="Results" class="max-h-[55vh] overflow-auto py-1" #list>
                         @for (group of groups(); track group.name) {
                             <div role="group" [attr.aria-labelledby]="'palette-group-' + group.name">
                                 <div [id]="'palette-group-' + group.name" role="presentation" class="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-color">{{ group.name }}</div>
-                                @for (entry of group.items; track entry.item.id) {
+                                @for (entry of group.items; track entry.item.id; let i = $index) {
                                     <!-- Opção de listbox: o teclado fica no combobox (aria-activedescendant); o clique é atalho de mouse. -->
                                     <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
                                     <div
@@ -118,6 +118,7 @@ const flatten = (nodes: readonly CollectionNode[], trail: string): FlatNode[] =>
                                         [class.bg-emphasis]="entry.index === activeIndex()"
                                         (mousemove)="activeIndex.set(entry.index)"
                                         (click)="choose(entry.item)"
+                                        [tabindex]="i + 1"
                                     >
                                         @if (entry.item.method) {
                                             <app-method-badge class="w-12 shrink-0" [method]="entry.item.method" [compact]="true" />
@@ -174,10 +175,34 @@ export class CommandPalette {
                 const collectionId = collection.metadata.id;
 
                 if (node.type === 'folder') {
-                    return [{ id: `folder:${collectionId}:${node.path}`, group: 'Folders', label: node.name, detail: `${trail} · Folder settings`, icon: 'pi pi-folder', method: null, keys: '', run: () => this.tabs.open({ kind: 'folder', title: node.name, collectionId, resourceRef: node.path }) }];
+                    return [
+                        {
+                            id: `folder:${collectionId}:${node.path}`,
+                            group: 'Folders',
+                            label: node.name,
+                            detail: `${trail} · Folder settings`,
+                            icon: 'pi pi-folder',
+                            method: null,
+                            keys: '',
+                            run: () => this.tabs.open({ kind: 'folder', title: node.name, collectionId, resourceRef: node.path })
+                        }
+                    ];
                 }
 
-                return node.method ? [{ id: `request:${collectionId}:${node.path}`, group: 'Requests', label: node.name, detail: trail, icon: 'pi pi-file', method: node.method, keys: '', run: () => this.tabs.open({ kind: 'request', title: node.name, collectionId, resourceRef: node.path }) }] : [];
+                return node.method
+                    ? [
+                          {
+                              id: `request:${collectionId}:${node.path}`,
+                              group: 'Requests',
+                              label: node.name,
+                              detail: trail,
+                              icon: 'pi pi-file',
+                              method: node.method,
+                              keys: '',
+                              run: () => this.tabs.open({ kind: 'request', title: node.name, collectionId, resourceRef: node.path })
+                          }
+                      ]
+                    : [];
             })
         )
     );
