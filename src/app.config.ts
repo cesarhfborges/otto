@@ -25,7 +25,15 @@ export const appConfig: ApplicationConfig = {
                 javascript: () => import('highlight.js/lib/languages/javascript'),
                 python: () => import('highlight.js/lib/languages/python'),
                 go: () => import('highlight.js/lib/languages/go'),
-                powershell: () => import('highlight.js/lib/languages/powershell')
+                powershell: () => import('highlight.js/lib/languages/powershell'),
+                php: () => import('highlight.js/lib/languages/php'),
+                java: () => import('highlight.js/lib/languages/java'),
+                csharp: () => import('highlight.js/lib/languages/csharp'),
+                kotlin: () => import('highlight.js/lib/languages/kotlin'),
+                ruby: () => import('highlight.js/lib/languages/ruby'),
+                rust: () => import('highlight.js/lib/languages/rust'),
+                swift: () => import('highlight.js/lib/languages/swift'),
+                dart: () => import('highlight.js/lib/languages/dart')
             }
         }),
         providePrimeNG({
