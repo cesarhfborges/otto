@@ -19,7 +19,13 @@ export const appConfig: ApplicationConfig = {
             languages: {
                 json: () => import('highlight.js/lib/languages/json'),
                 xml: () => import('highlight.js/lib/languages/xml'),
-                plaintext: () => import('highlight.js/lib/languages/plaintext')
+                plaintext: () => import('highlight.js/lib/languages/plaintext'),
+                // Linguagens do "Generate Code" (CODEGEN_TARGETS).
+                bash: () => import('highlight.js/lib/languages/bash'),
+                javascript: () => import('highlight.js/lib/languages/javascript'),
+                python: () => import('highlight.js/lib/languages/python'),
+                go: () => import('highlight.js/lib/languages/go'),
+                powershell: () => import('highlight.js/lib/languages/powershell')
             }
         }),
         providePrimeNG({

@@ -15,11 +15,7 @@ import { type HighlightLanguage, highlightLanguageFor } from './highlight';
             <div [style.transform]="gutterOffset()">{{ lineNumbers() }}</div>
         </div>
         <div class="relative flex min-w-0 flex-1 flex-col">
-            <pre class="otto-code pointer-events-none absolute inset-0 m-0 overflow-hidden !outline-none" aria-hidden="true"><span class="block" [style.transform]="mirrorOffset()">@switch (highlightLanguage()) {
-                @case ('json') {<code [highlight]="mirrorText()" language="json" ignoreIllegals></code>}
-                @case ('xml') {<code [highlight]="mirrorText()" language="xml" ignoreIllegals></code>}
-                @default {<code>{{ mirrorText() }}</code>}
-            }</span></pre>
+            <pre class="otto-code pointer-events-none absolute inset-0 m-0 overflow-hidden !outline-none" aria-hidden="true"><span class="block" [style.transform]="mirrorOffset()">@for (lang of highlightLanguages(); track lang) {<code [highlight]="mirrorText()" [language]="lang" ignoreIllegals></code>} @empty {<code>{{ mirrorText() }}</code>}</span></pre>
             <textarea
                 class="otto-code otto-code-input relative block min-h-0 w-full flex-1 resize-none bg-transparent text-transparent caret-(--p-text-color) placeholder:text-muted-color !outline-none"
                 [id]="inputId()"
@@ -56,8 +52,15 @@ export class CodeEditor {
 
         return Array.from({ length: count }, (_, i) => i + 1).join('\n') + '\n';
     });
-    // O `language` da diretiva não é reativo: o @switch recria o <code> quando a linguagem muda.
-    protected readonly highlightLanguage = computed(() => highlightLanguageFor(this.value(), this.language()));
+    /**
+     * O `language` da diretiva não é reativo: o `@for` (com `track` pela linguagem) recria o
+     * `<code>` quando ela muda. Lista vazia = texto puro, sem realce.
+     */
+    protected readonly highlightLanguages = computed(() => {
+        const language = highlightLanguageFor(this.value(), this.language());
+
+        return language && language !== 'plaintext' ? [language] : [];
+    });
     /**
      * Rolagem do textarea replicada por `transform` no espelho e na calha. Copiar o `scrollTop`
      * não serve: o `<pre>` não tem a barra horizontal do textarea nem desenha a quebra final, então

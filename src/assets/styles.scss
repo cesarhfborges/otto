@@ -193,7 +193,9 @@ body {
 
 /* Realce do highlight.js: cores definidas pela paleta escolhida em Settings → Appearance (ThemeService). */
 .hljs-attr,
-.hljs-attribute {
+.hljs-attribute,
+.hljs-property,
+.hljs-variable {
     color: var(--otto-hl-key);
 }
 .hljs-string {
@@ -207,7 +209,10 @@ body {
     color: var(--otto-hl-literal);
 }
 .hljs-name,
-.hljs-tag {
+.hljs-tag,
+.hljs-title,
+.hljs-built_in,
+.hljs-type {
     color: var(--otto-hl-tag);
 }
 .hljs-comment,

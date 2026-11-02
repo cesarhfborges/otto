@@ -1,5 +1,5 @@
 /** Linguagens registradas em `provideHighlightOptions` (app.config.ts). */
-export type HighlightLanguage = 'json' | 'xml' | 'plaintext';
+export type HighlightLanguage = 'json' | 'xml' | 'plaintext' | 'bash' | 'javascript' | 'python' | 'go' | 'powershell';
 
 /** Acima disso o realce custa mais do que ajuda: o texto é exibido sem realce. */
 const MAX_HIGHLIGHT_CHARS = 300_000;

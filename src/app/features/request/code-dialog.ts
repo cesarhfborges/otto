@@ -1,4 +1,4 @@
-import { Component, effect, inject, input, model, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, model, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CODEGEN_TARGETS, type CodegenTarget, generateCode } from '@shared/http/codegen';
 import type { EntityId, RequestDefinition } from '@shared/models';
@@ -11,6 +11,7 @@ import { SelectModule } from 'primeng/select';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { ResponsesState } from '../../core/state/responses.state';
 import { CodeEditor } from '../../shared/code-editor';
+import type { HighlightLanguage } from '../../shared/highlight';
 import { LARGE_DIALOG_CONTENT, LARGE_DIALOG_STYLE } from '../../shared/dialog-size';
 
 const TARGET_KEY = 'otto.codegen.target';
@@ -63,7 +64,7 @@ function savedTarget(): CodegenTarget {
                     <p-message class="shrink-0" severity="warn" size="small">{{ problem }}</p-message>
                 }
 
-                <app-code-editor class="!min-h-0 flex-1" inputId="codegen-code" ariaLabel="Generated code" [value]="code()" language="plaintext" readonly />
+                <app-code-editor class="!min-h-0 flex-1" inputId="codegen-code" ariaLabel="Generated code" [value]="code()" [language]="language()" readonly />
             </div>
             <ng-template #footer>
                 <p-button label="Close" severity="secondary" [text]="true" (onClick)="visible.set(false)" />
@@ -88,6 +89,12 @@ export class CodeDialog {
     protected readonly target = signal<CodegenTarget>(savedTarget());
     protected readonly resolve = signal(true);
     protected readonly code = signal('');
+    /** Realce com a paleta de Settings → Appearance; `shell` é o `bash` do highlight.js. */
+    protected readonly language = computed<HighlightLanguage>(() => {
+        const language = CODEGEN_TARGETS.find((target) => target.id === this.target())?.language;
+
+        return language === 'shell' ? 'bash' : (language ?? 'plaintext');
+    });
     protected readonly problems = signal<string[]>([]);
 
     constructor() {
