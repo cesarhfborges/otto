@@ -102,13 +102,14 @@ const flatten = (nodes: readonly CollectionNode[], trail: string): FlatNode[] =>
                             (keydown)="onKeydown($event)"
                         />
                     </div>
-                    <p id="palette-hint" class="sr-only">Type &gt; for commands only, @ for environments, / for folders. Use the arrow keys to move and Enter to run.</p>
-                    <div id="palette-list" tabindex="-1" role="listbox" aria-label="Results" class="max-h-[55vh] overflow-auto py-1" #list>
+                    <p id="palette-hint" class="sr-only">Type &gt; for commands only, @ for environments, / for folders. Use the arrow keys or Tab to move and Enter to run.</p>
+                    <div id="palette-list" role="listbox" aria-label="Results" class="max-h-[55vh] overflow-auto py-1" #list>
                         @for (group of groups(); track group.name) {
                             <div role="group" [attr.aria-labelledby]="'palette-group-' + group.name">
                                 <div [id]="'palette-group-' + group.name" role="presentation" class="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-color">{{ group.name }}</div>
-                                @for (entry of group.items; track entry.item.id; let i = $index) {
-                                    <!-- Opção de listbox: o teclado fica no combobox (aria-activedescendant); o clique é atalho de mouse. -->
+                                @for (entry of group.items; track entry.item.id) {
+                                    <!-- Opção de listbox: o foco fica no combobox (aria-activedescendant), que move a opção ativa
+                                         com setas e Tab; por isso as opções não entram na ordem de tabulação. O clique é atalho de mouse. -->
                                     <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
                                     <div
                                         [id]="'palette-option-' + entry.index"
@@ -118,7 +119,6 @@ const flatten = (nodes: readonly CollectionNode[], trail: string): FlatNode[] =>
                                         [class.bg-emphasis]="entry.index === activeIndex()"
                                         (mousemove)="activeIndex.set(entry.index)"
                                         (click)="choose(entry.item)"
-                                        [tabindex]="i + 1"
                                     >
                                         @if (entry.item.method) {
                                             <app-method-badge class="w-12 shrink-0" [method]="entry.item.method" [compact]="true" />
@@ -142,7 +142,7 @@ const flatten = (nodes: readonly CollectionNode[], trail: string): FlatNode[] =>
                         }
                     </div>
                     <div class="flex flex-wrap gap-x-4 gap-y-1 border-t border-surface-200 px-3 py-2 text-xs text-muted-color dark:border-surface-700" aria-hidden="true">
-                        <span><kbd class="font-sans">↑↓</kbd> move</span>
+                        <span><kbd class="font-sans">↑↓</kbd> / <kbd class="font-sans">Tab</kbd> move</span>
                         <span><kbd class="font-sans">Enter</kbd> open / run</span>
                         <span><kbd class="font-sans">&gt;</kbd> commands</span>
                         <span><kbd class="font-sans">&#64;</kbd> environments</span>
@@ -312,11 +312,15 @@ export class CommandPalette {
 
         switch (event.key) {
             case 'ArrowDown':
-            case 'ArrowUp': {
+            case 'ArrowUp':
+            case 'Tab': {
+                // Tab / Shift+Tab percorrem os resultados como as setas: o foco não sai do campo (combobox modal).
                 event.preventDefault();
 
                 if (count) {
-                    this.activeIndex.update((i) => (i + (event.key === 'ArrowDown' ? 1 : -1) + count) % count);
+                    const step = event.key === 'ArrowDown' || (event.key === 'Tab' && !event.shiftKey) ? 1 : -1;
+
+                    this.activeIndex.update((i) => (i + step + count) % count);
                     this.scrollToActive();
                 }
 

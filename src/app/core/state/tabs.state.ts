@@ -213,21 +213,43 @@ export class TabsState {
 
     /** Move a aba uma posição entre as do mesmo contexto (`delta` = -1 ou 1). */
     move(id: EntityId, delta: -1 | 1): void {
+        const tab = this.tabsState().find((t) => t.id === id);
+        const index = this.tabsState()
+            .filter((t) => t.collectionId === tab?.collectionId)
+            .findIndex((t) => t.id === id);
+
+        if (index >= 0) {
+            this.moveTo(id, index + delta);
+        }
+    }
+
+    /**
+     * Leva a aba para `index` entre as abas do mesmo contexto (a ordem da faixa, como no
+     * arrastar e soltar). O array global intercala contextos: a aba entra antes da irmã que
+     * ocupa o destino, ou logo após a última irmã quando o destino é o fim.
+     */
+    moveTo(id: EntityId, index: number): void {
         const tabs = this.tabsState();
         const tab = tabs.find((t) => t.id === id);
-        const siblings = tabs.filter((t) => t.collectionId === tab?.collectionId);
-        const neighbor = siblings[siblings.findIndex((t) => t.id === id) + delta];
 
-        if (!tab || !neighbor) {
+        if (!tab) {
             return;
         }
 
-        const from = tabs.indexOf(tab);
-        const to = tabs.indexOf(neighbor);
-        const next = [...tabs];
+        const current = tabs.filter((t) => t.collectionId === tab.collectionId).findIndex((t) => t.id === id);
+        const rest = tabs.filter((t) => t.id !== id);
+        const siblings = rest.filter((t) => t.collectionId === tab.collectionId);
+        const target = Math.max(0, Math.min(index, siblings.length));
 
-        [next[from], next[to]] = [neighbor, tab];
-        this.tabsState.set(next);
+        if (target === current) {
+            return;
+        }
+
+        const before = siblings[target];
+        const last = siblings[siblings.length - 1];
+        const at = before ? rest.indexOf(before) : last ? rest.indexOf(last) + 1 : rest.length;
+
+        this.tabsState.set([...rest.slice(0, at), tab, ...rest.slice(at)]);
         this.scheduleSave();
     }
 

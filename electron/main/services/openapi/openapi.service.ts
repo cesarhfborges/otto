@@ -319,8 +319,19 @@ export class OpenApiService {
         const map = new Map<string, { path: string; request: RequestDefinition }>();
 
         for (const entry of await this.collections.requests(collectionId)) {
-            if (entry.request.operation && !map.has(entry.request.operation)) {
-                map.set(entry.request.operation, entry);
+            const operation = entry.request.operation;
+
+            if (!operation) {
+                continue;
+            }
+
+            const first = map.get(operation);
+
+            if (first) {
+                // Cópias feitas antes de a duplicação limpar `operation`: só a primeira é sincronizada.
+                console.warn(`[otto] OpenAPI operation "${operation}" is linked to "${first.path}" and "${entry.path}"; only the first one is synced.`);
+            } else {
+                map.set(operation, entry);
             }
         }
 

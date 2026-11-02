@@ -333,7 +333,9 @@ Plano: [PLANO_SEGURANCA_SCRIPTS.md](PLANO_SEGURANCA_SCRIPTS.md).
 
 ## Pendências e débitos conhecidos
 
-> Revisado em 2026-10-23 contra o código. Itens já resolvidos (undici, métricas, histórico, interpolação, editor com destaque, renomear/mover/arrastar, splitters, árvore persistida, cofre `safeStorage`, múltiplos workspaces) foram removidos.
+> Revisado em 2026-11-02 contra o código. Itens já resolvidos (undici, métricas, histórico, interpolação, editor com destaque, renomear/mover/arrastar, splitters, árvore persistida, cofre `safeStorage`, múltiplos workspaces) foram removidos.
+>
+> **Defeitos conhecidos:** 14 itens abertos (2 deles parciais) em [ANALISE_PROBLEMAS.md](ANALISE_PROBLEMAS.md). O plano para corrigi-los, junto com os débitos de robustez e segurança abaixo, está em [PLANO_CORRECOES.md](PLANO_CORRECOES.md).
 
 ### Funcionalidades
 - [x] Paleta de comandos (fase 6 do plano de atalhos).
@@ -346,14 +348,15 @@ Plano: [PLANO_SEGURANCA_SCRIPTS.md](PLANO_SEGURANCA_SCRIPTS.md).
 - [x] Certificados de cliente (mTLS) por host (`host`, `*.domínio`, `:porta`), em CRT+KEY ou PFX, com senha cifrada no chaveiro (Preferences → Certificates). Também no túnel SOCKS/HTTP e na conexão NTLM.
 
 ### Robustez
-- [ ] Sem detecção de conflito ao salvar: uma requisição alterada no disco (git pull, outro editor) é sobrescrita pelo rascunho sem aviso.
-- [ ] O `workspace.yaml` não é observado. Mudanças externas só entram ao trocar de workspace ou reiniciar.
+- [ ] Sem detecção de conflito ao salvar: uma requisição alterada no disco (git pull, outro editor) é sobrescrita pelo rascunho sem aviso (análise #2; plano, fase 1).
+- [ ] Trocar de workspace ou remover uma coleção descarta rascunhos sem aviso; sair do app já pergunta (análise #1; plano, fase 1).
+- [ ] O `workspace.yaml` não é observado. Mudanças externas só entram ao trocar de workspace ou reiniciar (plano, fase 3).
 - [x] Ao mudar a pasta base, o app pergunta se move os workspaces da pasta anterior (rename, ou cópia + remoção entre discos); os que já existem no destino ficam e são informados.
-- [ ] `fs.watch` recursivo depende do SO; se falhar, o app segue sem atualização automática.
+- [ ] `fs.watch` recursivo depende do SO; se falhar ou der erro depois (pasta desmontada, `EMFILE`), o app segue sem atualização automática até reiniciar (análise #8; plano, fase 3).
 
 ### Segurança
-- [ ] Defesa em profundidade no IPC (etapa 7 do plano de sandbox): aceitar nos handlers que recebem caminhos (`workspaces:export/import`, `collections:export/import`, `collection-files:*`) só caminhos vindos de diálogos do main ou dentro da pasta base/coleção.
-- [ ] Certificados/arquivos referenciados por dados da coleção (`bodyFile`, multipart) são lidos sem confirmação.
+- [ ] Defesa em profundidade no IPC (etapa 7 do plano de sandbox): aceitar nos handlers que recebem caminhos (`workspaces:export/import`, `collections:export/import`, `collection-files:*`) só caminhos vindos de diálogos do main ou dentro da pasta base/coleção (plano, fase 4).
+- [ ] Certificados/arquivos referenciados por dados da coleção (`bodyFile`, multipart) são lidos sem confirmação (plano, fase 4).
 
 ### Qualidade e build
 - [x] Verificação no app real (CDP) e axe nas telas de mock server, cofre, código/cURL e histórico (agora automatizada em `npm run audit:a11y`).

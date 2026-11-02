@@ -16,6 +16,13 @@ const parentOf = (entryPath: string): string => {
 };
 
 /** Mesma regra do `parseEntryName`: um único segmento, sem separadores e sem começar com ponto. */
+/**
+ * Requisição duplicada: ganha um `id` novo ao ser gravada (o original continua sendo o alvo de
+ * `otto.request('rq_…')`) e perde o vínculo OpenAPI (`operation`), que identifica uma única
+ * requisição por operação do spec. Sem isso, o sync poderia atualizar a cópia no lugar do original.
+ */
+const asCopy = (request: RequestDefinition): RequestDefinition => ({ ...request, id: undefined, operation: undefined });
+
 const folderName = (name: string): string => {
     const value = name.trim();
 
@@ -343,8 +350,7 @@ export class CollectionService {
         if (this.format.isRequestFile(path.posix.basename(entryPath))) {
             const request = this.format.parseRequest(await this.store.readFile(root, entryPath));
 
-            // A cópia ganha um `id` novo (o do original continua apontando para ele).
-            return this.createRequest(id, parent, { ...request, id: undefined, name: requestName(name) });
+            return this.createRequest(id, parent, { ...asCopy(request), name: requestName(name) });
         }
 
         const source = findEntry(await this.store.list(root), entryPath);
@@ -366,7 +372,7 @@ export class CollectionService {
                     await this.store.createDirectory(root, destination);
                     await copy(entry.children);
                 } else {
-                    await this.store.writeFile(root, destination, await this.store.readBytes(root, entry.path), { createOnly: true });
+                    await this.store.writeFile(root, destination, await this.copyContent(root, entry), { createOnly: true });
                 }
             }
         };
@@ -596,6 +602,25 @@ export class CollectionService {
                 collection.id,
                 this.watcher.watch(collection.path, () => this.emitChanged(collection.id))
             );
+        }
+    }
+
+    /**
+     * Conteúdo de um arquivo copiado na duplicação de pasta. Requisições são regravadas como cópia
+     * (sem `id` nem `operation`); os demais arquivos e as requisições inválidas vão byte a byte,
+     * para a cópia mostrar o mesmo erro que o original.
+     */
+    private async copyContent(root: string, entry: CollectionEntry): Promise<string | Uint8Array> {
+        const bytes = await this.store.readBytes(root, entry.path);
+
+        if (!this.format.isRequestFile(entry.name)) {
+            return bytes;
+        }
+
+        try {
+            return this.format.serializeRequest(asCopy(this.format.parseRequest(new TextDecoder().decode(bytes))));
+        } catch {
+            return bytes;
         }
     }
 
