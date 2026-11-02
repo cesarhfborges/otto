@@ -5,6 +5,7 @@ import { buildSettings, flattenSettingsPatch, parseWindowBounds } from '../../co
 import { fromSqlJson, transaction } from '../database/sqlite';
 
 const WINDOW_BOUNDS_KEY = 'window.bounds';
+const WINDOW_MAXIMIZED_KEY = 'window.maximized';
 const CLIENT_CERTIFICATES_KEY = 'http.ssl.clientCertificates';
 
 interface SettingRow {
@@ -57,6 +58,16 @@ export class SqliteSettingsStore implements ISettingsStore, IWindowStateStore {
         const { x, y, width, height } = bounds;
 
         this.write(WINDOW_BOUNDS_KEY, { x, y, width, height });
+    }
+
+    isMaximized(): boolean {
+        const row = this.db.prepare('SELECT value FROM settings WHERE key = ?').get(WINDOW_MAXIMIZED_KEY) as SettingRow | undefined;
+
+        return fromSqlJson<unknown>(row?.value, false) === true;
+    }
+
+    setMaximized(maximized: boolean): void {
+        this.write(WINDOW_MAXIMIZED_KEY, maximized);
     }
 
     private encryptPassphrases(certificates: ClientCertificate[]): ClientCertificate[] {

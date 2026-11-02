@@ -24,4 +24,7 @@ export interface WindowBounds {
 export interface IWindowStateStore {
     getBounds(): WindowBounds | undefined;
     setBounds(bounds: WindowBounds): void;
+    /** Se a janela estava maximizada ao fechar (reaplicado na próxima abertura). */
+    isMaximized(): boolean;
+    setMaximized(maximized: boolean): void;
 }

@@ -97,7 +97,20 @@ export class WindowManager implements IRendererNotifier {
         });
 
         this.window = win;
-        win.once('ready-to-show', () => win.show());
+        // Acompanhado pelos eventos: com a janela oculta na bandeja, `isMaximized()` não é
+        // confiável em todas as plataformas no momento do `close`.
+        let maximized = this.windowState.isMaximized();
+
+        win.once('ready-to-show', () => {
+            // `maximize()` sobre os bounds salvos: ao restaurar, volta ao tamanho normal anterior.
+            if (maximized) {
+                win.maximize();
+            }
+
+            win.show();
+        });
+        win.on('maximize', () => (maximized = true));
+        win.on('unmaximize', () => (maximized = false));
 
         // Links externos abrem no navegador padrão; o app nunca navega para fora.
         win.webContents.setWindowOpenHandler(({ url }) => {
@@ -122,6 +135,8 @@ export class WindowManager implements IRendererNotifier {
             if (!win.isMinimized() && !win.isFullScreen()) {
                 this.windowState.setBounds(win.getNormalBounds());
             }
+
+            this.windowState.setMaximized(maximized);
 
             const keepInTray = isMac || (this.trayAvailable && this.settings.get().minimizeToTray);
 
