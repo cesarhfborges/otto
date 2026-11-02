@@ -85,8 +85,8 @@ body {
 
 /* Foco visível para navegação por teclado (WCAG 2.4.7). */
 :focus-visible {
-    outline: 2px solid var(--p-primary-color);
-    outline-offset: 1px;
+    //outline: 2px solid var(--p-primary-color);
+    //outline-offset: 1px;
 }
 
 /* Botão de ícone compacto (barra de título, barra lateral, abas). */
