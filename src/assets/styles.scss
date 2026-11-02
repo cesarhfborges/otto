@@ -185,6 +185,12 @@ body {
     overflow-wrap: normal;
 }
 
+/* Seleção do textarea transparente: só o fundo, translúcido, deixando ver o texto realçado do espelho. */
+.otto-code-input::selection {
+    color: transparent;
+    background-color: color-mix(in srgb, var(--p-primary-color) 28%, transparent);
+}
+
 /* Realce do highlight.js: cores definidas pela paleta escolhida em Settings → Appearance (ThemeService). */
 .hljs-attr,
 .hljs-attribute {

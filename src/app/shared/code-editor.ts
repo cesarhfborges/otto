@@ -1,4 +1,4 @@
-import { booleanAttribute, Component, computed, ElementRef, input, model, viewChild } from '@angular/core';
+import { booleanAttribute, Component, computed, input, model, signal } from '@angular/core';
 import { Highlight } from 'ngx-highlightjs';
 import { type HighlightLanguage, highlightLanguageFor } from './highlight';
 
@@ -11,15 +11,17 @@ import { type HighlightLanguage, highlightLanguageFor } from './highlight';
     selector: 'app-code-editor',
     imports: [Highlight],
     template: `
-        <div #gutter class="otto-code otto-code-gutter shrink-0 overflow-hidden border-r border-surface-200 dark:border-surface-700" aria-hidden="true">{{ lineNumbers() }}</div>
+        <div class="otto-code otto-code-gutter shrink-0 overflow-hidden border-r border-surface-200 dark:border-surface-700" aria-hidden="true">
+            <div [style.transform]="gutterOffset()">{{ lineNumbers() }}</div>
+        </div>
         <div class="relative flex min-w-0 flex-1 flex-col">
-            <pre #mirror class="otto-code pointer-events-none absolute inset-0 m-0 overflow-hidden !outline-none" aria-hidden="true">@switch (highlightLanguage()) {
+            <pre class="otto-code pointer-events-none absolute inset-0 m-0 overflow-hidden !outline-none" aria-hidden="true"><span class="block" [style.transform]="mirrorOffset()">@switch (highlightLanguage()) {
                 @case ('json') {<code [highlight]="mirrorText()" language="json" ignoreIllegals></code>}
                 @case ('xml') {<code [highlight]="mirrorText()" language="xml" ignoreIllegals></code>}
                 @default {<code>{{ mirrorText() }}</code>}
-            }</pre>
+            }</span></pre>
             <textarea
-                class="otto-code relative block min-h-0 w-full flex-1 resize-none bg-transparent text-transparent caret-(--p-text-color) placeholder:text-muted-color !outline-none"
+                class="otto-code otto-code-input relative block min-h-0 w-full flex-1 resize-none bg-transparent text-transparent caret-(--p-text-color) placeholder:text-muted-color !outline-none"
                 [id]="inputId()"
                 [value]="value()"
                 [placeholder]="placeholder()"
@@ -56,14 +58,16 @@ export class CodeEditor {
     });
     // O `language` da diretiva não é reativo: o @switch recria o <code> quando a linguagem muda.
     protected readonly highlightLanguage = computed(() => highlightLanguageFor(this.value(), this.language()));
-    private readonly mirror = viewChild.required<ElementRef<HTMLPreElement>>('mirror');
-    private readonly gutter = viewChild.required<ElementRef<HTMLDivElement>>('gutter');
+    /**
+     * Rolagem do textarea replicada por `transform` no espelho e na calha. Copiar o `scrollTop`
+     * não serve: o `<pre>` não tem a barra horizontal do textarea nem desenha a quebra final, então
+     * rola menos e, perto do fim, o texto realçado fica deslocado (a "sombra" vista ao selecionar).
+     */
+    private readonly scroll = signal({ top: 0, left: 0 });
+    protected readonly mirrorOffset = computed(() => `translate(${-this.scroll().left}px, ${-this.scroll().top}px)`);
+    protected readonly gutterOffset = computed(() => `translateY(${-this.scroll().top}px)`);
 
     protected syncScroll(textarea: HTMLTextAreaElement): void {
-        const pre = this.mirror().nativeElement;
-
-        pre.scrollTop = textarea.scrollTop;
-        pre.scrollLeft = textarea.scrollLeft;
-        this.gutter().nativeElement.scrollTop = textarea.scrollTop;
+        this.scroll.set({ top: textarea.scrollTop, left: textarea.scrollLeft });
     }
 }
