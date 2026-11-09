@@ -16,9 +16,9 @@ import { WorkspacesState } from '../../core/state/workspaces.state';
     selector: 'app-workspace-overview',
     imports: [ButtonModule, TieredMenuModule],
     template: `
-        <!-- Topo fixo (local, números, ações); só a grade de coleções rola. -->
-        <div class="flex max-w-5xl shrink-0 flex-col gap-6 p-4 pb-0">
-            <p class="m-0 flex items-center gap-2 text-sm text-muted-color">
+        <!-- Topo fixo (local, números, ações); só a grade de coleções rola. Com pouca altura, compacta (ver styles). -->
+        <div class="overview-top flex max-w-5xl shrink-0 flex-col gap-6 p-4 pb-0">
+            <p class="overview-path m-0 flex min-w-0 items-center gap-2 text-sm text-muted-color">
                 <i class="pi pi-folder" aria-hidden="true"></i>
                 @if (workspaces.active()?.path; as folder) {
                     <span class="truncate" [title]="folder">{{ folder }}</span>
@@ -26,19 +26,19 @@ import { WorkspacesState } from '../../core/state/workspaces.state';
                     <span>Local workspace (stored only on this computer)</span>
                 }
             </p>
-            <dl class="m-0 flex gap-8" aria-label="Workspace summary">
-                <div class="flex flex-col-reverse">
+            <dl class="overview-summary m-0 flex gap-8" aria-label="Workspace summary">
+                <div class="overview-stat flex flex-col-reverse">
                     <dt class="text-xs text-muted-color">Collections</dt>
                     <dd class="m-0 text-2xl font-semibold">{{ collections.opened().length }}</dd>
                 </div>
-                <div class="flex flex-col-reverse">
+                <div class="overview-stat flex flex-col-reverse">
                     <dt class="text-xs text-muted-color">Environments</dt>
                     <dd class="m-0 text-2xl font-semibold">{{ environments.list(null).length }}</dd>
                 </div>
             </dl>
 
             <section aria-labelledby="quick-actions-heading" class="flex flex-col gap-2">
-                <h2 id="quick-actions-heading" class="m-0 text-sm font-medium text-muted-color">Quick Actions</h2>
+                <h2 id="quick-actions-heading" class="overview-actions-heading m-0 text-sm font-medium text-muted-color">Quick Actions</h2>
                 <div class="flex flex-wrap gap-2">
                     <p-button label="Create Collection" icon="pi pi-plus" size="small" severity="secondary" [outlined]="true" (onClick)="ui.newCollectionDialog.set(true)" />
                     <p-button label="Import Collection" icon="pi pi-download" size="small" severity="secondary" [outlined]="true" (onClick)="ui.importCollectionDialog.set(true)" />
@@ -52,10 +52,8 @@ import { WorkspacesState } from '../../core/state/workspaces.state';
             a grade dentro dela mantém o max-w do topo. Com a janela muito baixa, o min-h garante uma
             área útil e o painel da aba passa a rolar tudo. O pt-1 evita cortar o anel de foco da 1ª linha.
         -->
-        <section aria-labelledby="collections-list-heading" class="mt-6 flex min-h-48 flex-1 flex-col">
-            <h2 id="collections-list-heading" class="m-0 shrink-0 border-b px-4 pb-2 text-sm font-medium text-muted-color transition-colors" [class]="scrolled() ? 'border-surface-200 dark:border-surface-700' : 'border-transparent'">
-                Collections
-            </h2>
+        <section aria-labelledby="collections-list-heading" class="overview-collections mt-6 flex min-h-48 flex-1 flex-col">
+            <h2 id="collections-list-heading" class="m-0 shrink-0 border-b px-4 pb-2 text-sm font-medium text-muted-color transition-colors" [class]="scrolled() ? 'border-surface-200 dark:border-surface-700' : 'border-transparent'">Collections</h2>
             @if (cards().length) {
                 <div class="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-4" (scroll)="onListScroll($event)">
                     <ul class="m-0 grid max-w-5xl list-none grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3 p-0 pt-1">
@@ -98,6 +96,64 @@ import { WorkspacesState } from '../../core/state/workspaces.state';
             }
         </section>
         <p-tiered-menu #rowMenu [model]="rowItems()" [popup]="true" appendTo="body" />
+    `,
+    /*
+     * O host é um container de tamanho: com pouca altura (janela baixa), o topo deixa de empilhar
+     * caminho, números e ações em blocos e vira duas linhas (caminho; números em linha + botões),
+     * devolvendo à grade de coleções a maior parte do espaço. Com altura de sobra, o layout amplo.
+     */
+    styles: `
+        :host {
+            container: workspace-overview / size;
+        }
+
+        @container workspace-overview (max-height: 600px) {
+            .overview-top {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+                column-gap: 1.5rem;
+                row-gap: 0.5rem;
+                padding-top: 0.75rem;
+            }
+
+            .overview-path {
+                flex-basis: 100%;
+            }
+
+            .overview-summary {
+                gap: 1rem;
+            }
+
+            .overview-stat {
+                flex-direction: row-reverse;
+                justify-content: flex-end;
+                align-items: baseline;
+                gap: 0.375rem;
+            }
+
+            .overview-stat dd {
+                font-size: 1rem;
+            }
+
+            .overview-stat dt {
+                font-size: 0.875rem;
+            }
+
+            /* Título só para leitores de tela: os botões falam por si. */
+            .overview-actions-heading {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+            }
+
+            .overview-collections {
+                margin-top: 1rem;
+            }
+        }
     `,
     host: { class: 'flex h-full min-h-0 flex-col' }
 })
