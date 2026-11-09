@@ -28,7 +28,10 @@ const api: OttoApi = {
         info: () => invoke('app:info'),
         relaunch: () => invoke('app:relaunch'),
         confirmQuit: () => invoke('app:confirm-quit'),
-        onQuitRequested: (listener) => subscribe('app:quit-requested', () => listener())
+        onQuitRequested: (listener) => subscribe('app:quit-requested', () => listener()),
+        desktopEntry: () => invoke('app:desktop-entry'),
+        installDesktopEntry: () => invoke('app:install-desktop-entry'),
+        removeDesktopEntry: () => invoke('app:remove-desktop-entry')
     },
     window: {
         state: () => invoke('window:get-state'),

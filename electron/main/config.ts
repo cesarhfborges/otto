@@ -6,6 +6,8 @@ export const isBeta = app.getVersion().includes('-beta');
 
 export const APP_ID = isBeta ? 'dev.otto.app.beta' : 'dev.otto.app';
 export const APP_NAME = isBeta ? 'Otto Beta' : 'Otto';
+/** Executável/pacote no Linux (`linux.executableName`): nomeia o `.desktop` e o ícone do tema. */
+export const LINUX_EXECUTABLE = isBeta ? 'otto-beta' : 'otto';
 export const REPOSITORY_URL = 'https://github.com/cesarhfborges/otto';
 
 /** Modo desenvolvimento: carrega o `ng serve` em vez do build estático. */

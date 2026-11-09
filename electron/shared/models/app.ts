@@ -16,6 +16,25 @@ export interface AppInfo {
     secretStorage: 'os' | 'basic' | 'unavailable';
 }
 
+/**
+ * Atalho do menu de aplicativos no Linux (`.desktop`).
+ * - `unsupported`: fora do Linux ou rodando sem empacotar (dev).
+ * - `missing`: não há atalho; pode ser criado em `~/.local/share/applications`.
+ * - `installed`: atalho do usuário válido para esta execução.
+ * - `invalid`: atalho do usuário com problemas (`issues`), por exemplo o AppImage mudou de lugar.
+ * - `system`: atalho instalado pelo pacote `.deb` em `/usr/share/applications`.
+ */
+export interface DesktopEntryStatus {
+    /** Como o app foi instalado: AppImage avulso ou pacote do sistema (`.deb`). */
+    mode: 'appimage' | 'package' | null;
+    state: 'unsupported' | 'missing' | 'installed' | 'invalid' | 'system';
+    /** Arquivo `.desktop` encontrado (ou onde será criado, em `missing`). */
+    path: string | null;
+    /** Programa que o atalho deve executar. */
+    executable: string | null;
+    issues: string[];
+}
+
 /** Ações disparadas pelo menu da aplicação ou pelo tray e encaminhadas ao renderer. */
 export type MenuAction = { type: 'command'; id: CommandId };
 

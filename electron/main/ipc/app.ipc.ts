@@ -3,6 +3,7 @@ import type { AppInfo } from '../../shared/models';
 import { APP_NAME, defaultBaseDirectory } from '../config';
 import type { IIpcModule, IIpcRegistrar } from '../core/contracts';
 import { parseCollectionPath, parseEntryName } from '../core/validation';
+import type { DesktopEntryService } from '../services/desktop/desktop-entry.service';
 import type { DialogService } from '../ui/dialogs';
 import type { WindowManager } from '../ui/window';
 
@@ -11,7 +12,8 @@ export class AppIpcModule implements IIpcModule {
         private readonly dialogs: DialogService,
         private readonly hardwareAcceleration: boolean,
         private readonly window: WindowManager,
-        private readonly secretStorage: AppInfo['secretStorage']
+        private readonly secretStorage: AppInfo['secretStorage'],
+        private readonly desktopEntry: DesktopEntryService
     ) {}
 
     register(ipc: IIpcRegistrar): void {
@@ -36,6 +38,10 @@ export class AppIpcModule implements IIpcModule {
         });
 
         ipc.handle('app:confirm-quit', () => this.window.confirmQuit());
+
+        ipc.handle('app:desktop-entry', () => this.desktopEntry.status());
+        ipc.handle('app:install-desktop-entry', () => this.desktopEntry.install());
+        ipc.handle('app:remove-desktop-entry', () => this.desktopEntry.remove());
 
         ipc.handle('dialog:pick-certificate', () => this.dialogs.pickCertificateFile());
 

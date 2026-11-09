@@ -9,6 +9,7 @@ import type {
     CollectionExportFormat,
     CollectionImportRequest,
     AppInfo,
+    DesktopEntryStatus,
     CollectionMetadata,
     CollectionScript,
     ScriptInventory,
@@ -48,6 +49,9 @@ export interface IpcInvokeContract {
     'app:relaunch': { args: []; result: void };
     /** O renderer liberou a saída pedida em `app:quit-requested` (sem alterações pendentes ou descartadas). */
     'app:confirm-quit': { args: []; result: void };
+    'app:desktop-entry': { args: []; result: DesktopEntryStatus };
+    'app:install-desktop-entry': { args: []; result: DesktopEntryStatus };
+    'app:remove-desktop-entry': { args: []; result: DesktopEntryStatus };
     'window:get-state': { args: []; result: WindowState };
     'window:minimize': { args: []; result: void };
     'window:toggle-maximize': { args: []; result: void };

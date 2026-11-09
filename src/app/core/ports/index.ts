@@ -6,6 +6,7 @@
 import type { AppApi, CollectionFilesApi, CollectionsApi, DialogApi, EnvironmentsApi, EventsApi, HttpApi, KeybindingsApi, SettingsApi, TabsApi, ThemeApi, WindowApi, WorkspacesApi, OpenApiApi, UpdatesApi, MockApi } from '@shared/api';
 import type {
     AppInfo,
+    DesktopEntryStatus,
     CollectionExportFormat,
     CollectionImportRequest,
     CollectionMetadata,
@@ -47,6 +48,9 @@ export abstract class AppInfoGateway implements AppApi {
     abstract relaunch(): Promise<void>;
     abstract confirmQuit(): Promise<void>;
     abstract onQuitRequested(listener: () => void): () => void;
+    abstract desktopEntry(): Promise<DesktopEntryStatus>;
+    abstract installDesktopEntry(): Promise<DesktopEntryStatus>;
+    abstract removeDesktopEntry(): Promise<DesktopEntryStatus>;
 }
 
 export abstract class WindowGateway implements WindowApi {

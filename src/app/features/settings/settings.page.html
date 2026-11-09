@@ -173,6 +173,8 @@
                             </div>
                         </section>
 
+                        <app-desktop-entry-settings />
+
                         <section aria-labelledby="group-requests" class="flex flex-col gap-2">
                             <h3 id="group-requests"
                                 class="m-0 text-xs font-semibold uppercase tracking-wider text-muted-color">
@@ -414,7 +416,7 @@
                                         <label id="proxy-enabled-label" for="proxy-enabled" class="font-medium">Use a
                                             proxy server</label>
                                         <p class="m-0 mt-0.5 text-sm text-muted-color">HTTP, HTTPS and SOCKS5
-                                            (socks5://user:pass@host:1080) proxies are supported.</p>
+                                            (socks5://user:pass&#64;host:1080) proxies are supported.</p>
                                     </div>
                                     <p-toggleswitch formControlName="enabled" inputId="proxy-enabled"
                                                     ariaLabelledBy="proxy-enabled-label" />
@@ -438,7 +440,7 @@
                                         </div>
                                         <div class="flex w-32 flex-col gap-2">
                                             <label for="proxy-port" class="font-medium">Port</label>
-                                            <p-inputnumber formControlName="port" inputId="proxy-port" [useGrouping]="false" [min]="1" [max]="65535" placeholder="3128" inputStyleClass="w-full font-mono text-sm" styleClass="w-full" />
+                                            <p-input-number formControlName="port" inputId="proxy-port" [useGrouping]="false" [min]="1" [max]="65535" placeholder="3128" inputStyleClass="w-full font-mono text-sm" styleClass="w-full" />
                                         </div>
                                     </div>
                                     <small id="proxy-server-help" class="text-sm text-muted-color">Scheme and host, with optional credentials: http://, https:// or socks5://user:pass&#64;host. Without a scheme, http:// is used.</small>

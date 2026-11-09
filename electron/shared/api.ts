@@ -6,6 +6,7 @@ import type {
     CollectionExportFormat,
     CollectionImportRequest,
     AppInfo,
+    DesktopEntryStatus,
     CollectionMetadata,
     CollectionScript,
     ScriptInventory,
@@ -48,6 +49,12 @@ export interface AppApi {
     confirmQuit(): Promise<void>;
     /** O usuário pediu para encerrar o app; só sai após `confirmQuit()`. */
     onQuitRequested(listener: () => void): () => void;
+    /** Situação do atalho no menu de aplicativos do Linux. */
+    desktopEntry(): Promise<DesktopEntryStatus>;
+    /** Cria o atalho ou corrige o existente para apontar para esta execução. */
+    installDesktopEntry(): Promise<DesktopEntryStatus>;
+    /** Remove o atalho criado pelo usuário (nunca o do pacote `.deb`). */
+    removeDesktopEntry(): Promise<DesktopEntryStatus>;
 }
 
 /** Controles da janela para a barra de título própria. */

@@ -1,4 +1,4 @@
-import { app, shell } from 'electron';
+import { app, nativeImage, shell } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
@@ -22,7 +22,8 @@ import { SqliteTabRepository } from './infra/repositories/sqlite-tab.repository'
 import { SqliteWorkspaceRepository } from './infra/repositories/sqlite-workspace.repository';
 import { YamlWorkspaceFormat } from './infra/workspaces/yaml-workspace-format';
 import { DEFAULT_ZIP_LIMITS } from './infra/workspaces/zip-archive';
-import { defaultBaseDirectory, isMac } from './config';
+import { APP_NAME, assetPath, defaultBaseDirectory, isMac, LINUX_EXECUTABLE } from './config';
+import { DesktopEntryService } from './services/desktop/desktop-entry.service';
 import { importLegacySettings } from './infra/settings/legacy-settings-import';
 import { electronTrash } from './infra/system/electron-trash';
 import { systemClock, uuidGenerator } from './infra/system/system';
@@ -176,6 +177,22 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
     const updates = new UpdateService(settings);
     const mocks = new MockServerService(collectionService, (servers) => window.notify('mock:changed', servers));
     const tray = new TrayManager(window, settings, commands);
+    const desktopEntry = new DesktopEntryService({
+        platform: process.platform,
+        isPackaged: app.isPackaged,
+        appImage: process.env['APPIMAGE'],
+        execPath: process.execPath,
+        appName: APP_NAME,
+        executableName: LINUX_EXECUTABLE,
+        comment: 'Open-source, offline-first and Git-friendly API client',
+        dataHome: process.env['XDG_DATA_HOME'],
+        dataDirs: process.env['XDG_DATA_DIRS'],
+        icon: (size) => {
+            const image = nativeImage.createFromPath(assetPath('icons', 'icon.png'));
+
+            return image.isEmpty() ? null : image.resize({ width: size, height: size, quality: 'best' }).toPNG();
+        }
+    });
 
     return {
         settings,
@@ -193,7 +210,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
         tray,
         updates,
         ipcModules: [
-            new AppIpcModule(dialogs, hardwareAcceleration, window, secretCipher.storage),
+            new AppIpcModule(dialogs, hardwareAcceleration, window, secretCipher.storage, desktopEntry),
             new WindowIpcModule(window),
             new SettingsIpcModule(settings, window),
             new ThemeIpcModule(theme),

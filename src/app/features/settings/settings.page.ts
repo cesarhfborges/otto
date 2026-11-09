@@ -23,6 +23,7 @@ import { ThemeService } from '../../core/theme/theme.service';
 import { CODE_THEME_PALETTES } from '../../core/theme/code-themes';
 import { SURFACE_PALETTES } from '../../core/theme/otto-preset';
 import { ClientCertificates } from './client-certificates';
+import { DesktopEntrySettings } from './desktop-entry';
 import { KeyboardShortcutsSettings } from './keyboard-shortcuts';
 import { SettingsDialog } from './settings-dialog.service';
 import { DatePipe } from '@angular/common';
@@ -95,7 +96,7 @@ const EXAMPLE = {
 
 @Component({
     selector: 'app-settings-page',
-    imports: [ClientCertificates, DatePipe, Highlight, HighlightLineNumbers, KeyboardShortcutsSettings, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, TextareaModule, ButtonModule, MessageModule],
+    imports: [ClientCertificates, DatePipe, DesktopEntrySettings, Highlight, HighlightLineNumbers, KeyboardShortcutsSettings, ReactiveFormsModule, SelectModule, SelectButtonModule, ToggleSwitchModule, InputNumberModule, InputTextModule, TextareaModule, ButtonModule, MessageModule],
     templateUrl: './settings.page.html',
     styles: `
         ::ng-deep {

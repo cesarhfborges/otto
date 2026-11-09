@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import type {
     AppInfo,
+    DesktopEntryStatus,
     CollectionExportFormat,
     CollectionImportRequest,
     CollectionMetadata,
@@ -79,6 +80,18 @@ export class ElectronAppInfoGateway extends AppInfoGateway {
 
     onQuitRequested(listener: () => void): () => void {
         return this.api?.app.onQuitRequested(listener) ?? (() => undefined);
+    }
+
+    desktopEntry(): Promise<DesktopEntryStatus> {
+        return requireOttoApi(this.api).app.desktopEntry();
+    }
+
+    installDesktopEntry(): Promise<DesktopEntryStatus> {
+        return requireOttoApi(this.api).app.installDesktopEntry();
+    }
+
+    removeDesktopEntry(): Promise<DesktopEntryStatus> {
+        return requireOttoApi(this.api).app.removeDesktopEntry();
     }
 }
 
