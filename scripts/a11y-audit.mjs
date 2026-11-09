@@ -260,6 +260,11 @@ async function auditCollection(theme) {
     await waitFor(`[...document.querySelectorAll('[role="tab"]')].some((t) => t.textContent.trim().startsWith('Mock'))`, 'the collection page');
     await audit(`Collection overview (${theme})`);
 
+    await click('button', 'Customize avatar');
+    await waitFor(`!!document.getElementById('avatar-color-label')`, 'the avatar dialog');
+    await audit(`Customize avatar dialog (${theme})`);
+    await closeOverlay();
+
     for (const tab of ['Auth', 'Headers', 'Variables', 'Cookies']) {
         await click('[role="tab"]', tab);
         await audit(`Collection ${tab.toLowerCase()} (${theme})`);

@@ -1,9 +1,25 @@
 import { COLLECTION_FORMAT_VERSION, newRequestId, type CollectionManifest, type KeyValue, type RequestDefinition, type RequestScripts } from '../../../shared/models';
 import type { FolderMetadata, ICollectionFormat } from '../../core/contracts';
-import { parseCollectionAuth, parseCookies, parseKeyValues, parseOpenApiConfig, parseRequestAuth, parseRequestDefinition, parseScripts, requireInteger, requireRecord, requireString } from '../../core/validation';
+import { parseCollectionAuth, parseCollectionAvatar, parseCookies, parseKeyValues, parseOpenApiConfig, parseRequestAuth, parseRequestDefinition, parseScripts, requireInteger, requireRecord, requireString } from '../../core/validation';
 import { parseYaml, toYaml } from '../yaml';
 
 const MANIFEST_FILE = 'otto.yaml';
+
+/**
+ * Avatar do `otto.yaml` (só aparência): um valor inválido, editado à mão, é ignorado e o avatar volta ao
+ * automático, em vez de impedir a coleção inteira de abrir.
+ */
+function parseAvatarLeniently(raw: unknown): Pick<CollectionManifest, 'avatar'> {
+    if (raw === undefined || raw === null) {
+        return {};
+    }
+
+    try {
+        return { avatar: parseCollectionAvatar(raw) };
+    } catch {
+        return {};
+    }
+}
 const REQUEST_EXTENSION = '.yaml';
 /** Começa com `_`, que o `slugify` nunca gera: não colide com arquivos de requisição criados pelo app. */
 const FOLDER_FILE = '_folder.yaml';
@@ -75,7 +91,8 @@ export class YamlCollectionFormat implements ICollectionFormat {
             cookies: parseCookies(manifest['cookies'], 'cookies'),
             auth: parseCollectionAuth(manifest['auth']),
             scripts: parseScripts(manifest['scripts'], 'scripts'),
-            openapi: manifest['openapi'] === undefined || manifest['openapi'] === null ? null : parseOpenApiConfig(manifest['openapi'])
+            openapi: manifest['openapi'] === undefined || manifest['openapi'] === null ? null : parseOpenApiConfig(manifest['openapi']),
+            ...parseAvatarLeniently(manifest['avatar'])
         };
     }
 
@@ -91,7 +108,9 @@ export class YamlCollectionFormat implements ICollectionFormat {
             ...(manifest.cookies.length ? { cookies: manifest.cookies.map(({ secure, httpOnly, hostOnly, ...cookie }) => ({ ...cookie, ...(secure && { secure }), ...(httpOnly && { httpOnly }), ...(hostOnly && { hostOnly }) })) } : {}),
             ...(manifest.auth.type !== 'none' && manifest.auth.type !== 'inherit' ? { auth: manifest.auth } : {}),
             ...(scripts ? { scripts } : {}),
-            ...(manifest.openapi ? { openapi: manifest.openapi } : {})
+            ...(manifest.openapi ? { openapi: manifest.openapi } : {}),
+            // Só grava quando há personalização: coleções com o avatar automático não ganham a chave.
+            ...(manifest.avatar?.color || manifest.avatar?.icon ? { avatar: manifest.avatar } : {})
         });
     }
 

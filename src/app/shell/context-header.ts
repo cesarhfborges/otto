@@ -26,7 +26,7 @@ import { TieredMenuModule } from 'primeng/tieredmenu';
     template: `
         @if (collection(); as current) {
             <button type="button" class="otto-icon-button w-auto! gap-2 px-2! text-color!" aria-haspopup="menu" (click)="collectionMenu.toggle($event)">
-                <app-collection-avatar [name]="current.metadata.name" size="sm" />
+                <app-collection-avatar [name]="current.metadata.name" [appearance]="current.manifest.avatar" size="sm" />
                 <h1 class="m-0 truncate text-base font-semibold">{{ current.metadata.name }}</h1>
                 <i class="pi pi-chevron-down text-xs text-muted-color ml-4!" aria-hidden="true"></i>
             </button>

@@ -19,7 +19,8 @@ import {
     requireOneOf,
     requireRecord,
     requireString,
-    ValidationError
+    ValidationError,
+    parseCollectionAvatar
 } from '../core/validation';
 import type { CollectionService } from '../services/collections/collection.service';
 import type { ScriptPolicyService } from '../services/collections/script-policy.service';
@@ -130,6 +131,8 @@ export class CollectionsIpcModule implements IIpcModule {
             const cookies = patch['cookies'] === undefined ? undefined : parseCookies(patch['cookies'], 'patch.cookies');
             const auth = patch['auth'] === undefined ? undefined : parseCollectionAuth(patch['auth']);
             const scripts = patch['scripts'] === undefined ? undefined : parseScripts(patch['scripts'], 'patch.scripts');
+            // `null` volta ao avatar automático (remove a chave do otto.yaml).
+            const avatar = patch['avatar'] === undefined ? undefined : patch['avatar'] === null ? null : parseCollectionAvatar(patch['avatar'], 'patch.avatar');
 
             return this.service.updateManifest(parseEntityId(id), (manifest) => ({
                 ...manifest,
@@ -138,7 +141,8 @@ export class CollectionsIpcModule implements IIpcModule {
                 ...(variables && { variables }),
                 ...(cookies && { cookies }),
                 ...(auth && { auth }),
-                ...(scripts && { scripts })
+                ...(scripts && { scripts }),
+                ...(avatar !== undefined && { avatar: avatar ?? {} })
             }));
         });
 

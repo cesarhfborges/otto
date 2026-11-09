@@ -1,13 +1,14 @@
 import { Component, computed, input } from '@angular/core';
+import type { AvatarColor, CollectionAvatarStyle } from '@shared/models';
 
-/** Tons da paleta do PrimeNG usados nos avatares (variáveis `--p-<tom>-<nível>`). */
-const ACCENTS = ['emerald', 'sky', 'violet', 'amber', 'rose', 'teal', 'indigo', 'orange'] as const;
+/** Tons usados na cor automática (derivada do nome); a escolha manual tem a lista completa (`AVATAR_COLORS`). */
+const ACCENTS: readonly AvatarColor[] = ['emerald', 'sky', 'violet', 'amber', 'rose', 'teal', 'indigo', 'orange'];
 
 /**
  * Mesmo nome, mesma cor: um hash curto e bem distribuído (cyrb53, 32 bits baixos) escolhe o tom, estável
  * entre sessões e máquinas. O FNV-1a com `% 8` concentrava nomes parecidos ("Collection 01", "02"...) em poucos tons.
  */
-export function collectionAccent(name: string): (typeof ACCENTS)[number] {
+export function collectionAccent(name: string): AvatarColor {
     let h1 = 0xdeadbeef;
     let h2 = 0x41c6ce57;
 
@@ -38,11 +39,18 @@ export function collectionInitials(name: string): string {
  */
 @Component({
     selector: 'app-collection-avatar',
-    template: `{{ initials() }}`,
+    template: `
+        @if (appearance()?.icon; as icon) {
+            <i [class]="'pi pi-' + icon"></i>
+        } @else {
+            {{ initials() }}
+        }
+    `,
     host: {
         class: 'otto-collection-avatar',
         'aria-hidden': 'true',
         '[class.otto-collection-avatar-sm]': "size() === 'sm'",
+        '[class.otto-collection-avatar-lg]': "size() === 'lg'",
         '[style.--otto-accent-100]': "'var(--p-' + accent() + '-100)'",
         '[style.--otto-accent-300]': "'var(--p-' + accent() + '-300)'",
         '[style.--otto-accent-500]': "'var(--p-' + accent() + '-500)'",
@@ -51,9 +59,11 @@ export function collectionInitials(name: string): string {
 })
 export class CollectionAvatar {
     readonly name = input.required<string>();
-    /** `md` (40px) nos cards; `sm` (20px) em cabeçalhos. */
-    readonly size = input<'sm' | 'md'>('md');
+    /** Personalização do `otto.yaml` (cor e/ou ícone); ausente = cor do nome e iniciais. */
+    readonly appearance = input<CollectionAvatarStyle | undefined>(undefined);
+    /** `md` (40px) nos cards; `sm` (22px) em cabeçalhos; `lg` (56px) na prévia do diálogo. */
+    readonly size = input<'sm' | 'md' | 'lg'>('md');
 
-    protected readonly accent = computed(() => collectionAccent(this.name()));
+    protected readonly accent = computed(() => this.appearance()?.color ?? collectionAccent(this.name()));
     protected readonly initials = computed(() => collectionInitials(this.name()));
 }

@@ -10,7 +10,9 @@ import { EnvironmentsState } from '../../core/state/environments.state';
 import { OpenApiState } from '../../core/state/openapi.state';
 import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
+import { CollectionAvatar } from '../../shared/collection-avatar';
 import { MethodBadge, methodColor } from '../../shared/method-badge';
+import { CollectionAvatarDialog } from './collection-avatar-dialog';
 import { OpenApiPanel } from '../openapi/openapi-panel';
 import { CollectionCookies } from './collection-cookies';
 import { CollectionKeyValues } from './collection-key-values';
@@ -51,7 +53,7 @@ const authLabel = (type: string): string => (type === 'none' ? 'None' : type ===
 /** Página da coleção: visão geral, autenticação/scripts herdados, headers base e sincronização OpenAPI. */
 @Component({
     selector: 'app-collection-overview',
-    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, CollectionCookies, OpenApiPanel, MockServerPanel, ScopeAuth, ScopeScripts, CollectionSecurity],
+    imports: [TabsModule, ButtonModule, TooltipModule, MethodBadge, CollectionKeyValues, CollectionCookies, OpenApiPanel, MockServerPanel, ScopeAuth, ScopeScripts, CollectionSecurity, CollectionAvatar, CollectionAvatarDialog],
     template: `
         @if (collection(); as current) {
             <p-tabs [value]="section()" (valueChange)="section.set($any($event))" class="px-4 pt-2">
@@ -165,9 +167,12 @@ const authLabel = (type: string): string => (type === 'none' ? 'None' : type ===
                                         <div class="min-w-0">
                                             <dt class="otto-section-label">{{ detail.label }}</dt>
                                             <dd class="m-0 mt-1 flex min-h-7 items-center gap-2 break-all text-sm">
+                                                @if (detail.avatar) {
+                                                    <app-collection-avatar [name]="current.metadata.name" [appearance]="current.manifest.avatar" size="sm" />
+                                                }
                                                 {{ detail.value }}
                                                 @if (detail.action) {
-                                                    <p-button [label]="detail.action" size="small" [text]="true" (onClick)="section.set(detail.target!)" />
+                                                    <p-button [label]="detail.action" size="small" [text]="true" (onClick)="detail.run ? detail.run() : section.set(detail.target!)" />
                                                 }
                                             </dd>
                                         </div>
@@ -241,6 +246,7 @@ const authLabel = (type: string): string => (type === 'none' ? 'None' : type ===
         } @else {
             <p class="m-0 p-4 text-sm text-muted-color">This collection is not open.</p>
         }
+        <app-collection-avatar-dialog [(collectionId)]="avatarDialog" />
     `,
     host: { class: 'block' }
 })
@@ -276,13 +282,16 @@ export class CollectionOverview {
         { label: 'Headers', icon: 'pi pi-list', value: this.collection()?.manifest.headers.filter((header) => header.enabled).length ?? 0 }
     ]);
 
-    protected readonly details = computed<Array<{ label: string; value: string; action?: string; target?: Section }>>(() => {
+    /** Coleção com o diálogo de avatar aberto. */
+    protected readonly avatarDialog = signal<EntityId | null>(null);
+
+    protected readonly details = computed<Array<{ label: string; value: string; action?: string; target?: Section; run?: () => void; avatar?: boolean }>>(() => {
         const current = this.collection();
         const config = current?.manifest.openapi;
         const status = this.openapi.status(this.collectionId());
 
         return [
-            { label: 'Name', value: current?.manifest.name ?? '' },
+            { label: 'Name', value: current?.manifest.name ?? '', avatar: true, action: 'Customize avatar', run: () => this.avatarDialog.set(this.collectionId()) },
             { label: 'Authentication', value: authLabel(current?.manifest.auth.type ?? 'none'), action: 'Configure', target: 'auth' },
             { label: 'Format version', value: String(current?.manifest.version ?? '') },
             { label: 'Last opened', value: current?.metadata.lastOpenedAt ? new Date(current.metadata.lastOpenedAt).toLocaleString() : '—' },

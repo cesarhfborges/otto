@@ -220,11 +220,26 @@ body {
     }
 }
 
+.otto-collection-avatar-lg {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 0.75rem;
+    font-size: 1.25rem;
+
+    .pi {
+        font-size: 1.5rem;
+    }
+}
+
 .otto-collection-avatar-sm {
     width: 1.375rem;
     height: 1.375rem;
     border-radius: 0.3125rem;
     font-size: 0.625rem;
+
+    .pi {
+        font-size: 0.75rem;
+    }
 }
 
 /* Item selecionado da árvore: barra fina na cor primária à esquerda, além do fundo. */

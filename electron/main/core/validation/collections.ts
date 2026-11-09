@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { SCRIPT_MODES, SCRIPT_PERMISSIONS, type CollectionSource, type NewCollectionMetadata, type ScriptPermissions, type ScriptPolicyPatch } from '../../../shared/models';
+import { AVATAR_COLORS, AVATAR_ICONS, SCRIPT_MODES, SCRIPT_PERMISSIONS, type CollectionAvatarStyle, type CollectionSource, type NewCollectionMetadata, type ScriptPermissions, type ScriptPolicyPatch } from '../../../shared/models';
 import { requireBoolean, optionalString, pickDefined, requireOneOf, requireRecord, requireString, ValidationError } from './guards';
 
 const SOURCE_KINDS = ['openapi'] as const;
@@ -68,4 +68,13 @@ export function parseScriptPolicyPatch(raw: unknown): ScriptPolicyPatch {
     }
 
     return { mode, permissions, ...(patch['retrust'] !== undefined && { retrust: requireBoolean(patch['retrust'], 'patch.retrust') }) };
+}
+
+/** `avatar` do `otto.yaml`/patch: cor e ícone opcionais, de listas fechadas (nada de CSS livre vindo do arquivo). */
+export function parseCollectionAvatar(raw: unknown, field = 'avatar'): CollectionAvatarStyle {
+    const avatar = requireRecord(raw, field);
+    const color = avatar['color'] === undefined || avatar['color'] === null ? undefined : requireOneOf(avatar['color'], AVATAR_COLORS, `${field}.color`);
+    const icon = avatar['icon'] === undefined || avatar['icon'] === null ? undefined : requireOneOf(avatar['icon'], AVATAR_ICONS, `${field}.icon`);
+
+    return { ...(color && { color }), ...(icon && { icon }) };
 }

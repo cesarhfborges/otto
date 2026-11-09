@@ -13,11 +13,12 @@ import { WorkspacesState } from '../../core/state/workspaces.state';
 import { CollectionAvatar } from '../../shared/collection-avatar';
 import { copyName } from '../../shared/copy-name';
 import { NameDialog, type NameRequest } from '../../shared/name-dialog';
+import { CollectionAvatarDialog } from '../collection/collection-avatar-dialog';
 
 /** Visão geral do workspace ativo: local, números, ações rápidas e as coleções em cards (escolher um abre a coleção). */
 @Component({
     selector: 'app-workspace-overview',
-    imports: [ButtonModule, TieredMenuModule, NameDialog, CollectionAvatar],
+    imports: [ButtonModule, TieredMenuModule, NameDialog, CollectionAvatar, CollectionAvatarDialog],
     template: `
         <!-- Topo fixo (local, números, ações); só a grade de coleções rola. Com pouca altura, compacta (ver styles). -->
         <div class="overview-top flex max-w-5xl shrink-0 flex-col gap-6 p-4 pb-0">
@@ -69,7 +70,7 @@ import { NameDialog, type NameRequest } from '../../shared/name-dialog';
                                     (click)="openCollection(card.id)"
                                 >
                                     <span class="flex min-w-0 items-center gap-3">
-                                        <app-collection-avatar [name]="card.name" />
+                                        <app-collection-avatar [name]="card.name" [appearance]="card.avatar" />
                                         <span class="flex min-w-0 flex-col">
                                             <span class="truncate text-base font-semibold">{{ card.name }}</span>
                                             <span class="truncate text-xs text-muted-color" [title]="card.path">{{ card.path }}</span>
@@ -103,6 +104,7 @@ import { NameDialog, type NameRequest } from '../../shared/name-dialog';
         </section>
         <p-tiered-menu #rowMenu [model]="rowItems()" [popup]="true" appendTo="body" />
         <app-name-dialog [(request)]="nameDialog" />
+        <app-collection-avatar-dialog [(collectionId)]="avatarDialog" />
     `,
     /*
      * O host é um container de tamanho: com pouca altura (janela baixa), o topo deixa de empilhar
@@ -176,6 +178,8 @@ export class WorkspaceOverview {
     private readonly rowMenu = viewChild.required<TieredMenu>('rowMenu');
 
     protected readonly rowItems = signal<MenuItem[]>([]);
+    /** Coleção com o diálogo de avatar aberto. */
+    protected readonly avatarDialog = signal<EntityId | null>(null);
     /** Diálogo do nome da cópia (duplicar coleção). */
     protected readonly nameDialog = signal<NameRequest | null>(null);
     /** Lista rolada: o título "Collections" ganha uma linha de separação do conteúdo que passa por baixo. */
@@ -191,7 +195,8 @@ export class WorkspaceOverview {
             path: metadata.path,
             requests: this.collections.requestCount(metadata.id),
             openTabs: tabs.filter((tab) => tab.collectionId === metadata.id).length,
-            openapi: !!manifest.openapi
+            openapi: !!manifest.openapi,
+            avatar: manifest.avatar
         }));
     });
 
@@ -215,6 +220,7 @@ export class WorkspaceOverview {
         this.rowItems.set([
             { label: 'Open', icon: 'pi pi-arrow-right', command: () => this.openCollection(collection.id) },
             { label: 'Duplicate', icon: 'pi pi-copy', command: () => this.askDuplicate(collection) },
+            { label: 'Customize Avatar', icon: 'pi pi-palette', command: () => this.avatarDialog.set(collection.id) },
             { label: 'Reveal in File Explorer', icon: 'pi pi-folder-open', command: () => void this.reveal(collection.id) },
             {
                 label: 'Export Collection',

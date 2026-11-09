@@ -111,6 +111,57 @@ export interface ScriptPolicyPatch {
     retrust?: boolean;
 }
 
+/** Tons da paleta (variáveis `--p-<tom>-<nível>` do PrimeNG) que o avatar da coleção pode usar. */
+export const AVATAR_COLORS = ['emerald', 'teal', 'sky', 'blue', 'indigo', 'violet', 'fuchsia', 'rose', 'red', 'orange', 'amber', 'slate'] as const;
+export type AvatarColor = (typeof AVATAR_COLORS)[number];
+
+/** Ícones (PrimeIcons, sem o prefixo `pi-`) que podem substituir as iniciais no avatar da coleção. */
+export const AVATAR_ICONS = [
+    'box',
+    'globe',
+    'server',
+    'database',
+    'cloud',
+    'code',
+    'bolt',
+    'cog',
+    'shopping-cart',
+    'credit-card',
+    'wallet',
+    'money-bill',
+    'chart-bar',
+    'chart-line',
+    'briefcase',
+    'building',
+    'users',
+    'user',
+    'lock',
+    'shield',
+    'key',
+    'envelope',
+    'bell',
+    'comments',
+    'mobile',
+    'desktop',
+    'map-marker',
+    'truck',
+    'calendar',
+    'book',
+    'image',
+    'video',
+    'heart',
+    'star',
+    'sitemap',
+    'th-large'
+] as const;
+export type AvatarIcon = (typeof AVATAR_ICONS)[number];
+
+/** Aparência do avatar da coleção. Sem `color`, a cor sai do nome; sem `icon`, aparecem as iniciais. */
+export interface CollectionAvatarStyle {
+    color?: AvatarColor;
+    icon?: AvatarIcon;
+}
+
 /** Versão do formato em disco (`otto.yaml`). */
 export const COLLECTION_FORMAT_VERSION = 1;
 
@@ -130,6 +181,8 @@ export interface CollectionManifest {
     /** Executados antes/depois de cada requisição da coleção (antes dos scripts das pastas e da requisição). */
     scripts: RequestScripts;
     openapi: OpenApiConfig | null;
+    /** Cor/ícone escolhidos para o avatar; ausente = automático (cor do nome e iniciais). */
+    avatar?: CollectionAvatarStyle;
 }
 
 /**
@@ -161,7 +214,8 @@ export interface CollectionCookie {
 }
 
 /** Alteração editável pela UI no `otto.yaml`. */
-export type CollectionManifestPatch = Partial<Pick<CollectionManifest, 'description' | 'headers' | 'variables' | 'cookies' | 'auth' | 'scripts'>>;
+/** `avatar: null` volta ao automático. */
+export type CollectionManifestPatch = Partial<Pick<CollectionManifest, 'description' | 'headers' | 'variables' | 'cookies' | 'auth' | 'scripts'>> & { avatar?: CollectionAvatarStyle | null };
 
 /** Nó da árvore de uma coleção lida do disco. */
 export type CollectionNode = CollectionFolderNode | CollectionRequestNode;

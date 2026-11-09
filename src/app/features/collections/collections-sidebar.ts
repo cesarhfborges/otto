@@ -61,7 +61,7 @@ function readExpanded(): ReadonlySet<string> {
                     <i class="pi pi-chevron-left text-sm" aria-hidden="true"></i>
                 </button>
                 <div class="flex min-w-0 flex-1 items-center gap-2">
-                    <app-collection-avatar [name]="current.metadata.name" size="sm" />
+                    <app-collection-avatar [name]="current.metadata.name" [appearance]="current.manifest.avatar" size="sm" />
                     <h2 id="collections-heading" class="m-0 min-w-0 flex-1 truncate text-sm font-semibold" [title]="collection()?.metadata?.name ?? ''">{{ collection()?.metadata?.name }}</h2>
                 </div>
                 <div class="flex shrink-0 flex-row justify-end gap-1">
