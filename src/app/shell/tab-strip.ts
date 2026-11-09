@@ -5,7 +5,7 @@ import type { CollectionNode, HttpMethod, TabState } from '@shared/models';
 import type { MenuItem } from 'primeng/api';
 import { MenuModule, type Menu } from 'primeng/menu';
 import { CollectionsState } from '../core/state/collections.state';
-import { TabsState } from '../core/state/tabs.state';
+import { isPinnedTab, TabsState } from '../core/state/tabs.state';
 import { UiState } from '../core/state/ui.state';
 import { draftKey, RequestDraftsState } from '../core/state/request-drafts.state';
 import { KeybindingService } from '../core/keyboard/keybinding.service';
@@ -25,6 +25,7 @@ const SCROLL_HIDE_DELAY = 800;
  * setas/Home/End movem entre abas, Delete fecha. O "×" é atalho de mouse
  * (fora da ordem de tabulação) para não aninhar controles dentro da aba.
  * Arrastar reordena (CDK drag-drop); pelo teclado, os comandos `tabs.moveLeft`/`tabs.moveRight`.
+ * O Overview do workspace é fixo: sempre o primeiro, sem "×", sem fechar nem arrastar.
  */
 @Component({
     selector: 'app-tab-strip',
@@ -41,6 +42,7 @@ const SCROLL_HIDE_DELAY = 800;
             cdkDropListOrientation="horizontal"
             cdkDropListLockAxis="x"
             [cdkDropListAutoScrollStep]="12"
+            [cdkDropListSortPredicate]="canDropAt"
             (cdkDropListDropped)="onDrop($event)"
             (wheel)="onWheel($event)"
             (scroll)="onScroll()"
@@ -53,6 +55,7 @@ const SCROLL_HIDE_DELAY = 800;
                     class="otto-tab group relative flex h-[34px] max-w-60 pb-1 shrink-0 items-center rounded-t-md border border-b-0 text-sm"
                     cdkDrag
                     [cdkDragData]="tab"
+                    [cdkDragDisabled]="isPinned(tab)"
                     (cdkDragStarted)="onDragStarted(tab)"
                     (cdkDragEnded)="onDragEnded()"
                     [class]="
@@ -60,16 +63,17 @@ const SCROLL_HIDE_DELAY = 800;
                             ? 'z-2 border-surface-200 bg-surface-0 font-medium text-color dark:border-surface-700 dark:bg-surface-950'
                             : 'border-surface-100 after:absolute after:-inset-x-px after:bottom-0 after:h-px after:bg-surface-200 dark:border-surface-800 dark:after:bg-surface-700 bg-surface-50 text-muted-color hover:bg-surface-100 hover:text-color dark:bg-surface-900 dark:hover:bg-surface-800'
                     "
-                    (auxclick)="$event.button === 1 && tabs.close(tab.id)"
+                    (auxclick)="$event.button === 1 && !isPinned(tab) && tabs.close(tab.id)"
                 >
                     <button
                         type="button"
                         role="tab"
                         [id]="'tab-' + tab.id"
-                        class="flex h-full min-w-0 cursor-pointer items-center gap-1.5 border-0 bg-transparent pl-3 pr-1 text-inherit"
+                        class="flex h-full min-w-0 cursor-pointer items-center gap-1.5 border-0 bg-transparent pl-3 text-inherit"
+                        [class]="isPinned(tab) ? 'pr-3' : 'pr-1'"
                         [attr.aria-selected]="tab.id === tabs.activeId()"
                         [attr.aria-controls]="panelId"
-                        [attr.aria-keyshortcuts]="keyShortcuts()"
+                        [attr.aria-keyshortcuts]="isPinned(tab) ? null : keyShortcuts()"
                         [tabindex]="tab.id === tabs.activeId() ? 0 : -1"
                         (click)="tabs.activate(tab.id)"
                     >
@@ -84,9 +88,11 @@ const SCROLL_HIDE_DELAY = 800;
                             <span class="sr-only">(unsaved changes)</span>
                         }
                     </button>
-                    <span class="otto-icon-button mr-1 h-5! w-5! opacity-0 group-hover:opacity-100" [class.opacity-100]="tab.id === tabs.activeId()" aria-hidden="true" title="Close tab" (click)="tabs.close(tab.id)">
-                        <i class="pi pi-times text-[0.625rem]"></i>
-                    </span>
+                    @if (!isPinned(tab)) {
+                        <span class="otto-icon-button mr-1 h-5! w-5! opacity-0 group-hover:opacity-100" [class.opacity-100]="tab.id === tabs.activeId()" aria-hidden="true" title="Close tab" (click)="tabs.close(tab.id)">
+                            <i class="pi pi-times text-[0.625rem]"></i>
+                        </span>
+                    }
                 </div>
             }
         </div>
@@ -141,7 +147,9 @@ export class TabStrip {
             this.tabs.visibleTabs();
 
             if (id) {
-                this.tablist().nativeElement.querySelector(`#tab-${CSS.escape(id)}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+                this.tablist()
+                    .nativeElement.querySelector(`#tab-${CSS.escape(id)}`)
+                    ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
             }
         });
 
@@ -196,10 +204,14 @@ export class TabStrip {
     protected readonly keyShortcuts = computed(() => ['Delete', this.keyboard.aria('tabs.moveLeft'), this.keyboard.aria('tabs.moveRight')].filter(Boolean).join(' '));
 
     protected readonly workspaceAddItems: MenuItem[] = [
-        { label: 'Overview', icon: 'pi pi-home', command: () => this.tabs.open({ kind: 'overview', title: 'Overview', collectionId: null }) },
         { label: 'Environments', icon: 'pi pi-globe', command: () => this.tabs.open({ kind: 'environments', title: 'Environments', collectionId: null }) },
         { label: 'Preferences', icon: 'pi pi-cog', command: () => void this.settingsDialog.open() }
     ];
+
+    protected readonly isPinned = isPinnedTab;
+
+    /** Ninguém passa à frente da aba fixa (índice 0 do workspace). */
+    protected readonly canDropAt = (index: number): boolean => index > 0 || !this.tabs.visibleTabs().some(isPinnedTab);
 
     /** Método do rascunho em edição; sem rascunho, o da árvore (reflete edições feitas fora do app). */
     protected methodOf(tab: TabState): HttpMethod | null {
@@ -241,7 +253,7 @@ export class TabStrip {
                 next = visible.length - 1;
                 break;
             case 'Delete':
-                if (index >= 0) {
+                if (index >= 0 && !isPinnedTab(visible[index]!)) {
                     this.tabs.close(visible[index]!.id);
                     // O fechamento pode passar pelo guard (promessa): foca depois dele, como antes.
                     queueMicrotask(() => {

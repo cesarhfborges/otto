@@ -20,6 +20,12 @@ const MAX_CLOSED_TABS = 20;
 
 const sameTab = (tab: TabState, spec: TabSpec): boolean => tab.kind === spec.kind && tab.collectionId === spec.collectionId && tab.resourceRef === (spec.resourceRef ?? null);
 
+/**
+ * O Overview do workspace é uma aba fixa: a "home" do workspace, sempre a primeira da faixa,
+ * sem fechar nem mover. Garante que o contexto do workspace nunca fique vazio.
+ */
+export const isPinnedTab = (tab: Pick<TabState, 'kind' | 'collectionId'>): boolean => tab.kind === 'overview' && tab.collectionId === null;
+
 const newId = (): string => globalThis.crypto?.randomUUID?.() ?? `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 /**
@@ -83,7 +89,8 @@ export class TabsState {
         }
 
         this.workspaceId = workspaceId;
-        this.ensureWorkspaceTab();
+        this.ensurePinnedTab();
+        this.scheduleSave();
     }
 
     /** Grava imediatamente o que estiver pendente (antes de trocar de workspace). */
@@ -123,10 +130,10 @@ export class TabsState {
         this.scheduleSave();
     }
 
-    /** Troca de contexto; o workspace nunca fica vazio (abre o Overview). */
+    /** Troca de contexto; o workspace nunca fica vazio (tem sempre o Overview fixo). */
     setContext(context: TabContext): void {
         this.contextState.set(context);
-        this.ensureWorkspaceTab();
+        this.ensurePinnedTab();
         this.scheduleSave();
     }
 
@@ -143,11 +150,11 @@ export class TabsState {
         this.closeGuard = guard;
     }
 
-    /** Fecha a aba, consultando antes o guard (que pode pedir confirmação). */
+    /** Fecha a aba, consultando antes o guard (que pode pedir confirmação). A aba fixa não fecha. */
     close(id: EntityId): void {
         const tab = this.tabsState().find((t) => t.id === id);
 
-        if (!tab) {
+        if (!tab || isPinnedTab(tab)) {
             return;
         }
 
@@ -165,7 +172,7 @@ export class TabsState {
         const index = tabs.findIndex((t) => t.id === id);
         const tab = tabs[index];
 
-        if (!tab) {
+        if (!tab || isPinnedTab(tab)) {
             return;
         }
 
@@ -180,11 +187,10 @@ export class TabsState {
             this.activeByContext.update((map) => ({ ...map, [tab.collectionId ?? '']: neighbor.id }));
         }
 
-        this.ensureWorkspaceTab();
         this.scheduleSave();
     }
 
-    /** Fecha as demais abas do contexto, uma a uma (cada uma pode pedir confirmação). */
+    /** Fecha as demais abas do contexto (menos a fixa), uma a uma (cada uma pode pedir confirmação). */
     async closeOthers(id: EntityId): Promise<void> {
         const tab = this.tabsState().find((t) => t.id === id);
 
@@ -194,16 +200,16 @@ export class TabsState {
 
         this.activate(id);
 
-        for (const other of this.tabsState().filter((t) => t.collectionId === tab.collectionId && t.id !== id)) {
+        for (const other of this.tabsState().filter((t) => t.collectionId === tab.collectionId && t.id !== id && !isPinnedTab(t))) {
             if (!this.closeGuard || (await this.closeGuard(other))) {
                 this.remove(other.id);
             }
         }
     }
 
-    /** Fecha todas as abas do contexto atual, uma a uma (cada uma pode pedir confirmação). */
+    /** Fecha todas as abas do contexto atual (menos a fixa), uma a uma (cada uma pode pedir confirmação). */
     async closeAll(): Promise<void> {
-        for (const tab of this.visibleTabs()) {
+        for (const tab of this.visibleTabs().filter((t) => !isPinnedTab(t))) {
             if (!this.closeGuard || (await this.closeGuard(tab))) {
                 this.remove(tab.id);
             }
@@ -235,20 +241,21 @@ export class TabsState {
     /**
      * Leva a aba para `index` entre as abas do mesmo contexto (a ordem da faixa, como no
      * arrastar e soltar). O array global intercala contextos: a aba entra antes da irmã que
-     * ocupa o destino, ou logo após a última irmã quando o destino é o fim.
+     * ocupa o destino, ou logo após a última irmã quando o destino é o fim. A aba fixa não
+     * sai do lugar e nenhuma outra passa à frente dela.
      */
     moveTo(id: EntityId, index: number): void {
         const tabs = this.tabsState();
         const tab = tabs.find((t) => t.id === id);
 
-        if (!tab) {
+        if (!tab || isPinnedTab(tab)) {
             return;
         }
 
         const current = tabs.filter((t) => t.collectionId === tab.collectionId).findIndex((t) => t.id === id);
         const rest = tabs.filter((t) => t.id !== id);
         const siblings = rest.filter((t) => t.collectionId === tab.collectionId);
-        const target = Math.max(0, Math.min(index, siblings.length));
+        const target = Math.max(siblings.filter(isPinnedTab).length, Math.min(index, siblings.length));
 
         if (target === current) {
             return;
@@ -280,9 +287,19 @@ export class TabsState {
         this.scheduleSave();
     }
 
-    private ensureWorkspaceTab(): void {
-        if (this.contextState() === null && !this.tabsState().some((t) => t.collectionId === null)) {
-            this.open({ kind: 'overview', title: 'Overview', collectionId: null });
+    /**
+     * Garante o Overview fixo como primeira aba do workspace (inclusive em abas salvas por versões
+     * antigas, em que ele podia ter sido fechado ou movido). Não o ativa: sem outra aba ativa no
+     * workspace, `activeId` já recai sobre a primeira.
+     */
+    private ensurePinnedTab(): void {
+        const tabs = this.tabsState();
+        const pinned = tabs.find(isPinnedTab);
+
+        if (!pinned) {
+            this.tabsState.set([{ id: newId(), kind: 'overview', title: 'Overview', collectionId: null, resourceRef: null, position: 0, active: false, draft: null }, ...tabs]);
+        } else if (tabs.find((t) => t.collectionId === null) !== pinned) {
+            this.tabsState.set([pinned, ...tabs.filter((t) => t !== pinned)]);
         }
     }
 

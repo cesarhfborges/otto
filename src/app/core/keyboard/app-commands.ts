@@ -7,7 +7,7 @@ import { ScriptSecurityState } from '../scripting/script-security.state';
 import { CollectionsState } from '../state/collections.state';
 import { RequestDraftsState } from '../state/request-drafts.state';
 import { SettingsState } from '../state/settings.state';
-import { TabsState } from '../state/tabs.state';
+import { isPinnedTab, TabsState } from '../state/tabs.state';
 import { UiState } from '../state/ui.state';
 import { ThemeService } from '../theme/theme.service';
 import { registerCommand } from './command-registry';
@@ -33,6 +33,9 @@ export function registerAppCommands(): void {
 
     const visible = () => tabs.visibleTabs();
     const activeIndex = () => visible().findIndex((tab) => tab.id === tabs.activeId());
+    /** Abas que podem fechar ou mudar de lugar (o Overview do workspace é fixo). */
+    const closable = () => visible().filter((tab) => !isPinnedTab(tab));
+    const activePinned = () => !!tabs.active() && isPinnedTab(tabs.active()!);
     const fail = (summary: string) => (error: unknown) => messages.add({ severity: 'error', summary, detail: error instanceof Error ? error.message : String(error), life: 6000 });
 
     // Menu nativo e tray executam os mesmos comandos dos atalhos.
@@ -52,9 +55,9 @@ export function registerAppCommands(): void {
         }
     });
 
-    registerCommand('tabs.close', { when: () => activeIndex() >= 0, run: () => tabs.close(tabs.activeId()!) });
-    registerCommand('tabs.closeOthers', { when: () => visible().length > 1, run: () => tabs.closeOthers(tabs.activeId()!) });
-    registerCommand('tabs.closeAll', { when: () => visible().length > 0, run: () => tabs.closeAll() });
+    registerCommand('tabs.close', { when: () => activeIndex() >= 0 && !activePinned(), run: () => tabs.close(tabs.activeId()!) });
+    registerCommand('tabs.closeOthers', { when: () => closable().some((tab) => tab.id !== tabs.activeId()), run: () => tabs.closeOthers(tabs.activeId()!) });
+    registerCommand('tabs.closeAll', { when: () => closable().length > 0, run: () => tabs.closeAll() });
     registerCommand('tabs.reopenClosed', { when: () => tabs.canReopen(), run: () => tabs.reopenClosed() });
 
     const cycle = (step: -1 | 1) => () => {
@@ -71,8 +74,8 @@ export function registerAppCommands(): void {
     }
 
     registerCommand('tabs.goToLast', { when: () => visible().length > 0, run: () => tabs.activate(visible().at(-1)!.id) });
-    registerCommand('tabs.moveLeft', { when: () => activeIndex() > 0, run: () => tabs.move(tabs.activeId()!, -1) });
-    registerCommand('tabs.moveRight', { when: () => activeIndex() >= 0 && activeIndex() < visible().length - 1, run: () => tabs.move(tabs.activeId()!, 1) });
+    registerCommand('tabs.moveLeft', { when: () => activeIndex() > 0 && !activePinned() && !isPinnedTab(visible()[activeIndex() - 1]!), run: () => tabs.move(tabs.activeId()!, -1) });
+    registerCommand('tabs.moveRight', { when: () => activeIndex() >= 0 && !activePinned() && activeIndex() < visible().length - 1, run: () => tabs.move(tabs.activeId()!, 1) });
 
     registerCommand('request.save', {
         when: () => {
