@@ -277,7 +277,7 @@ export class ResponsesState implements ResponseAccess {
             const to = hostOf(resolved.url);
 
             if (from && to && from !== to) {
-                warnings.push({ kind: 'error', text: `[Scripts] a pre-request script changed the destination of this request: ${from} → ${to}` });
+                warnings.push({ kind: 'error', level: 'warn', text: `[Scripts] a pre-request script changed the destination of this request: ${from} → ${to}` });
             }
         }
 

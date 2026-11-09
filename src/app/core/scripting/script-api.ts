@@ -1,4 +1,4 @@
-import type { CollectionCookie, HttpTimelineEntry, KeyValue, RequestDefinition, ScriptPermission, ScriptPermissions } from '@shared/models';
+import type { CollectionCookie, ConsoleLevel, HttpTimelineEntry, KeyValue, RequestDefinition, ScriptPermission, ScriptPermissions } from '@shared/models';
 import { createOtto, CURRENT_REQUEST_MEMBERS, messageReader, requestSnapshot, VariableScopes, type MessageSnapshot, type OttoHost, type VariableLayer } from '@shared/templating';
 import { DEFAULT_SANDBOX_LIMITS, runSandboxed, ScriptError, type SandboxLimits, type ScriptStopReason } from './script-sandbox';
 
@@ -184,14 +184,14 @@ export async function runScript(input: ScriptInput, rpc: ScriptRpc): Promise<Scr
         };
 
     const log =
-        (kind: HttpTimelineEntry['kind']) =>
+        (level: ConsoleLevel) =>
         (...values: unknown[]) => {
             if (logs.length < MAX_LOG_LINES) {
                 const line = values.map(stringify).join(' ');
 
-                logs.push({ kind, text: `[${label}] ${line.length > MAX_LOG_LENGTH ? `${line.slice(0, MAX_LOG_LENGTH)}… (truncated)` : line}` });
+                logs.push({ kind: level === 'error' || level === 'warn' ? 'error' : 'info', level, text: `[${label}] ${line.length > MAX_LOG_LENGTH ? `${line.slice(0, MAX_LOG_LENGTH)}… (truncated)` : line}` });
             } else if (logs.length === MAX_LOG_LINES) {
-                logs.push({ kind: 'error', text: `[${label}] too many console messages: the rest was omitted` });
+                logs.push({ kind: 'error', level: 'warn', text: `[${label}] too many console messages: the rest was omitted` });
             }
         };
 
@@ -335,7 +335,7 @@ export async function runScript(input: ScriptInput, rpc: ScriptRpc): Promise<Scr
             })
         }
     };
-    const consoleApi = { log: log('info'), info: log('info'), debug: log('info'), warn: log('error'), error: log('error') };
+    const consoleApi = { log: log('log'), info: log('info'), debug: log('debug'), warn: log('warn'), error: log('error') };
     let error: ScriptOutput['error'] = null;
 
     // Realm isolado (QuickJS): o script só enxerga `otto` e `console`.

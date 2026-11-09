@@ -78,6 +78,7 @@ export const COMMANDS = [
     { id: 'request.formatBody', label: 'Format body (JSON / XML)', category: 'Request', scope: 'tab', defaults: ['Mod+Alt+Shift+L'] },
     { id: 'script.format', label: 'Format script', category: 'Request', scope: 'focus', defaults: ['Mod+Alt+Shift+L'] },
     { id: 'script.toggleComment', label: 'Toggle line comment in script', category: 'Request', scope: 'focus', defaults: ['Mod+/'] },
+    { id: 'editor.duplicateLine', label: 'Duplicate line (code editors)', category: 'Request', scope: 'focus', defaults: ['Mod+D'], repeatable: true },
     { id: 'script.toggleBlockComment', label: 'Toggle block comment in script', category: 'Request', scope: 'focus', defaults: ['Alt+Shift+A'] },
 
     { id: 'form.submit', label: 'Submit the focused form', category: 'Forms', scope: 'focus', defaults: ['Mod+Enter'] },
@@ -166,4 +167,17 @@ export const sameChords = (a: readonly KeyChord[], b: readonly KeyChord[]): bool
  * global (o de maior prioridade sempre venceria). Escopos específicos diferentes
  * convivem (ex.: `Mod+Enter` envia o formulário em foco ou a requisição).
  */
-export const scopesConflict = (a: CommandMeta, b: CommandMeta): boolean => a.scope === b.scope || a.scope === 'global' || b.scope === 'global';
+/**
+ * Dois atalhos iguais disputam a tecla no mesmo escopo ou quando um é global. Comandos de
+ * foco de áreas diferentes (`sidebar.*` age na árvore, `editor.*`/`script.*` no editor
+ * focado) nunca estão ativos juntos, então não conflitam.
+ */
+const FOCUS_AREAS: Record<string, string> = { editor: 'editor', script: 'editor' };
+
+const focusArea = (meta: CommandMeta): string => {
+    const prefix = meta.id.split('.')[0]!;
+
+    return FOCUS_AREAS[prefix] ?? prefix;
+};
+
+export const scopesConflict = (a: CommandMeta, b: CommandMeta): boolean => (a.scope === b.scope && (a.scope !== 'focus' || focusArea(a) === focusArea(b))) || a.scope === 'global' || b.scope === 'global';

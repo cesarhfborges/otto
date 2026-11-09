@@ -81,6 +81,49 @@ async function format(view: EditorView): Promise<void> {
 }
 
 /** Globais que não existem no sandbox (aviso) e erros de sintaxe. */
+/** Nomes que existem no sandbox sem declarar: `otto`, `console` e os built-ins do JavaScript (QuickJS). */
+const KNOWN_GLOBALS = new Set([
+    'otto', 'console', 'undefined', 'NaN', 'Infinity', 'globalThis', 'arguments',
+    'Array', 'ArrayBuffer', 'BigInt', 'BigInt64Array', 'BigUint64Array', 'Boolean', 'DataView', 'Date', 'Error', 'AggregateError', 'EvalError', 'RangeError',
+    'ReferenceError', 'SyntaxError', 'TypeError', 'URIError', 'FinalizationRegistry', 'Float32Array', 'Float64Array', 'Function', 'Int8Array', 'Int16Array',
+    'Int32Array', 'JSON', 'Map', 'Math', 'Number', 'Object', 'Promise', 'Proxy', 'Reflect', 'RegExp', 'Set', 'String', 'Symbol', 'Uint8Array',
+    'Uint8ClampedArray', 'Uint16Array', 'Uint32Array', 'WeakMap', 'WeakRef', 'WeakSet', 'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent',
+    'escape', 'unescape', 'eval', 'isFinite', 'isNaN', 'parseFloat', 'parseInt'
+]);
+
+/**
+ * Nomes usados e nunca declarados no script (como o "is not defined" do VS Code). Sem
+ * escopo de bloco: um nome declarado em qualquer lugar do script conta como definido.
+ * `typeof x` não é erro (é a forma de testar se existe).
+ */
+function undefinedNames(state: EditorState, code: string): Diagnostic[] {
+    const declared = new Set<string>();
+    const used: Array<{ name: string; from: number; to: number }> = [];
+
+    syntaxTree(state).iterate({
+        enter: (node) => {
+            const name = code.slice(node.from, node.to);
+
+            if (node.name === 'VariableDefinition') {
+                declared.add(name);
+            } else if (node.name === 'VariableName') {
+                const parent = node.node.parent;
+
+                if (!(parent?.name === 'UnaryExpression' && code.slice(parent.from, node.from).trim() === 'typeof')) {
+                    used.push({ name, from: node.from, to: node.to });
+                }
+            } else if (node.name === 'PropertyDefinition' && node.node.parent?.name === 'Property' && node.node.parent.to === node.to) {
+                // Atalho `{ token }`: usa a variável `token`.
+                used.push({ name, from: node.from, to: node.to });
+            }
+        }
+    });
+
+    return used
+        .filter((use) => !declared.has(use.name) && !KNOWN_GLOBALS.has(use.name))
+        .map((use) => ({ from: use.from, to: use.to, severity: 'error', message: `'${use.name}' is not defined`, source: 'otto' }));
+}
+
 const scriptLinter = linter(
     (view) => {
         const code = view.state.doc.toString();
@@ -95,6 +138,11 @@ const scriptLinter = linter(
                 }
             }
         });
+
+        // Nomes já apontados por `checkScript` (ex.: `fetch`, `setTimeout`) mantêm só a mensagem dele, mais clara.
+        const reported = diagnostics.map((item) => [item.from, item.to]);
+
+        diagnostics.push(...undefinedNames(view.state, code).filter((item) => !reported.some(([from, to]) => item.from < to! && item.to > from!)));
 
         return diagnostics;
     },

@@ -1,5 +1,5 @@
 import { Component, computed, inject, input } from '@angular/core';
-import type { HttpTimelineEntry } from '@shared/models';
+import type { ConsoleLevel, HttpTimelineEntry } from '@shared/models';
 import { MessageService } from 'primeng/api';
 import { TooltipModule } from 'primeng/tooltip';
 
@@ -17,10 +17,24 @@ const COLORS: Partial<Record<HttpTimelineEntry['kind'], string>> = {
     'response-header': 'var(--otto-method-get)'
 };
 
+/** Cores dos métodos do `console` nos scripts (AA nos dois temas). `log` usa a cor normal do texto. */
+const LEVEL_COLORS: Record<ConsoleLevel, string | null> = {
+    log: null,
+    info: 'var(--otto-method-other)',
+    warn: 'var(--otto-method-put)',
+    error: 'var(--otto-method-delete)',
+    debug: 'var(--otto-console-debug)'
+};
+
+/** Rótulo do nível, para leitores de tela e para o texto copiado. */
+const LEVEL_TAGS: Partial<Record<ConsoleLevel, string>> = { info: 'info', warn: 'warn', error: 'error', debug: 'debug' };
+
 interface ConsoleLine {
     prefix: string;
     text: string;
     color: string | null;
+    /** `warn`, `error`… (linhas do `console` dos scripts). */
+    tag: string | null;
     /** Começa um novo bloco (linha em branco antes), como no `curl -v`. */
     gap: boolean;
 }
@@ -42,7 +56,7 @@ const groupOf = (kind: HttpTimelineEntry['kind']): string => (kind === 'error' ?
                     class="m-0 overflow-auto whitespace-pre-wrap break-all rounded-md bg-surface-100 p-3 pr-10 font-mono text-xs leading-5 dark:bg-surface-900"
                     tabindex="0"
                     aria-label="Request console"
-                ><code>@for (line of lines(); track $index) {<span class="block" [class.mt-5]="line.gap" [style.color]="line.color">{{ line.prefix }} {{ line.text }}</span>}</code></pre>
+                ><code>@for (line of lines(); track $index) {<span class="block" [class.mt-5]="line.gap" [style.color]="line.color">{{ line.prefix }} @if (line.tag) {<span class="sr-only">{{ line.tag }}: </span>}{{ line.text }}</span>}</code></pre>
             </div>
         } @else {
             <p class="m-0 text-sm text-muted-color">The request was not sent, so there is no network activity to show.</p>
@@ -59,14 +73,15 @@ export class ResponseConsole {
         this.timeline().map((entry, index, all) => ({
             prefix: PREFIXES[entry.kind],
             text: entry.text,
-            color: COLORS[entry.kind] ?? null,
+            color: entry.level ? LEVEL_COLORS[entry.level] : (COLORS[entry.kind] ?? null),
+            tag: entry.level ? (LEVEL_TAGS[entry.level] ?? null) : null,
             gap: index > 0 && groupOf(all[index - 1]!.kind) !== groupOf(entry.kind)
         }))
     );
 
     protected async copy(): Promise<void> {
         const text = this.lines()
-            .map((line) => `${line.gap ? '\n' : ''}${line.prefix} ${line.text}`)
+            .map((line) => `${line.gap ? '\n' : ''}${line.prefix} ${line.tag ? `${line.tag}: ` : ''}${line.text}`)
             .join('\n');
 
         try {

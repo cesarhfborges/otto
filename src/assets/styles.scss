@@ -5,6 +5,9 @@
     font-size: 14px;
     color-scheme: light;
 
+    /* `console.debug` dos scripts no Console (slate-600: AA sobre surface-100). */
+    --otto-console-debug: #475569;
+
     /* Métodos HTTP: tons 700 do Tailwind (contraste AA sobre fundo claro). */
     --otto-method-get: #15803d;
     --otto-method-post: #1d4ed8;
@@ -26,6 +29,7 @@
 /* Tons 400 (contraste AA sobre as superfícies escuras). */
 :root.app-dark {
     color-scheme: dark;
+    --otto-console-debug: #94a3b8;
     --otto-method-get: #4ade80;
     --otto-method-post: #60a5fa;
     --otto-method-put: #fbbf24;

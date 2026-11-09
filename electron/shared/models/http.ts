@@ -82,7 +82,11 @@ export interface HttpResponse {
 export interface HttpTimelineEntry {
     kind: 'info' | 'request-header' | 'request-body' | 'response-header' | 'error';
     text: string;
+    /** Linhas dos scripts: o método do `console` usado (define a cor no Console). */
+    level?: ConsoleLevel;
 }
+
+export type ConsoleLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 
 export type HttpResult =
     | { ok: true; response: HttpResponse; timeline: HttpTimelineEntry[] }

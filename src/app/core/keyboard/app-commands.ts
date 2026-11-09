@@ -1,4 +1,6 @@
 import { DestroyRef, inject } from '@angular/core';
+import { copyLineDown } from '@codemirror/commands';
+import { EditorView } from '@codemirror/view';
 import type { CommandId } from '@shared/models';
 import { MessageService } from 'primeng/api';
 import { SettingsDialog } from '../../features/settings/settings-dialog.service';
@@ -10,7 +12,7 @@ import { SettingsState } from '../state/settings.state';
 import { isPinnedTab, TabsState } from '../state/tabs.state';
 import { UiState } from '../state/ui.state';
 import { ThemeService } from '../theme/theme.service';
-import { registerCommand } from './command-registry';
+import { registerCommand, type CommandContext } from './command-registry';
 import { KeybindingService } from './keybinding.service';
 
 /**
@@ -105,6 +107,16 @@ export function registerAppCommands(): void {
     registerCommand('collection.new', { run: () => ui.newCollectionDialog.set(true) });
     registerCommand('collection.import', { run: () => ui.importCollectionDialog.set(true) });
     registerCommand('collection.overview', { when: () => !!tabs.context(), run: () => tabs.open({ kind: 'collection', title: 'Overview', collectionId: tabs.context() }) });
+
+    // Editores de código (scripts, body…): duplica a linha (ou a seleção) para baixo. Campos de uma linha ficam de fora.
+    const focusedCodeEditor = ({ target }: CommandContext): EditorView | null => {
+        const dom = target?.closest<HTMLElement>('.cm-editor');
+        const view = dom ? EditorView.findFromDOM(dom) : null;
+
+        return view && !view.state.readOnly && view.contentDOM.getAttribute('aria-multiline') !== 'false' ? view : null;
+    };
+
+    registerCommand('editor.duplicateLine', { when: (context) => !!focusedCodeEditor(context), run: (context) => copyLineDown(focusedCodeEditor(context)!) });
     registerCommand('collection.security', { when: () => !!tabs.context(), run: () => scriptSecurity.openSecurity(tabs.context()!) });
 
     const focusSidebar = (filter: boolean) => () => {
