@@ -75,8 +75,8 @@ export const COMMANDS = [
     section('docs', 'Docs', 5),
     section('preRequest', 'Pre-request script', 6),
     section('postResponse', 'Post-response script', 7),
-    { id: 'request.formatBody', label: 'Format body (JSON / XML)', category: 'Request', scope: 'tab', defaults: ['Alt+Shift+F'] },
-    { id: 'script.format', label: 'Format script', category: 'Request', scope: 'focus', defaults: ['Alt+Shift+F'] },
+    { id: 'request.formatBody', label: 'Format body (JSON / XML)', category: 'Request', scope: 'tab', defaults: ['Mod+Alt+Shift+L'] },
+    { id: 'script.format', label: 'Format script', category: 'Request', scope: 'focus', defaults: ['Mod+Alt+Shift+L'] },
     { id: 'script.toggleComment', label: 'Toggle line comment in script', category: 'Request', scope: 'focus', defaults: ['Mod+/'] },
     { id: 'script.toggleBlockComment', label: 'Toggle block comment in script', category: 'Request', scope: 'focus', defaults: ['Alt+Shift+A'] },
 

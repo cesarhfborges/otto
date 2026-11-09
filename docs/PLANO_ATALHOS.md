@@ -98,7 +98,7 @@ Legenda: **Existe** = já funciona hoje (será migrado); **Novo** = comando novo
 | `request.section.headers` | `Alt+3` | `activeTab == request` | Novo |
 | `request.section.auth` | `Alt+4` | `activeTab == request` | Novo |
 | `request.section.docs` | `Alt+5` | `activeTab == request` | Novo |
-| `request.formatBody` — Formatar corpo (JSON/XML) | `Shift+Alt+F` | `activeTab == request && bodyAllowed` | Novo (usa `body-format.ts`) |
+| `request.formatBody` — Formatar corpo (JSON/XML) | `Mod+Alt+Shift+L` | `activeTab == request && bodyAllowed` | Novo (usa `body-format.ts`) |
 
 > No macOS `Alt+número` digita caracteres (`¡`, `™`…). Como a tecla é lida por `event.code` (ver §5.2), o atalho continua funcionando, mas no macOS o padrão sugerido é `Ctrl+1…5` (o `Mod` lá é `Cmd`, então `Ctrl` fica livre).
 
