@@ -15,12 +15,13 @@ import { CollectionsState } from '../../core/state/collections.state';
 import { ConfirmState } from '../../core/state/confirm.state';
 import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
+import { SecurityIcon, securityIconOf, securityModeIcon } from '../../shared/security-icon';
 import { ScriptChangesDialog } from './script-changes-dialog';
 
-const MODES: ReadonlyArray<{ value: ScriptMode; label: string; description: string }> = [
-    { value: 'trusted', label: 'Trusted', description: 'Scripts run without asking while they stay the same as when you trusted them. Any change (a Git pull, another editor) asks again.' },
-    { value: 'ask', label: 'Ask before running', description: 'Otto asks once per session before running any script of this collection.' },
-    { value: 'disabled', label: 'Scripts disabled', description: 'No script runs: requests are sent without them, and the console says they were skipped.' }
+const MODES: ReadonlyArray<{ value: ScriptMode; label: string; description: string; icon: ReturnType<typeof securityModeIcon> }> = [
+    { value: 'trusted', label: 'Trusted', description: 'Scripts run without asking while they stay the same as when you trusted them. Any change (a Git pull, another editor) asks again.', icon: securityModeIcon('trusted') },
+    { value: 'ask', label: 'Ask before running', description: 'Otto asks once per session before running any script of this collection.', icon: securityModeIcon('ask') },
+    { value: 'disabled', label: 'Scripts disabled', description: 'No script runs: requests are sent without them, and the console says they were skipped.', icon: securityModeIcon('disabled') }
 ];
 
 const PERMISSION_HELP: Record<ScriptPermission, string> = {
@@ -51,7 +52,7 @@ const keyOf = (entry: Pick<ScriptInventoryEntry, 'location' | 'path' | 'phase'>)
  */
 @Component({
     selector: 'app-collection-security',
-    imports: [DatePipe, FormsModule, ButtonModule, CheckboxModule, MessageModule, RadioButtonModule, ScriptChangesDialog],
+    imports: [DatePipe, FormsModule, ButtonModule, CheckboxModule, MessageModule, RadioButtonModule, ScriptChangesDialog, SecurityIcon],
     template: `
         <div class="flex max-w-5xl flex-col gap-6 pb-6">
             <section aria-labelledby="security-mode-heading" class="flex flex-col gap-3">
@@ -76,7 +77,10 @@ const keyOf = (entry: Pick<ScriptInventoryEntry, 'location' | 'path' | 'phase'>)
                                 [ariaLabelledBy]="'script-mode-' + option.value + '-label'"
                             />
                             <span class="flex flex-col gap-1">
-                                <span [id]="'script-mode-' + option.value + '-label'" class="text-sm font-medium">{{ option.label }}</span>
+                                <span [id]="'script-mode-' + option.value + '-label'" class="flex items-center gap-1.5 text-sm font-medium">
+                                    <app-security-icon class="size-4" [class]="option.icon.tone" [kind]="option.icon.kind" />
+                                    {{ option.label }}
+                                </span>
                                 <span class="text-xs text-muted-color">{{ option.description }}</span>
                             </span>
                         </label>
@@ -84,7 +88,7 @@ const keyOf = (entry: Pick<ScriptInventoryEntry, 'location' | 'path' | 'phase'>)
                 </div>
 
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3 text-sm" [class]="statusTone()" role="status">
-                    <i class="pi" [class]="statusIcon()" aria-hidden="true"></i>
+                    <app-security-icon class="size-4" [kind]="statusIcon()" />
                     <span class="min-w-0 flex-1">{{ statusText() }}</span>
                     @switch (status()) {
                         @case ('changed') {
@@ -339,19 +343,9 @@ export class CollectionSecurity {
         }
     });
     protected readonly statusIcon = computed(() => {
-        switch (this.status()) {
-            case 'trusted':
-                return 'pi-shield';
-            case 'changed':
-                return 'pi-exclamation-triangle';
-            case 'session':
-                return 'pi-clock';
-            case 'refused':
-            case 'disabled':
-                return 'pi-ban';
-            default:
-                return 'pi-question-circle';
-        }
+        const status = this.status();
+
+        return securityIconOf(status === 'none' ? 'ask' : status).kind;
     });
     protected readonly statusTone = computed(() => {
         switch (this.status()) {

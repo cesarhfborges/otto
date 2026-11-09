@@ -7,6 +7,7 @@ import { ScriptSecurityState } from '../../core/scripting/script-security.state'
 import { CollectionsState } from '../../core/state/collections.state';
 import { TemplateScope } from '../../core/templating/template-scope';
 import { ScriptEditor } from '../../shared/script-editor/script-editor';
+import { SecurityIcon, securityModeIcon } from '../../shared/security-icon';
 
 /**
  * Scripts executados em todas as requisições da coleção (`otto.yaml`) ou de uma pasta
@@ -14,7 +15,7 @@ import { ScriptEditor } from '../../shared/script-editor/script-editor';
  */
 @Component({
     selector: 'app-scope-scripts',
-    imports: [ButtonModule, MessageModule, ScriptEditor],
+    imports: [ButtonModule, MessageModule, ScriptEditor, SecurityIcon],
     providers: [TemplateScope],
     template: `
         <p id="scope-scripts-help" class="m-0 mb-4 max-w-3xl text-sm text-muted-color">
@@ -22,7 +23,7 @@ import { ScriptEditor } from '../../shared/script-editor/script-editor';
             <code>otto.request.setHeader(…)</code> and others; an error stops the request. Their output appears in the Console tab of the response, marked with where they came from.
         </p>
         <div class="mb-4 flex max-w-3xl flex-wrap items-center gap-2 text-sm" role="note">
-            <i class="pi text-xs" [class]="securityIcon()" aria-hidden="true"></i>
+            <app-security-icon class="size-4" [class]="securityIcon().tone" [kind]="securityIcon().kind" />
             <span>{{ securityText() }}</span>
             <p-button label="Security settings" icon="pi pi-arrow-right" iconPos="right" size="small" [text]="true" (onClick)="security.openSecurity(collectionId())" />
         </div>
@@ -81,16 +82,7 @@ export class ScopeScripts {
     private readonly collections = inject(CollectionsState);
     protected readonly security = inject(ScriptSecurityState);
 
-    protected readonly securityIcon = computed(() => {
-        switch (this.security.policy(this.collectionId())?.mode) {
-            case 'trusted':
-                return 'pi-shield';
-            case 'disabled':
-                return 'pi-ban';
-            default:
-                return 'pi-question-circle';
-        }
-    });
+    protected readonly securityIcon = computed(() => securityModeIcon(this.security.policy(this.collectionId())?.mode ?? 'ask'));
     protected readonly securityText = computed(() => {
         switch (this.security.policy(this.collectionId())?.mode) {
             case 'trusted':

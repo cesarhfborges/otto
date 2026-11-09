@@ -7,22 +7,20 @@ import { ScriptSecurityState, type ScriptSecurityStatus } from '../core/scriptin
 import { CollectionsState } from '../core/state/collections.state';
 import { ConfirmState } from '../core/state/confirm.state';
 import { TabsState } from '../core/state/tabs.state';
+import { SecurityIcon, securityIconOf } from '../shared/security-icon';
 
 interface StatusView {
-    icon: string;
-    /** Classes de cor (AA nos dois temas). */
-    tone: string;
     text: string;
     describe: (collection: string) => string;
 }
 
 const VIEWS: Record<Exclude<ScriptSecurityStatus, 'none'>, StatusView> = {
-    trusted: { icon: 'pi-shield', tone: 'text-green-700 dark:text-green-400', text: 'Scripts: trusted', describe: (name) => `Scripts of ${name} are trusted` },
-    changed: { icon: 'pi-exclamation-triangle', tone: 'text-amber-800 dark:text-amber-300', text: 'Scripts changed', describe: (name) => `Scripts of ${name} changed since they were trusted: review them` },
-    ask: { icon: 'pi-question-circle', tone: 'text-amber-800 dark:text-amber-300', text: 'Scripts: ask', describe: (name) => `Otto asks before running scripts of ${name}` },
-    session: { icon: 'pi-clock', tone: 'text-blue-700 dark:text-blue-300', text: 'Scripts: allowed until restart', describe: (name) => `Scripts of ${name} are allowed until Otto restarts` },
-    refused: { icon: 'pi-ban', tone: 'text-red-700 dark:text-red-400', text: 'Scripts: off', describe: (name) => `Scripts of ${name} were not allowed in this session` },
-    disabled: { icon: 'pi-ban', tone: 'text-red-700 dark:text-red-400', text: 'Scripts: off', describe: (name) => `Scripts of ${name} are disabled` }
+    trusted: { text: 'Scripts: trusted', describe: (name) => `Scripts of ${name} are trusted` },
+    changed: { text: 'Scripts changed', describe: (name) => `Scripts of ${name} changed since they were trusted: review them` },
+    ask: { text: 'Scripts: ask', describe: (name) => `Otto asks before running scripts of ${name}` },
+    session: { text: 'Scripts: allowed until restart', describe: (name) => `Scripts of ${name} are allowed until Otto restarts` },
+    refused: { text: 'Scripts: off', describe: (name) => `Scripts of ${name} were not allowed in this session` },
+    disabled: { text: 'Scripts: off', describe: (name) => `Scripts of ${name} are disabled` }
 };
 
 const PHASES = { preRequest: 'pre-request', postResponse: 'post-response' } as const;
@@ -34,7 +32,7 @@ const PHASES = { preRequest: 'pre-request', postResponse: 'post-response' } as c
  */
 @Component({
     selector: 'app-script-security-indicator',
-    imports: [TieredMenuModule, TooltipModule],
+    imports: [TieredMenuModule, TooltipModule, SecurityIcon],
     template: `
         @if (view(); as current) {
             <button
@@ -54,7 +52,7 @@ const PHASES = { preRequest: 'pre-request', postResponse: 'post-response' } as c
                     @if (running()) {
                         <i class="pi pi-spin pi-spinner text-xs"></i>
                     } @else {
-                        <i class="pi text-xs" [class]="current.icon + ' ' + current.tone"></i>
+                        <app-security-icon class="size-4" [class]="icon().tone" [kind]="icon().kind" />
                     }
                     @if (problem()) {
                         <span class="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-red-600 dark:bg-red-400"></span>
@@ -87,6 +85,11 @@ export class ScriptSecurityIndicator {
         const status = this.status();
 
         return status === 'none' ? null : VIEWS[status];
+    });
+    protected readonly icon = computed(() => {
+        const status = this.status();
+
+        return securityIconOf(status === 'none' ? 'ask' : status);
     });
     protected readonly running = computed(() => {
         const running = this.security.running();
