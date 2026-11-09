@@ -15,6 +15,7 @@ import { KeybindingService } from '@/app/core/keyboard/keybinding.service';
 import type { ScriptPhase } from '@/app/core/scripting/script-runner';
 import { RequestDraftsState } from '@/app/core/state/request-drafts.state';
 import { ResponsesState } from '@/app/core/state/responses.state';
+import { CollectionsState } from '@/app/core/state/collections.state';
 import { TemplateContextService } from '@/app/core/templating/template-context.service';
 import { TemplateScope } from '@/app/core/templating/template-scope';
 import { templateCompletionData } from '../template-editor/completion-data';
@@ -169,6 +170,7 @@ export class ScriptEditor {
     });
     private readonly scope = inject(TemplateScope, { optional: true });
     private readonly templates = inject(TemplateContextService);
+    private readonly collections = inject(CollectionsState);
     private readonly responses = inject(ResponsesState);
     private readonly drafts = inject(RequestDraftsState);
     /** Mesmos dados do autocomplete dos templates: variáveis, requisições, última resposta. */
@@ -261,7 +263,9 @@ export class ScriptEditor {
     }
 
     private dataExtension() {
-        return scriptCompletionData.of({ phase: this.phase(), data: this.completion() });
+        const collectionId = this.scope?.collectionId() ?? null;
+
+        return scriptCompletionData.of({ phase: this.phase(), data: this.completion(), cookies: () => [...new Set((this.collections.find(collectionId)?.manifest.cookies ?? []).map((cookie) => cookie.name))] });
     }
 
     private attributesExtension() {
