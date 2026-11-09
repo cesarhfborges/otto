@@ -107,7 +107,7 @@ function readExpanded(): ReadonlySet<string> {
                         <span class="group flex min-w-0 flex-1 items-center gap-2.5 text-sm py-1 px-2" [attr.data-node-key]="node.key">
                             @switch (node.data.kind) {
                                 @case ('folder') {
-                                    <i class="pi pi-folder text-xs text-muted-color" aria-hidden="true"></i>
+                                    <i class="pi text-xs text-muted-color" [class]="node.expanded ? 'pi-folder-open' : 'pi-folder'" aria-hidden="true"></i>
                                 }
                                 @case ('request') {
                                     <!--                                <i class="pi pi-envelope text-xs text-muted-color" aria-hidden="true"></i>-->
