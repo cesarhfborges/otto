@@ -11,7 +11,8 @@ import { RequestHistoryState } from './request-history.state';
 import { TemplateContextService, type ResponseAccess } from '../templating/template-context.service';
 import { ScriptRunner } from '../scripting/script-runner';
 
-export type ResponseEntry = { status: 'sending'; requestId: string } | { status: 'done'; result: HttpResult; receivedAt: number };
+/** `startedAt` (ms, `Date.now()`) alimenta o contador de tempo exibido durante o envio. */
+export type ResponseEntry = { status: 'sending'; requestId: string; startedAt: number } | { status: 'done'; result: HttpResult; receivedAt: number };
 
 /** Respostas guardadas em memória (corpos podem ser grandes); as mais antigas saem primeiro. */
 const MAX_KEPT_RESPONSES = 20;
@@ -124,7 +125,7 @@ export class ResponsesState implements ResponseAccess {
             request = { ...request, headers: { ...request.headers, Cookie: cookieHeader } };
         }
 
-        this.set(key, { status: 'sending', requestId: request.id });
+        this.set(key, { status: 'sending', requestId: request.id, startedAt: Date.now() });
 
         let result: HttpResult;
 

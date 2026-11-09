@@ -9,6 +9,9 @@ const COLORS: Partial<Record<HttpMethod, string>> = {
     DELETE: 'var(--otto-method-delete)'
 };
 
+/** Cor do método (a mesma do rótulo), para usar fora do badge (ex.: barra de distribuição por método). */
+export const methodColor = (method: HttpMethod | null): string => (method ? (COLORS[method] ?? 'var(--otto-method-other)') : 'var(--p-text-muted-color)');
+
 /** Abreviações para a árvore (largura fixa). */
 const COMPACT_LABELS: Partial<Record<HttpMethod, string>> = { DELETE: 'DEL', OPTIONS: 'OPT', CONNECT: 'CONN' };
 
@@ -38,6 +41,6 @@ export class MethodBadge {
     protected readonly color = computed(() => {
         const method = this.method();
 
-        return method ? (COLORS[method] ?? 'var(--otto-method-other)') : 'var(--p-text-muted-color)';
+        return methodColor(method);
     });
 }

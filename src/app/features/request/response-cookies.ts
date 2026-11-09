@@ -58,7 +58,7 @@ export function responseCookies(response: HttpResponse, timeline: readonly HttpT
     template: `
         @if (showSent()) {
             <section aria-labelledby="response-cookies-sent" class="mb-6">
-                <h2 id="response-cookies-sent" class="m-0 mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-color">
+                <h2 id="response-cookies-sent" class="otto-section-label mb-1 flex items-center gap-1.5">
                     <i class="pi pi-arrow-up-right text-xs" aria-hidden="true"></i>
                     Sent <span class="font-normal">({{ sent().length }})</span>
                 </h2>
@@ -89,7 +89,7 @@ export function responseCookies(response: HttpResponse, timeline: readonly HttpT
         }
 
         <section aria-labelledby="response-cookies-received">
-            <h2 id="response-cookies-received" class="m-0 mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-color">
+            <h2 id="response-cookies-received" class="otto-section-label mb-1 flex items-center gap-1.5">
                 <i class="pi pi-arrow-down-left text-xs" aria-hidden="true"></i>
                 Received <span class="font-normal">({{ cookies().length }})</span>
             </h2>

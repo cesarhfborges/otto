@@ -118,6 +118,69 @@ body {
     }
 }
 
+/* Título pequeno de seção (Quick Actions, Collections, Requests by method, Sent/Received...): um único estilo. */
+.otto-section-label {
+    margin: 0;
+    color: var(--p-text-muted-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    line-height: 1rem;
+    text-transform: uppercase;
+}
+
+/* Ícone pequeno em quadrado suave da cor primária (cartões de números). */
+.otto-stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--p-primary-color) 10%, transparent);
+    color: var(--p-primary-color);
+}
+
+/* Entrada suave de conteúdo novo (ex.: a resposta ao chegar): só opacidade e 4px, barato de compor. */
+@keyframes otto-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+}
+
+.otto-fade-in {
+    animation: otto-fade-in 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .otto-fade-in {
+        animation: none;
+    }
+}
+
+/*
+ * Puxador dos divisores (p-splitter): aparece no hover do divisor, durante o arraste e com foco de teclado;
+ * em repouso a linha do divisor basta e a barrinha não fica no meio da tela.
+ */
+.p-splitter-gutter-handle {
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.p-splitter-gutter:hover > .p-splitter-gutter-handle,
+.p-splitter-resizing > .p-splitter-gutter > .p-splitter-gutter-handle,
+.p-splitter-gutter-handle:focus-visible {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .p-splitter-gutter-handle {
+        transition: none;
+    }
+}
+
 /* Tecla de atalho (mesmo visual da paleta de comandos e das preferências). */
 .otto-kbd {
     display: inline-block;

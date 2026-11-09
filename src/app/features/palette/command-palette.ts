@@ -27,7 +27,55 @@ const MAX_PER_GROUP = 40;
 /** Comandos que dependem do foco ou que não fazem sentido a partir da paleta. */
 const HIDDEN_COMMANDS = new Set<string>(['app.commandPalette', 'form.submit', 'request.cancel']);
 
-const fold = (text: string): string => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+/** Ícone de cada comando na paleta (leitura mais rápida que um raio igual para todos). */
+const COMMAND_ICONS: Partial<Record<CommandId, string>> = {
+    'app.preferences': 'pi pi-cog',
+    'app.shortcuts': 'pi pi-question-circle',
+    'app.keyboardShortcutsSettings': 'pi pi-sliders-h',
+    'theme.cycle': 'pi pi-sun',
+    'view.toggleSidebar': 'pi pi-bars',
+    'view.toggleRequestLayout': 'pi pi-table',
+    'tabs.close': 'pi pi-times',
+    'tabs.closeOthers': 'pi pi-times-circle',
+    'tabs.closeAll': 'pi pi-times-circle',
+    'tabs.reopenClosed': 'pi pi-replay',
+    'tabs.next': 'pi pi-arrow-right',
+    'tabs.previous': 'pi pi-arrow-left',
+    'tabs.goToLast': 'pi pi-step-forward',
+    'tabs.moveLeft': 'pi pi-angle-double-left',
+    'tabs.moveRight': 'pi pi-angle-double-right',
+    'request.send': 'pi pi-send',
+    'request.save': 'pi pi-save',
+    'request.saveAll': 'pi pi-save',
+    'request.focusUrl': 'pi pi-link',
+    'request.formatBody': 'pi pi-align-left',
+    'script.format': 'pi pi-align-left',
+    'script.toggleComment': 'pi pi-code',
+    'script.toggleBlockComment': 'pi pi-code',
+    'collection.newRequest': 'pi pi-file-plus',
+    'collection.newFolder': 'pi pi-folder-plus',
+    'collection.new': 'pi pi-plus',
+    'collection.import': 'pi pi-download',
+    'collection.overview': 'pi pi-info-circle',
+    'collection.security': 'pi pi-shield',
+    'sidebar.focus': 'pi pi-sitemap',
+    'sidebar.filter': 'pi pi-filter',
+    'sidebar.rename': 'pi pi-pencil',
+    'sidebar.duplicate': 'pi pi-copy',
+    'sidebar.delete': 'pi pi-trash',
+    'environment.select': 'pi pi-globe',
+    'environment.manage': 'pi pi-globe',
+    'workspace.manage': 'pi pi-th-large'
+};
+
+/** Ícone do comando; os "Go to tab N" usam o das abas e o resto, o raio genérico. */
+const commandIcon = (id: CommandId): string => COMMAND_ICONS[id] ?? (id.startsWith('tabs.') ? 'pi pi-clone' : 'pi pi-bolt');
+
+const fold = (text: string): string =>
+    text
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase();
 
 /** Todas as palavras precisam aparecer; começar pelo nome pesa mais. `null` = não combina. */
 function score(item: PaletteItem, words: string[]): number | null {
@@ -215,7 +263,7 @@ export class CommandPalette {
             group: 'Commands',
             label: command.label,
             detail: command.category,
-            icon: 'pi pi-bolt',
+            icon: commandIcon(command.id),
             method: null,
             keys: this.keyboard.text(command.id),
             run: () => this.keyboard.run(command.id)

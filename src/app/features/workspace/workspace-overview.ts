@@ -32,16 +32,16 @@ import { NameDialog, type NameRequest } from '../../shared/name-dialog';
             <dl class="overview-summary m-0 flex gap-8" aria-label="Workspace summary">
                 <div class="overview-stat flex flex-col-reverse">
                     <dt class="text-xs text-muted-color">Collections</dt>
-                    <dd class="m-0 text-2xl font-semibold">{{ collections.opened().length }}</dd>
+                    <dd class="m-0 text-2xl font-semibold tabular-nums">{{ collections.opened().length }}</dd>
                 </div>
                 <div class="overview-stat flex flex-col-reverse">
                     <dt class="text-xs text-muted-color">Environments</dt>
-                    <dd class="m-0 text-2xl font-semibold">{{ environments.list(null).length }}</dd>
+                    <dd class="m-0 text-2xl font-semibold tabular-nums">{{ environments.list(null).length }}</dd>
                 </div>
             </dl>
 
             <section aria-labelledby="quick-actions-heading" class="flex flex-col gap-2">
-                <h2 id="quick-actions-heading" class="overview-actions-heading m-0 text-sm font-medium text-muted-color">Quick Actions</h2>
+                <h2 id="quick-actions-heading" class="overview-actions-heading otto-section-label">Quick Actions</h2>
                 <div class="flex flex-wrap gap-2">
                     <p-button label="Create Collection" icon="pi pi-plus" size="small" severity="secondary" [outlined]="true" (onClick)="ui.newCollectionDialog.set(true)" />
                     <p-button label="Import Collection" icon="pi pi-download" size="small" severity="secondary" [outlined]="true" (onClick)="ui.importCollectionDialog.set(true)" />
@@ -56,7 +56,7 @@ import { NameDialog, type NameRequest } from '../../shared/name-dialog';
             área útil e o painel da aba passa a rolar tudo. O pt-1 evita cortar o anel de foco da 1ª linha.
         -->
         <section aria-labelledby="collections-list-heading" class="overview-collections mt-6 flex min-h-48 flex-1 flex-col">
-            <h2 id="collections-list-heading" class="m-0 shrink-0 border-b px-4 pb-2 text-sm font-medium text-muted-color transition-colors" [class]="scrolled() ? 'border-surface-200 dark:border-surface-700' : 'border-transparent'">Collections</h2>
+            <h2 id="collections-list-heading" class="otto-section-label shrink-0 border-b px-4 pb-2 transition-colors" [class]="scrolled() ? 'border-surface-200 dark:border-surface-700' : 'border-transparent'">Collections</h2>
             @if (cards().length) {
                 <div class="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-4" (scroll)="onListScroll($event)">
                     <ul class="m-0 grid max-w-5xl list-none grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3 p-0 pt-1">

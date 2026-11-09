@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, linkedSignal, output } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -21,13 +21,17 @@ const STATUS_COLORS = ['var(--otto-method-other)', 'var(--otto-method-get)', 'va
     template: `
         @switch (entry().status) {
             @case ('sending') {
-                <div class="flex h-full flex-col items-center justify-center gap-4" role="status">
+                <div class="flex h-full flex-col items-center justify-center gap-4">
                     <p-progress-spinner strokeWidth="4" [style]="{ width: '2.5rem', height: '2.5rem' }" ariaLabel="Sending request" />
-                    <p class="m-0 text-sm text-muted-color">Sending request…</p>
+                    <p class="m-0 flex items-baseline gap-2 text-sm text-muted-color">
+                        <span role="status">Sending request…</span>
+                        <!-- Fora da região viva: um contador que muda 10x por segundo não deve ser anunciado. -->
+                        <span class="min-w-12 font-medium tabular-nums text-color" aria-hidden="true">{{ duration(elapsedMs()) }}</span>
+                    </p>
                 </div>
             }
             @case ('done') {
-                <div class="flex h-full min-h-0 flex-col">
+                <div class="otto-fade-in flex h-full min-h-0 flex-col">
                     <!-- Cada item é uma "tag" com a mesma caixa (altura, borda, raio, espaçamento); só a de status troca o fundo pela cor da faixa. -->
                     <div class="flex shrink-0 items-center gap-2 border-b border-surface-200 px-3 py-2 dark:border-surface-700">
                         <dl class="m-0 flex min-w-0 flex-1 flex-wrap items-center gap-2 text-xs" aria-label="Response summary">
@@ -81,17 +85,17 @@ const STATUS_COLORS = ['var(--otto-method-other)', 'var(--otto-method-get)', 'va
                             @if (response(); as res) {
                                 <p-tab value="body">Body</p-tab>
                                 <p-tab value="headers"
-                                    >Headers <span class="text-xs text-muted-color">({{ headerCount() }})</span></p-tab
+                                    >Headers <span class="text-xs tabular-nums text-muted-color">({{ headerCount() }})</span></p-tab
                                 >
                                 <p-tab value="cookies"
-                                    >Cookies <span class="text-xs text-muted-color">({{ cookieCount() }})</span></p-tab
+                                    >Cookies <span class="text-xs tabular-nums text-muted-color">({{ cookieCount() }})</span></p-tab
                                 >
                                 <p-tab value="timings">Timings</p-tab>
                             } @else {
                                 <p-tab value="body">Preview</p-tab>
                             }
                             <p-tab value="console"
-                                >Console <span class="text-xs text-muted-color">({{ timeline().length }})</span></p-tab
+                                >Console <span class="text-xs tabular-nums text-muted-color">({{ timeline().length }})</span></p-tab
                             >
                         </p-tablist>
                         <p-tabpanels class="flex min-h-0 flex-1 flex-col overflow-auto">
@@ -154,6 +158,29 @@ const STATUS_COLORS = ['var(--otto-method-other)', 'var(--otto-method-get)', 'va
 export class ResponsePanel {
     readonly entry = input.required<ResponseEntry>();
     private readonly settings = inject(SettingsState);
+    /** Relógio do contador de envio: só anda (a cada 100 ms) enquanto a requisição está em andamento. */
+    private readonly now = signal(Date.now());
+    protected readonly elapsedMs = computed(() => {
+        const entry = this.entry();
+
+        return entry.status === 'sending' ? Math.max(0, this.now() - entry.startedAt) : 0;
+    });
+
+    constructor() {
+        let timer: ReturnType<typeof setInterval> | undefined;
+
+        effect(() => {
+            clearInterval(timer);
+            timer = undefined;
+
+            if (this.entry().status === 'sending') {
+                this.now.set(Date.now());
+                timer = setInterval(() => this.now.set(Date.now()), 100);
+            }
+        });
+
+        inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    }
     /** Pedido para guardar a resposta como exemplo do mock server. */
     readonly saveExample = output<{ status: number; headers: Array<[string, string]>; body: string; name: string }>();
     protected readonly timeMs = computed(() => this.response()?.timeMs ?? this.failure()?.timeMs ?? 0);

@@ -47,7 +47,7 @@ export function requestHeaders(timeline: readonly HttpTimelineEntry[]): Array<[s
     template: `
         @if (showSent()) {
             <section aria-labelledby="response-headers-sent" class="mb-6">
-                <h2 id="response-headers-sent" class="m-0 mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-color">
+                <h2 id="response-headers-sent" class="otto-section-label mb-1 flex items-center gap-1.5">
                     <i class="pi pi-arrow-up-right text-xs" aria-hidden="true"></i>
                     Sent <span class="font-normal">({{ sent().length }})</span>
                 </h2>
@@ -60,7 +60,7 @@ export function requestHeaders(timeline: readonly HttpTimelineEntry[]): Array<[s
         }
 
         <section aria-labelledby="response-headers-received">
-            <h2 id="response-headers-received" class="m-0 mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-color">
+            <h2 id="response-headers-received" class="otto-section-label mb-1 flex items-center gap-1.5">
                 <i class="pi pi-arrow-down-left text-xs" aria-hidden="true"></i>
                 Received <span class="font-normal">({{ received().length }})</span>
             </h2>

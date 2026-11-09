@@ -10,7 +10,7 @@ import { EnvironmentsState } from '../../core/state/environments.state';
 import { OpenApiState } from '../../core/state/openapi.state';
 import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
-import { MethodBadge } from '../../shared/method-badge';
+import { MethodBadge, methodColor } from '../../shared/method-badge';
 import { OpenApiPanel } from '../openapi/openapi-panel';
 import { CollectionCookies } from './collection-cookies';
 import { CollectionKeyValues } from './collection-key-values';
@@ -84,7 +84,8 @@ const authLabel = (type: string): string => (type === 'none' ? 'None' : type ===
                     <p-tab value="security"
                         >Security
                         @if (securityChanges()) {
-                            <span class="ml-1 rounded-full bg-amber-100 px-1.5 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-300">{{ securityChanges() }}</span><span class="sr-only">script(s) changed since trusted</span>
+                            <span class="ml-1 rounded-full bg-amber-100 px-1.5 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-300">{{ securityChanges() }}</span
+                            ><span class="sr-only">script(s) changed since trusted</span>
                         }
                     </p-tab>
                     <p-tab value="cookies"
@@ -112,7 +113,7 @@ const authLabel = (type: string): string => (type === 'none' ? 'None' : type ===
                             <section aria-labelledby="collection-info-heading" class="flex flex-col gap-4">
                                 <h2 id="collection-info-heading" class="sr-only">Collection information</h2>
                                 <div class="rounded-md border border-surface-200 p-3 dark:border-surface-700">
-                                    <p class="m-0 flex items-center gap-2 text-xs font-medium text-muted-color"><i class="pi pi-folder" aria-hidden="true"></i>Location</p>
+                                    <p class="otto-section-label flex items-center gap-2"><i class="pi pi-folder text-xs" aria-hidden="true"></i>Location</p>
                                     <p class="m-0 mt-1 flex items-center gap-2">
                                         <span class="min-w-0 break-all font-mono text-sm">{{ current.metadata.path }}</span>
                                         <button type="button" class="otto-icon-button !h-6 !w-6 shrink-0" aria-label="Copy location" pTooltip="Copy" (click)="copy(current.metadata.path)">
@@ -123,21 +124,30 @@ const authLabel = (type: string): string => (type === 'none' ? 'None' : type ===
 
                                 <dl class="m-0 grid grid-cols-2 gap-3 sm:grid-cols-4">
                                     @for (card of cards(); track card.label) {
-                                        <div class="flex flex-col-reverse rounded-md border border-surface-200 p-3 dark:border-surface-700">
-                                            <dt class="flex items-center gap-2 text-xs font-medium text-muted-color"><i [class]="card.icon" aria-hidden="true"></i>{{ card.label }}</dt>
-                                            <dd class="m-0 text-2xl font-semibold">{{ card.value }}</dd>
+                                        <!-- dt/dd filhos diretos do grupo (regra do <dl>); o ícone vai no dt, posicionado à esquerda do cartão. -->
+                                        <div class="relative flex min-h-[3.75rem] flex-col-reverse justify-center rounded-md border border-surface-200 py-3 pl-[3.75rem] pr-3 dark:border-surface-700">
+                                            <dt class="truncate text-xs font-medium text-muted-color">
+                                                <span class="otto-stat-icon absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true"><i [class]="card.icon"></i></span>{{ card.label }}
+                                            </dt>
+                                            <dd class="m-0 text-2xl font-semibold leading-tight tabular-nums">{{ card.value }}</dd>
                                         </div>
                                     }
                                 </dl>
 
                                 <div class="rounded-md border border-surface-200 p-3 dark:border-surface-700">
-                                    <h3 class="m-0 mb-2 text-xs font-medium text-muted-color">Requests by method</h3>
+                                    <h3 class="otto-section-label mb-2">Requests by method</h3>
                                     @if (methods().length) {
+                                        <!-- Distribuição por método (decorativa: os números estão na lista abaixo). -->
+                                        <div class="mb-3 flex h-1.5 overflow-hidden rounded-full bg-surface-100 dark:bg-surface-800" aria-hidden="true">
+                                            @for (entry of methods(); track entry.method) {
+                                                <span class="h-full" [style.width.%]="(entry.count / treeStats().requests) * 100" [style.background-color]="color(entry.method)"></span>
+                                            }
+                                        </div>
                                         <ul class="m-0 flex list-none flex-wrap gap-3 p-0">
                                             @for (entry of methods(); track entry.method) {
                                                 <li class="flex items-center gap-2 rounded-md bg-surface-100 px-2 py-1 text-sm dark:bg-surface-800">
                                                     <app-method-badge [method]="entry.method" [compact]="true" />
-                                                    <span class="font-semibold">{{ entry.count }}</span>
+                                                    <span class="font-semibold tabular-nums">{{ entry.count }}</span>
                                                 </li>
                                             }
                                         </ul>
@@ -149,11 +159,12 @@ const authLabel = (type: string): string => (type === 'none' ? 'None' : type ===
                                     }
                                 </div>
 
-                                <dl class="m-0 grid overflow-hidden rounded-md border border-surface-200 sm:grid-cols-2 dark:border-surface-700">
+                                <!-- Pares rótulo/valor sem bordas internas (antes parecia uma planilha); só a moldura e o espaçamento. -->
+                                <dl class="m-0 grid gap-x-8 gap-y-4 rounded-md border border-surface-200 p-4 sm:grid-cols-2 dark:border-surface-700">
                                     @for (detail of details(); track detail.label) {
-                                        <div class="border-b border-surface-200 p-3 sm:odd:border-r dark:border-surface-700">
-                                            <dt class="text-xs font-semibold uppercase tracking-wide text-muted-color">{{ detail.label }}</dt>
-                                            <dd class="m-0 mt-1 flex items-center gap-2 text-sm">
+                                        <div class="min-w-0">
+                                            <dt class="otto-section-label">{{ detail.label }}</dt>
+                                            <dd class="m-0 mt-1 flex min-h-7 items-center gap-2 break-all text-sm">
                                                 {{ detail.value }}
                                                 @if (detail.action) {
                                                     <p-button [label]="detail.action" size="small" [text]="true" (onClick)="section.set(detail.target!)" />
@@ -248,6 +259,7 @@ export class CollectionOverview {
     protected readonly variableExample = '{{$.name}}';
     protected readonly collection = computed(() => this.collections.find(this.collectionId()));
     protected readonly treeStats = computed(() => stats(this.collection()?.tree.children ?? []));
+    protected readonly color = methodColor;
     protected readonly methods = computed(() => [...this.treeStats().methods].map(([method, count]) => ({ method, count })));
     protected readonly mockRunning = computed(() => !!this.mocks.find(this.collectionId()));
     private readonly security = inject(ScriptSecurityState);

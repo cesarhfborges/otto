@@ -96,7 +96,27 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
                                         <input pInputText formControlName="key" class="w-full min-w-0 font-mono !text-sm" pSize="small" placeholder="baseUrl" autocomplete="off" spellcheck="false" [attr.aria-label]="'Variable ' + (i + 1) + ' name'" />
                                     </td>
                                     <td class="border-b border-surface-100 py-1 pr-2 dark:border-surface-800">
-                                        <app-otto-input formControlName="value" class="w-full min-w-0 !text-sm" size="small" [type]="row.controls.secret.value ? 'password' : 'text'" [ariaLabel]="'Variable ' + (i + 1) + ' value'" />
+                                        <div class="flex items-center gap-1">
+                                            <app-otto-input
+                                                formControlName="value"
+                                                class="w-full min-w-0 !text-sm"
+                                                size="small"
+                                                [type]="row.controls.secret.value && !revealed().has(row) ? 'password' : 'text'"
+                                                [ariaLabel]="'Variable ' + (i + 1) + ' value'"
+                                            />
+                                            @if (row.controls.secret.value) {
+                                                <!-- Mostrar/ocultar só nesta tela (o valor continua secreto e cifrado). -->
+                                                <button
+                                                    type="button"
+                                                    class="otto-icon-button shrink-0"
+                                                    [attr.aria-label]="(revealed().has(row) ? 'Hide' : 'Show') + ' value of variable ' + (i + 1)"
+                                                    [attr.aria-pressed]="revealed().has(row)"
+                                                    (click)="toggleReveal(row)"
+                                                >
+                                                    <i class="pi text-xs" [class]="revealed().has(row) ? 'pi-eye-slash' : 'pi-eye'" aria-hidden="true"></i>
+                                                </button>
+                                            }
+                                        </div>
                                     </td>
                                     <td class="border-b border-surface-100 py-1 dark:border-surface-800">
                                         <p-checkbox formControlName="secret" [binary]="true" [ariaLabel]="'Hide value of variable ' + (i + 1)" />
@@ -159,6 +179,9 @@ export class EnvironmentsPage {
     protected readonly selected = computed(() => this.environments().find((env) => env.id === this.selectedId()) ?? null);
     private readonly state = inject(EnvironmentsState);
     protected readonly environments = computed(() => this.state.list(this.collectionId()));
+    /** Linhas secretas com o valor visível nesta tela (por linha do formulário; some ao trocar de ambiente). */
+    protected readonly revealed = signal<ReadonlySet<object>>(new Set());
+
     /** Diálogo do nome da cópia (duplicar ambiente). */
     protected readonly nameDialog = signal<NameRequest | null>(null);
     private readonly collections = inject(CollectionsState);
@@ -254,6 +277,18 @@ export class EnvironmentsPage {
         } catch (error) {
             this.messages.add({ severity: 'error', summary: 'Could not create the environment', detail: ipcErrorMessage(error), life: 6000 });
         }
+    }
+
+    protected toggleReveal(row: object): void {
+        this.revealed.update((rows) => {
+            const next = new Set(rows);
+
+            if (!next.delete(row)) {
+                next.add(row);
+            }
+
+            return next;
+        });
     }
 
     /** Pede o nome da cópia, sugerindo "<nome> Copy" único no escopo (coleção ou globais do workspace). */
