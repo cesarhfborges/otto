@@ -232,6 +232,17 @@ body {
         font-size: 14px;
     }
 
+    /* Sem abas: o rótulo fica sempre visível (chamada para a primeira ação), contorno ainda tracejado. */
+    &.is-expanded {
+        padding-right: 10px;
+
+        .otto-tab-add-label {
+            max-width: 12rem;
+            margin-left: 6px;
+            opacity: 1;
+        }
+    }
+
     &:hover,
     &:focus-visible {
         border-style: solid;

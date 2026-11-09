@@ -47,6 +47,7 @@ const SCROLL_HIDE_DELAY = 800;
             (wheel)="onWheel($event)"
             (scroll)="onScroll()"
             (keydown)="onKeydown($event)"
+            [style.display]="empty() ? 'none' : null"
         >
             @for (tab of tabs.visibleTabs(); track tab.id) {
                 <!-- Os 4px de baixo (pb-1) são a faixa da barra de rolagem: o thumb nunca cobre o conteúdo da aba. -->
@@ -113,7 +114,9 @@ const SCROLL_HIDE_DELAY = 800;
         }
         <!-- Pílula tracejada ("espaço para nova aba"): no hover/foco expande e mostra o rótulo, que é o nome acessível.
              Alinhada pelo topo, no centro da linha das abas. -->
-        <button type="button" class="otto-tab-add ml-2 mr-2 shrink-0 self-start" [attr.aria-haspopup]="tabs.context() ? null : 'menu'" (click)="add($event)">
+        <!-- Sem abas, o tablist some (um tablist vazio não tem semântica) e o "+" vira um botão com rótulo
+             visível, no lugar em que a primeira aba começaria. -->
+        <button #addButton type="button" class="otto-tab-add ml-2 mr-2 shrink-0 self-start" [class.is-expanded]="empty()" [attr.aria-haspopup]="tabs.context() ? null : 'menu'" (click)="add($event)">
             <i class="pi pi-plus" aria-hidden="true"></i>
             <span class="otto-tab-add-label">{{ addLabel() }}</span>
         </button>
@@ -126,7 +129,8 @@ const SCROLL_HIDE_DELAY = 800;
      * linha num ::after que avança 1px sobre cada borda lateral (-inset-x-px), para a linha passar por cima
      * do canto, contínua com a do host. Nas bordas esmaecidas, a linha do host aparece por baixo.
      */
-    host: { class: 'relative flex shrink-0 items-end after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-1 after:h-px after:bg-surface-200 dark:after:bg-surface-700' }
+    // Altura fixa (4px de respiro + 34px da aba): a faixa não encolhe nem pula quando fica sem abas.
+    host: { class: 'relative flex h-[38px] shrink-0 items-end after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-1 after:h-px after:bg-surface-200 dark:after:bg-surface-700' }
 })
 export class TabStrip {
     protected readonly tabs = inject(TabsState);
@@ -196,9 +200,11 @@ export class TabStrip {
     });
     private readonly tablist = viewChild.required<ElementRef<HTMLElement>>('tablist');
     private readonly addMenu = viewChild.required<Menu>('addMenu');
+    private readonly addButton = viewChild.required<ElementRef<HTMLButtonElement>>('addButton');
 
     protected readonly panelId = TAB_PANEL_ID;
     protected readonly icons = TAB_ICONS;
+    protected readonly empty = computed(() => this.tabs.visibleTabs().length === 0);
     protected readonly addLabel = computed(() => (this.tabs.context() ? 'New request' : 'Open workspace tab'));
     /** Delete fecha; os atalhos de mover são a alternativa de teclado ao arrastar. */
     protected readonly keyShortcuts = computed(() => ['Delete', this.keyboard.aria('tabs.moveLeft'), this.keyboard.aria('tabs.moveRight')].filter(Boolean).join(' '));
@@ -393,7 +399,8 @@ export class TabStrip {
     private focusActive(options?: FocusOptions): HTMLElement | null {
         const tab = this.tablist().nativeElement.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
 
-        tab?.focus(options);
+        // Fechou a última aba: o foco não pode cair no <body>, vai para o "+" (a próxima ação natural).
+        (tab ?? this.addButton().nativeElement).focus(options);
 
         return tab;
     }
