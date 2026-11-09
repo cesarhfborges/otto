@@ -25,12 +25,13 @@ import { formatScript } from './script-format';
 /** Mudança vinda de fora (`[(value)]`): não volta como `valueChange`. */
 const external = Annotation.define<boolean>();
 
-/** Globais padrão do JavaScript sugeridos no autocomplete (também existem na execução). */
-const GLOBAL_NAMES = [
-    'Array', 'Boolean', 'Date', 'Error', 'JSON', 'Map', 'Math', 'Number', 'Object', 'Promise', 'RegExp', 'Set', 'String', 'Symbol',
-    'URL', 'URLSearchParams', 'TextEncoder', 'TextDecoder', 'crypto', 'atob', 'btoa', 'encodeURIComponent', 'decodeURIComponent',
-    'encodeURI', 'decodeURI', 'parseInt', 'parseFloat', 'isNaN', 'isFinite', 'structuredClone', 'setTimeout', 'clearTimeout'
-];
+/**
+ * Globais que existem no sandbox (QuickJS) dos scripts, sugeridos no autocomplete. Nada de
+ * `setTimeout`, `URL`, `TextEncoder`, `crypto`, `atob`… (não existem lá: use `otto.sleep`,
+ * `otto.base64…`). O `console` tem só os métodos que o sandbox implementa.
+ */
+const GLOBAL_NAMES = ['Array', 'Boolean', 'Date', 'Error', 'JSON', 'Map', 'Math', 'Number', 'Object', 'Promise', 'RegExp', 'Set', 'String', 'Symbol', 'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI', 'parseInt', 'parseFloat', 'isNaN', 'isFinite'];
+const SANDBOX_CONSOLE = { log: () => undefined, info: () => undefined, debug: () => undefined, warn: () => undefined, error: () => undefined };
 const ICONS: Record<string, string> = {
     namespace: 'pi-angle-right',
     function: 'pi-bolt',
@@ -43,7 +44,7 @@ const ICONS: Record<string, string> = {
     text: 'pi-file-edit'
 };
 
-const globals = Object.fromEntries(GLOBAL_NAMES.filter((name) => name in globalThis).map((name) => [name, (globalThis as Record<string, unknown>)[name]]));
+const globals = { ...Object.fromEntries(GLOBAL_NAMES.filter((name) => name in globalThis).map((name) => [name, (globalThis as Record<string, unknown>)[name]])), console: SANDBOX_CONSOLE };
 
 /**
  * Editores montados, pelo elemento host. Os atalhos (`script.*`) são comandos globais com um
