@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, untracked, viewChild } from '@angular/core';
+import { CollectionAvatar } from '../shared/collection-avatar';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import type { EntityId } from '@shared/models';
@@ -21,11 +22,11 @@ import { TieredMenuModule } from 'primeng/tieredmenu';
  */
 @Component({
     selector: 'app-context-header',
-    imports: [MenuModule, SelectModule, TooltipModule, ReactiveFormsModule, TieredMenuModule],
+    imports: [MenuModule, SelectModule, TooltipModule, ReactiveFormsModule, TieredMenuModule, CollectionAvatar],
     template: `
         @if (collection(); as current) {
             <button type="button" class="otto-icon-button w-auto! gap-2 px-2! text-color!" aria-haspopup="menu" (click)="collectionMenu.toggle($event)">
-                <i class="pi pi-box text-muted-color" aria-hidden="true"></i>
+                <app-collection-avatar [name]="current.metadata.name" size="sm" />
                 <h1 class="m-0 truncate text-base font-semibold">{{ current.metadata.name }}</h1>
                 <i class="pi pi-chevron-down text-xs text-muted-color ml-4!" aria-hidden="true"></i>
             </button>

@@ -19,6 +19,7 @@ import { UiState } from '../../core/state/ui.state';
 import { MethodBadge } from '../../shared/method-badge';
 import { TreeToggleLabel } from '../../shared/tree-toggle-label.directive';
 import { buildCollectionRoot, findNode, folderOf, dropPositionOf, nodeKey, parentKey, pathInFolder, resolveDrop, type SidebarNode, type SidebarNodeData } from './collection-tree-nodes';
+import { CollectionAvatar } from '../../shared/collection-avatar';
 import { copyName } from '../../shared/copy-name';
 import { NameDialog, type NameRequest } from '../../shared/name-dialog';
 
@@ -50,7 +51,7 @@ function readExpanded(): ReadonlySet<string> {
  */
 @Component({
     selector: 'app-collections-sidebar',
-    imports: [TreeModule, PrimeTemplate, ContextMenuModule, MenuModule, TieredMenuModule, ButtonModule, TooltipModule, MethodBadge, TreeToggleLabel, NameDialog],
+    imports: [TreeModule, PrimeTemplate, ContextMenuModule, MenuModule, TieredMenuModule, ButtonModule, TooltipModule, MethodBadge, TreeToggleLabel, NameDialog, CollectionAvatar],
     // O `p-tree` injeta o serviço como opcional: sem ele o arrastar e soltar não funciona.
     providers: [TreeDragDropService],
     template: `
@@ -60,7 +61,7 @@ function readExpanded(): ReadonlySet<string> {
                     <i class="pi pi-chevron-left text-sm" aria-hidden="true"></i>
                 </button>
                 <div class="flex min-w-0 flex-1 items-center gap-2">
-                    <i class="pi pi-box text-sm text-muted-color" aria-hidden="true"></i>
+                    <app-collection-avatar [name]="current.metadata.name" size="sm" />
                     <h2 id="collections-heading" class="m-0 min-w-0 flex-1 truncate text-sm font-semibold" [title]="collection()?.metadata?.name ?? ''">{{ collection()?.metadata?.name }}</h2>
                 </div>
                 <div class="flex shrink-0 flex-row justify-end gap-1">
@@ -129,7 +130,7 @@ function readExpanded(): ReadonlySet<string> {
                 </p-tree>
             } @else if (collection(); as current) {
                 <div class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-                    <i class="pi pi-send text-3xl! text-muted-color" aria-hidden="true"></i>
+                    <span class="otto-empty-icon" aria-hidden="true"><i class="pi pi-send"></i></span>
                     <p class="m-0 text-sm text-muted-color">This collection has no requests yet.</p>
                     <div class="flex flex-col gap-2">
                         <p-button label="New Request" icon="pi pi-plus" size="small" (onClick)="ui.newRequestDialog.set({ collectionId: current.metadata.id, folder: '' })" />
@@ -148,7 +149,7 @@ function readExpanded(): ReadonlySet<string> {
 
             <!-- Sem coleção aberta, a escolha é feita nos cards da área principal; a barra lateral só aguarda. -->
             <div class="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-                <i class="pi pi-box text-3xl! text-muted-color" aria-hidden="true"></i>
+                <span class="otto-empty-icon" aria-hidden="true"><i class="pi pi-box"></i></span>
                 <p class="m-0 text-sm text-muted-color">{{ collections.opened().length ? 'Select a collection to see its requests.' : 'This workspace has no collections yet.' }}</p>
             </div>
         }

@@ -221,7 +221,9 @@ async function seed() {
 async function auditRequest(theme) {
     // Uma coleção por vez: entra pelo card no Overview do workspace; a árvore mostra só os itens dela.
     await waitFor(`!!document.querySelector('.otto-collection-card')`, 'the collection card');
-    await click('.otto-collection-card', 'Audit');
+    // O texto do card começa com as iniciais do avatar ("AU"): procura pelo nome, não pelo início do texto.
+    await evaluate(`[...document.querySelectorAll('.otto-collection-card')].find((card) => card.querySelector('.font-semibold')?.textContent.trim() === 'Audit').click()`);
+    await sleep(300);
     await waitFor(`!!${treeItem(1, 'Items')}`, 'the request in the sidebar');
     await evaluate(`${treeItem(1, 'Items')}.click()`);
     await waitFor(`!!document.querySelector('button[aria-label="Generate code"]')`, 'the request view');

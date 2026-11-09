@@ -10,13 +10,14 @@ import { EnvironmentsState } from '../../core/state/environments.state';
 import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
 import { WorkspacesState } from '../../core/state/workspaces.state';
+import { CollectionAvatar } from '../../shared/collection-avatar';
 import { copyName } from '../../shared/copy-name';
 import { NameDialog, type NameRequest } from '../../shared/name-dialog';
 
 /** Visão geral do workspace ativo: local, números, ações rápidas e as coleções em cards (escolher um abre a coleção). */
 @Component({
     selector: 'app-workspace-overview',
-    imports: [ButtonModule, TieredMenuModule, NameDialog],
+    imports: [ButtonModule, TieredMenuModule, NameDialog, CollectionAvatar],
     template: `
         <!-- Topo fixo (local, números, ações); só a grade de coleções rola. Com pouca altura, compacta (ver styles). -->
         <div class="overview-top flex max-w-5xl shrink-0 flex-col gap-6 p-4 pb-0">
@@ -68,9 +69,7 @@ import { NameDialog, type NameRequest } from '../../shared/name-dialog';
                                     (click)="openCollection(card.id)"
                                 >
                                     <span class="flex min-w-0 items-center gap-3">
-                                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-200" aria-hidden="true">
-                                            <i class="pi pi-box text-lg"></i>
-                                        </span>
+                                        <app-collection-avatar [name]="card.name" />
                                         <span class="flex min-w-0 flex-col">
                                             <span class="truncate text-base font-semibold">{{ card.name }}</span>
                                             <span class="truncate text-xs text-muted-color" [title]="card.path">{{ card.path }}</span>
@@ -94,7 +93,12 @@ import { NameDialog, type NameRequest } from '../../shared/name-dialog';
                     </ul>
                 </div>
             } @else {
-                <p class="m-0 px-4 pt-2 text-sm text-muted-color">This workspace has no collections yet. Create a new one or open a folder that contains an <code>otto.yaml</code>.</p>
+                <!-- Estado vazio: as ações de criar/importar já estão em Quick Actions, acima (sem botões repetidos). -->
+                <div class="mx-4 mt-2 flex max-w-5xl flex-col items-center gap-3 rounded-lg border border-dashed border-surface-300 px-6 py-10 text-center dark:border-surface-600">
+                    <span class="otto-empty-icon" aria-hidden="true"><i class="pi pi-box"></i></span>
+                    <p class="m-0 text-base font-semibold">No collections yet</p>
+                    <p class="m-0 max-w-md text-sm text-muted-color">Create or import one with the quick actions above, or open a folder that contains an <code>otto.yaml</code>.</p>
+                </div>
             }
         </section>
         <p-tiered-menu #rowMenu [model]="rowItems()" [popup]="true" appendTo="body" />

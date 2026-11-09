@@ -32,43 +32,43 @@ interface PanelContext {
     template: `
         <ng-template #panel let-tab let-active="active">
             <ng-container [appTabActive]="active">
-            @if (tab(); as tab) {
-                @switch (tab.kind) {
-                    @case ('overview') {
-                        @defer {
-                            <app-workspace-overview />
+                @if (tab(); as tab) {
+                    @switch (tab.kind) {
+                        @case ('overview') {
+                            @defer {
+                                <app-workspace-overview />
+                            }
                         }
-                    }
-                    @case ('environments') {
-                        @defer {
-                            <app-environments-page [collectionId]="tab.collectionId" />
+                        @case ('environments') {
+                            @defer {
+                                <app-environments-page [collectionId]="tab.collectionId" />
+                            }
                         }
-                    }
-                    @case ('workspaces') {
-                        @defer {
-                            <app-manage-workspaces />
+                        @case ('workspaces') {
+                            @defer {
+                                <app-manage-workspaces />
+                            }
                         }
-                    }
-                    @case ('collection') {
-                        @defer {
-                            <app-collection-overview [collectionId]="tab.collectionId!" />
+                        @case ('collection') {
+                            @defer {
+                                <app-collection-overview [collectionId]="tab.collectionId!" />
+                            }
                         }
-                    }
-                    @case ('folder') {
-                        @defer {
-                            <app-folder-settings [collectionId]="tab.collectionId!" [folder]="tab.resourceRef!" />
+                        @case ('folder') {
+                            @defer {
+                                <app-folder-settings [collectionId]="tab.collectionId!" [folder]="tab.resourceRef!" />
+                            }
                         }
-                    }
-                    @case ('request') {
-                        @defer {
-                            <app-request-view [collectionId]="tab.collectionId!" [path]="tab.resourceRef!" />
+                        @case ('request') {
+                            @defer {
+                                <app-request-view [collectionId]="tab.collectionId!" [path]="tab.resourceRef!" />
+                            }
                         }
-                    }
-                    @default {
-                        <p class="m-0 p-4 text-sm text-muted-color">This tab type is not available yet.</p>
+                        @default {
+                            <p class="m-0 p-4 text-sm text-muted-color">This tab type is not available yet.</p>
+                        }
                     }
                 }
-            }
             </ng-container>
         </ng-template>
 
@@ -79,7 +79,7 @@ interface PanelContext {
         @if (!tabs.active()) {
             @if (tabs.context(); as collectionId) {
                 <div class="flex h-full flex-col items-center justify-center gap-3 text-center">
-                    <i class="pi pi-send !text-5xl text-surface-300 dark:text-surface-600" aria-hidden="true"></i>
+                    <span class="otto-empty-icon" aria-hidden="true"><i class="pi pi-send"></i></span>
                     <p class="m-0 text-sm text-muted-color select-none">No open tabs. Pick a request in the sidebar or create a new one.</p>
                     <p-button label="New Request" icon="pi pi-plus" size="small" (onClick)="ui.newRequestDialog.set({ collectionId, folder: '' })" />
                 </div>
@@ -147,6 +147,12 @@ export class TabHost {
 
         if (previous) {
             this.scrollTops.set(this.shown!, element.scrollTop);
+            /*
+             * Última detecção de mudanças antes de congelar a view: o que mudou no mesmo clique que trocou
+             * de aba precisa chegar à tela. Ex.: "Open" no menu ⋮ de um card do workspace fecha o menu e
+             * entra na coleção; sem isto o menu (anexado ao <body>) ficava aberto sobre a outra aba.
+             */
+            previous.detectChanges();
             outlet.detach(outlet.indexOf(previous));
         }
 

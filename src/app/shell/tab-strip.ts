@@ -53,7 +53,7 @@ const SCROLL_HIDE_DELAY = 800;
                 <!-- Os 4px de baixo (pb-1) são a faixa da barra de rolagem: o thumb nunca cobre o conteúdo da aba. -->
                 <div
                     role="presentation"
-                    class="otto-tab group relative flex h-[34px] max-w-60 pb-1 shrink-0 items-center rounded-t-md border border-b-0 text-sm"
+                    class="otto-tab group relative flex h-[34px] max-w-60 pb-1 shrink-0 items-center rounded-t-md border border-b-0 text-sm transition-colors duration-150"
                     cdkDrag
                     [cdkDragData]="tab"
                     [cdkDragDisabled]="isPinned(tab)"
@@ -61,7 +61,7 @@ const SCROLL_HIDE_DELAY = 800;
                     (cdkDragEnded)="onDragEnded()"
                     [class]="
                         tab.id === tabs.activeId()
-                            ? 'z-2 border-surface-200 bg-surface-0 font-medium text-color dark:border-surface-700 dark:bg-surface-950'
+                            ? 'z-2 border-surface-200 bg-surface-0 font-medium text-color before:pointer-events-none before:absolute before:-inset-x-px before:-top-px before:h-0.5 before:rounded-t-md before:bg-primary dark:border-surface-700 dark:bg-surface-950'
                             : 'border-surface-100 after:absolute after:-inset-x-px after:bottom-0 after:h-px after:bg-surface-200 dark:border-surface-800 dark:after:bg-surface-700 bg-surface-50 text-muted-color hover:bg-surface-100 hover:text-color dark:bg-surface-900 dark:hover:bg-surface-800'
                     "
                     (auxclick)="$event.button === 1 && !isPinned(tab) && tabs.close(tab.id)"

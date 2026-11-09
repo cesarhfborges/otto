@@ -301,12 +301,12 @@ import { OttoInput } from '../../shared/template-editor';
                                 <app-response-panel [entry]="entry" (saveExample)="addExample($event)" />
                             } @else {
                                 <div class="flex h-full w-full flex-col items-center justify-center gap-6 p-6 text-center">
-                                    <i class="pi pi-send !text-6xl text-surface-300 dark:text-surface-600" aria-hidden="true"></i>
-                                    <dl class="m-0 grid grid-cols-[auto_auto] gap-x-6 gap-y-2 text-sm">
+                                    <span class="otto-empty-icon" aria-hidden="true"><i class="pi pi-send"></i></span>
+                                    <dl class="m-0 grid grid-cols-[auto_auto] items-center gap-x-6 gap-y-2 text-sm">
                                         @for (shortcut of shortcuts(); track shortcut.label) {
                                             <dt class="text-right text-muted-color">{{ shortcut.label }}</dt>
                                             <dd class="m-0 text-left">
-                                                <kbd class="font-sans">{{ shortcut.keys }}</kbd>
+                                                <kbd class="otto-kbd">{{ shortcut.keys }}</kbd>
                                             </dd>
                                         }
                                     </dl>
