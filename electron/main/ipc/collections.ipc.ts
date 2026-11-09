@@ -1,7 +1,26 @@
 import * as path from 'node:path';
 import { COLLECTION_EXPORT_FORMATS, type CollectionExportFormat, type CollectionImportRequest } from '../../shared/models';
 import type { ICollectionMetadataRepository, IIpcModule, IIpcRegistrar, IRendererNotifier } from '../core/contracts';
-import { parseCollectionPatch, parseCollectionPath, parseEntityId, parseEntryName, parseNewCollection, parseCollectionAuth, parseCookies, parseKeyValues, parseOpenApiConfig, parseRelativePath, parseRequestAuth, parseScriptPolicyPatch, parseScripts, requireBoolean, requireOneOf, requireRecord, requireString, ValidationError } from '../core/validation';
+import {
+    parseCollectionPatch,
+    parseCollectionPath,
+    parseEntityId,
+    parseEntryName,
+    parseNewCollection,
+    parseCollectionAuth,
+    parseCookies,
+    parseKeyValues,
+    parseOpenApiConfig,
+    parseRelativePath,
+    parseRequestAuth,
+    parseScriptPolicyPatch,
+    parseScripts,
+    requireBoolean,
+    requireOneOf,
+    requireRecord,
+    requireString,
+    ValidationError
+} from '../core/validation';
 import type { CollectionService } from '../services/collections/collection.service';
 import type { ScriptPolicyService } from '../services/collections/script-policy.service';
 import type { OpenApiService } from '../services/openapi/openapi.service';
@@ -72,6 +91,17 @@ export class CollectionsIpcModule implements IIpcModule {
             const request = parseImportRequest(raw);
 
             return request.type === 'backup' ? this.workspaces.importCollection(request.file) : this.openapi.importSpec(request.source, request.autoSync, (name) => this.workspaces.createCollection(name));
+        });
+
+        // Os scripts da cópia só seguem confiáveis se o original estiver confiável e sem scripts novos ou
+        // alterados pendentes de revisão (senão a cópia adotaria em silêncio o que ainda não foi revisto).
+        ipc.handle('collections:duplicate', async (_event, rawId) => {
+            const id = parseEntityId(rawId);
+            const inventory = await this.scriptPolicy.inventory(id);
+            const reviewed = inventory.entries.every((entry) => entry.trust === 'same') && inventory.removed.length === 0;
+            const mode = inventory.policy.mode === 'trusted' ? (reviewed ? 'trusted' : 'ask') : inventory.policy.mode;
+
+            return this.workspaces.duplicateCollection(id, mode);
         });
 
         ipc.handle('collections:export', (_event, rawId, rawFormat, rawFile) => {

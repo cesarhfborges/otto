@@ -1,6 +1,18 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
-import { DEFAULT_WORKSPACE_ID, WORKSPACE_FORMAT_VERSION, type EntityId, type Environment, type LoadedWorkspace, type OpenedCollection, type Workspace, type WorkspaceManifest, type WorkspaceMoveResult, type WorkspaceSummary } from '../../../shared/models';
+import {
+    DEFAULT_WORKSPACE_ID,
+    WORKSPACE_FORMAT_VERSION,
+    type EntityId,
+    type Environment,
+    type LoadedWorkspace,
+    type OpenedCollection,
+    type ScriptMode,
+    type Workspace,
+    type WorkspaceManifest,
+    type WorkspaceMoveResult,
+    type WorkspaceSummary
+} from '../../../shared/models';
 import type { IClock, ICollectionMetadataRepository, ICollectionStore, IEnvironmentRepository, IWorkspaceFormat, IWorkspaceRepository } from '../../core/contracts';
 import { createZip, readZip } from '../../infra/workspaces/zip-archive';
 import type { CollectionService } from '../collections/collection.service';
@@ -172,7 +184,12 @@ export class WorkspaceService {
 
             const destination = path.join(target, path.basename(workspace.path));
 
-            if (await this.store.isDirectory(workspace.path).then((dir) => !dir, () => true)) {
+            if (
+                await this.store.isDirectory(workspace.path).then(
+                    (dir) => !dir,
+                    () => true
+                )
+            ) {
                 result.skipped.push({ name: workspace.name, reason: 'The folder was not found' });
                 continue;
             }
@@ -182,7 +199,10 @@ export class WorkspaceService {
             } catch (error) {
                 const code = (error as NodeJS.ErrnoException).code;
 
-                result.skipped.push({ name: workspace.name, reason: code === 'EEXIST' || code === 'ENOTEMPTY' ? `A folder named "${path.basename(destination)}" already exists in the new location` : error instanceof Error ? error.message : String(error) });
+                result.skipped.push({
+                    name: workspace.name,
+                    reason: code === 'EEXIST' || code === 'ENOTEMPTY' ? `A folder named "${path.basename(destination)}" already exists in the new location` : error instanceof Error ? error.message : String(error)
+                });
                 continue;
             }
 
@@ -271,6 +291,46 @@ export class WorkspaceService {
         await this.addCollection(opened.metadata.id);
 
         return opened;
+    }
+
+    /**
+     * Duplica a coleção em `<workspace ativo>/collections/<slug>` com o nome "<nome> Copy" (ou
+     * "Copy 2", "Copy 3"... se já houver), copia os ambientes dela (os segredos inclusive: a cópia
+     * não sai da máquina) e inclui no workspace.
+     */
+    async duplicateCollection(id: EntityId, scriptMode: ScriptMode): Promise<OpenedCollection> {
+        const source = this.collections.findById(id);
+
+        if (!source) {
+            throw new Error(`Collection "${id}" not found`);
+        }
+
+        const workspace = await this.activeFolder();
+        const parent = path.join(workspace.path!, COLLECTIONS_FOLDER);
+        const taken = new Set(this.collections.findAll().map((collection) => collection.name.toLowerCase()));
+        let name = '';
+
+        for (let attempt = 1; attempt <= 100 && !name; attempt++) {
+            const candidate = `${source.name} Copy${attempt === 1 ? '' : ` ${attempt}`}`;
+
+            if (!taken.has(candidate.toLowerCase()) && !(await this.store.isDirectory(path.join(parent, slugify(candidate, 'collection'))))) {
+                name = candidate;
+            }
+        }
+
+        if (!name) {
+            throw new Error('Could not find an available name for the copy');
+        }
+
+        const copy = await this.collectionService.copy(id, parent, name, scriptMode);
+
+        for (const environment of this.environments.findByCollection(id)) {
+            this.environments.create({ collectionId: copy.metadata.id, name: environment.name, variables: environment.variables });
+        }
+
+        await this.addCollection(copy.metadata.id);
+
+        return copy;
     }
 
     /** Backup .zip: arquivos da coleção (`otto.yaml` na raiz) + ambientes da coleção. */
@@ -537,7 +597,10 @@ export class WorkspaceService {
             await this.store.createDirectory(root, COLLECTIONS_FOLDER);
         }
 
-        this.workspaces.setCollections(workspace.id, existing.map((c) => c.id));
+        this.workspaces.setCollections(
+            workspace.id,
+            existing.map((c) => c.id)
+        );
 
         return workspace;
     }

@@ -2,7 +2,6 @@ import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import type { CollectionExportFormat, CollectionMetadata, EntityId } from '@shared/models';
 import { MessageService, type MenuItem } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
-import { MenuModule } from 'primeng/menu';
 import { TieredMenuModule, type TieredMenu } from 'primeng/tieredmenu';
 import { ipcErrorMessage } from '../../core/bridge/ipc-error';
 import { CollectionFilesGateway } from '../../core/ports';
@@ -15,9 +14,10 @@ import { WorkspacesState } from '../../core/state/workspaces.state';
 /** Visão geral do workspace ativo: local, números, ações rápidas e as coleções em cards (escolher um abre a coleção). */
 @Component({
     selector: 'app-workspace-overview',
-    imports: [ButtonModule, MenuModule, TieredMenuModule],
+    imports: [ButtonModule, TieredMenuModule],
     template: `
-        <div class="flex max-w-5xl flex-col gap-6 p-4">
+        <!-- Topo fixo (local, números, ações); só a grade de coleções rola. -->
+        <div class="flex max-w-5xl shrink-0 flex-col gap-6 p-4 pb-0">
             <p class="m-0 flex items-center gap-2 text-sm text-muted-color">
                 <i class="pi pi-folder" aria-hidden="true"></i>
                 @if (workspaces.active()?.path; as folder) {
@@ -45,11 +45,20 @@ import { WorkspacesState } from '../../core/state/workspaces.state';
                     <p-button label="Environments" icon="pi pi-globe" size="small" severity="secondary" [outlined]="true" (onClick)="openEnvironments()" />
                 </div>
             </section>
+        </div>
 
-            <section aria-labelledby="collections-list-heading" class="flex flex-col gap-3">
-                <h2 id="collections-list-heading" class="m-0 text-sm font-medium text-muted-color">Collections</h2>
-                @if (cards().length) {
-                    <ul class="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3 p-0">
+        <!--
+            A área de rolagem ocupa a largura toda (a barra fica na borda do painel, não no meio da tela);
+            a grade dentro dela mantém o max-w do topo. Com a janela muito baixa, o min-h garante uma
+            área útil e o painel da aba passa a rolar tudo. O pt-1 evita cortar o anel de foco da 1ª linha.
+        -->
+        <section aria-labelledby="collections-list-heading" class="mt-6 flex min-h-48 flex-1 flex-col">
+            <h2 id="collections-list-heading" class="m-0 shrink-0 border-b px-4 pb-2 text-sm font-medium text-muted-color transition-colors" [class]="scrolled() ? 'border-surface-200 dark:border-surface-700' : 'border-transparent'">
+                Collections
+            </h2>
+            @if (cards().length) {
+                <div class="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-4" (scroll)="onListScroll($event)">
+                    <ul class="m-0 grid max-w-5xl list-none grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3 p-0 pt-1">
                         @for (card of cards(); track card.id) {
                             <li class="relative">
                                 <button
@@ -82,27 +91,15 @@ import { WorkspacesState } from '../../core/state/workspaces.state';
                                 </button>
                             </li>
                         }
-                        <li>
-                            <button
-                                type="button"
-                                class="flex h-full min-h-28 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-surface-300 bg-transparent p-4 text-sm text-muted-color transition-colors hover:border-primary hover:text-color focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-surface-600"
-                                aria-haspopup="menu"
-                                (click)="addMenu.toggle($event)"
-                            >
-                                <i class="pi pi-plus text-lg" aria-hidden="true"></i>
-                                <span>New or import collection</span>
-                            </button>
-                        </li>
                     </ul>
-                } @else {
-                    <p class="m-0 text-sm text-muted-color">This workspace has no collections yet. Create a new one or open a folder that contains an <code>otto.yaml</code>.</p>
-                }
-            </section>
-        </div>
+                </div>
+            } @else {
+                <p class="m-0 px-4 pt-2 text-sm text-muted-color">This workspace has no collections yet. Create a new one or open a folder that contains an <code>otto.yaml</code>.</p>
+            }
+        </section>
         <p-tiered-menu #rowMenu [model]="rowItems()" [popup]="true" appendTo="body" />
-        <p-menu #addMenu [model]="addItems" [popup]="true" appendTo="body" />
     `,
-    host: { class: 'block' }
+    host: { class: 'flex h-full min-h-0 flex-col' }
 })
 export class WorkspaceOverview {
     protected readonly collections = inject(CollectionsState);
@@ -116,10 +113,8 @@ export class WorkspaceOverview {
     private readonly rowMenu = viewChild.required<TieredMenu>('rowMenu');
 
     protected readonly rowItems = signal<MenuItem[]>([]);
-    protected readonly addItems: MenuItem[] = [
-        { label: 'New Collection', icon: 'pi pi-plus', command: () => this.ui.newCollectionDialog.set(true) },
-        { label: 'Import Collection', icon: 'pi pi-download', command: () => this.ui.importCollectionDialog.set(true) }
-    ];
+    /** Lista rolada: o título "Collections" ganha uma linha de separação do conteúdo que passa por baixo. */
+    protected readonly scrolled = signal(false);
 
     protected readonly cards = computed(() => {
         const tabs = this.tabs.tabs();
@@ -143,6 +138,10 @@ export class WorkspaceOverview {
         this.tabs.enterCollection(collectionId);
     }
 
+    protected onListScroll(event: Event): void {
+        this.scrolled.set((event.target as HTMLElement).scrollTop > 0);
+    }
+
     protected openEnvironments(): void {
         this.tabs.open({ kind: 'environments', title: 'Environments', collectionId: null });
     }
@@ -150,6 +149,7 @@ export class WorkspaceOverview {
     protected showMenu(event: MouseEvent, collection: CollectionMetadata): void {
         this.rowItems.set([
             { label: 'Open', icon: 'pi pi-arrow-right', command: () => this.openCollection(collection.id) },
+            { label: 'Duplicate', icon: 'pi pi-copy', command: () => void this.duplicate(collection) },
             { label: 'Reveal in File Explorer', icon: 'pi pi-folder-open', command: () => void this.reveal(collection.id) },
             {
                 label: 'Export Collection',
@@ -164,6 +164,16 @@ export class WorkspaceOverview {
         ]);
         // O conteúdo do popup é renderizado depois, já com o modelo atualizado.
         this.rowMenu().toggle(event);
+    }
+
+    private async duplicate(collection: CollectionMetadata): Promise<void> {
+        try {
+            const copy = await this.collections.duplicate(collection.id);
+
+            this.messages.add({ severity: 'success', summary: 'Collection duplicated', detail: copy.metadata.name, life: 4000 });
+        } catch (error) {
+            this.messages.add({ severity: 'error', summary: 'Could not duplicate the collection', detail: ipcErrorMessage(error), life: 6000 });
+        }
     }
 
     private async exportCollection(collection: CollectionMetadata, format: CollectionExportFormat): Promise<void> {

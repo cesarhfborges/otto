@@ -344,6 +344,10 @@ export class ElectronCollectionsGateway extends CollectionsGateway {
         return requireOttoApi(this.api).collections.createOnDisk(name);
     }
 
+    duplicate(id: EntityId): Promise<OpenedCollection> {
+        return requireOttoApi(this.api).collections.duplicate(id);
+    }
+
     import(request: CollectionImportRequest): Promise<OpenedCollection> {
         return requireOttoApi(this.api).collections.import(request);
     }

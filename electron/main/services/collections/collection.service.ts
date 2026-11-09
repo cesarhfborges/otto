@@ -1,6 +1,21 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
-import { COLLECTION_FORMAT_VERSION, emptyFolderSettings, type CollectionManifest, type FolderSettings, type CollectionMetadata, type CollectionNode, type CollectionTree, type CollectionScript, type EntityId, type OpenedCollection, type RequestDefinition, type RequestScripts, type ScriptLocation, type ScriptMode } from '../../../shared/models';
+import {
+    COLLECTION_FORMAT_VERSION,
+    emptyFolderSettings,
+    type CollectionManifest,
+    type FolderSettings,
+    type CollectionMetadata,
+    type CollectionNode,
+    type CollectionTree,
+    type CollectionScript,
+    type EntityId,
+    type OpenedCollection,
+    type RequestDefinition,
+    type RequestScripts,
+    type ScriptLocation,
+    type ScriptMode
+} from '../../../shared/models';
 import type { CollectionEntry, FolderMetadata, IClock, ICollectionFormat, ICollectionMetadataRepository, ICollectionStore, ICollectionWatcher } from '../../core/contracts';
 import { slugify } from './slug';
 
@@ -283,6 +298,40 @@ export class CollectionService {
 
         // Criada aqui: os scripts são do próprio usuário.
         return this.open(root, 'trusted');
+    }
+
+    /**
+     * Copia a coleção inteira para `parentDirectory/<slug do nome>`, como um backup restaurado
+     * (pastas, requisições, configurações e scripts byte a byte), com `name` no manifesto, e abre a cópia.
+     */
+    async copy(id: EntityId, parentDirectory: string, name: string, scriptMode: ScriptMode): Promise<OpenedCollection> {
+        const source = this.resolve(id).path;
+        const root = path.join(path.resolve(parentDirectory), slugify(name, 'collection'));
+
+        if (await this.store.isDirectory(root)) {
+            throw new Error(`A collection folder named "${path.basename(root)}" already exists. Choose another name.`);
+        }
+
+        const manifest = await this.readManifest(source);
+
+        // Percorre a árvore (e não só os arquivos): pastas vazias também fazem parte da coleção.
+        const copy = async (entries: CollectionEntry[]): Promise<void> => {
+            for (const entry of entries) {
+                if (entry.kind === 'directory') {
+                    await this.store.createDirectory(root, entry.path);
+                    await copy(entry.children);
+                } else {
+                    const content = entry.path === this.format.manifestFile ? this.format.serializeManifest({ ...manifest, name }) : await this.store.readBytes(source, entry.path);
+
+                    await this.store.writeFile(root, entry.path, content, { createOnly: true });
+                }
+            }
+        };
+
+        await this.store.createRoot(root);
+        await copy(await this.store.list(source));
+
+        return this.open(root, scriptMode);
     }
 
     async tree(id: EntityId): Promise<CollectionTree> {

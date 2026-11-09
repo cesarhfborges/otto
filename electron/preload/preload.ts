@@ -101,6 +101,7 @@ const api: OttoApi = {
         delete: (id) => invoke('collections:delete', id),
         createOnDisk: (name) => invoke('collections:new', name),
         import: (request) => invoke('collections:import', request),
+        duplicate: (id) => invoke('collections:duplicate', id),
         export: (id, format, file) => invoke('collections:export', id, format, file),
         close: (id) => invoke('collections:close', id),
         trash: (id) => invoke('collections:trash', id),

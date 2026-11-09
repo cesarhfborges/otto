@@ -62,6 +62,11 @@ export class CollectionsState {
         return this.track(await this.gateway.import(request));
     }
 
+    /** Duplica a coleção (pasta, requisições e ambientes) no workspace ativo. */
+    async duplicate(id: EntityId): Promise<OpenedCollection> {
+        return this.track(await this.gateway.duplicate(id));
+    }
+
     /** Pergunta o destino e exporta como backup (.zip) ou spec OpenAPI. Retorna o arquivo, ou `null` se cancelado. */
     async export(collection: CollectionMetadata, format: CollectionExportFormat): Promise<string | null> {
         const file = format === 'backup' ? await this.dialogs.saveCollectionArchive(`${collection.name}.zip`) : await this.dialogs.saveOpenApiSpec(`${collection.name}.openapi.yaml`);
