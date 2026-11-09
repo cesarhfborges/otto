@@ -36,15 +36,14 @@ function toNode(collectionId: EntityId, node: CollectionNode, expanded: Readonly
     };
 }
 
-/** Converte as coleções abertas em nós do `p-tree`, preservando quais estavam expandidos. */
-export function buildSidebarNodes(collections: readonly OpenedCollection[], expanded: ReadonlySet<string>): SidebarNode[] {
-    return collections.map(({ metadata, tree }) => {
-        const data: SidebarNodeData = { kind: 'collection', collectionId: metadata.id, path: '', method: null, error: null };
-        const key = nodeKey(data);
+/**
+ * Nó raiz da coleção, com seus itens como filhos. Não é exibido (a barra lateral mostra só os
+ * filhos, e o nome da coleção fica no cabeçalho), mas serve de pai para buscar nós e soltar itens na raiz.
+ */
+export function buildCollectionRoot({ metadata, tree }: OpenedCollection, expanded: ReadonlySet<string>): SidebarNode {
+    const data: SidebarNodeData = { kind: 'collection', collectionId: metadata.id, path: '', method: null, error: null };
 
-        // A coleção é a raiz da pasta no disco: recebe itens, mas não é arrastável.
-        return { key, label: metadata.name, type: TEMPLATE, data, leaf: false, draggable: false, expanded: expanded.has(key), children: tree.children.map((child) => toNode(metadata.id, child, expanded)) };
-    });
+    return { key: nodeKey(data), label: metadata.name, type: TEMPLATE, data, leaf: false, draggable: false, expanded: true, children: tree.children.map((child) => toNode(metadata.id, child, expanded)) };
 }
 
 export function findNode(nodes: readonly SidebarNode[], key: string): SidebarNode | null {
@@ -99,11 +98,11 @@ export interface DropTarget {
 }
 
 /**
- * Resolve onde o item arrastado vai parar. `null` quando o destino é inválido:
- * fora de uma coleção (antes/depois de uma coleção, que é sempre raiz) ou dentro de uma requisição.
+ * Resolve onde o item arrastado vai parar. `null` quando o destino é inválido (dentro de uma requisição).
+ * Itens de primeiro nível não têm `parent` no `p-tree`: soltar antes/depois deles vai para a raiz (`root`).
  */
-export function resolveDrop(dragNode: SidebarNode, dropNode: SidebarNode, position: DropPosition): DropTarget | null {
-    const parent = (position === 'inside' ? dropNode : dropNode.parent) as SidebarNode | undefined;
+export function resolveDrop(dragNode: SidebarNode, dropNode: SidebarNode, position: DropPosition, root: SidebarNode): DropTarget | null {
+    const parent = (position === 'inside' ? dropNode : (dropNode.parent ?? root)) as SidebarNode | undefined;
 
     if (!parent?.data || parent.data.kind === 'request') {
         return null;

@@ -130,6 +130,15 @@ export class TabsState {
         this.scheduleSave();
     }
 
+    /** Entra na coleção: volta à última aba dela ou, se não houver nenhuma, abre o Overview. */
+    enterCollection(collectionId: EntityId): void {
+        this.setContext(collectionId);
+
+        if (!this.visibleTabs().length) {
+            this.open({ kind: 'collection', title: 'Overview', collectionId });
+        }
+    }
+
     setCloseGuard(guard: (tab: TabState) => boolean | Promise<boolean>): void {
         this.closeGuard = guard;
     }

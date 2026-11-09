@@ -177,10 +177,16 @@ const click = async (selector, text) => {
 
     await sleep(300);
 };
-const contextMenu = async (target, item) => {
-    await evaluate(`(() => { const el = ${target}; const box = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.x + 20, clientY: box.y + 5 })); })()`);
-    await waitFor(`!!document.querySelector('[role="menuitem"]')`, 'the context menu');
+/** Ações da coleção aberta: botão ⋮ no cabeçalho da barra lateral. */
+const collectionMenu = async (item) => {
+    await evaluate(`document.querySelector('app-collections-sidebar button[aria-label="More collection actions"]').click()`);
+    await waitFor(`!!document.querySelector('[role="menuitem"]')`, 'the collection menu');
     await click('[role="menuitem"]', item);
+};
+/** Volta à listagem de coleções (contexto do workspace), se houver uma coleção aberta. */
+const backToCollections = async () => {
+    await evaluate(`document.querySelector('app-collections-sidebar button[aria-label="Back to collections"]')?.click()`);
+    await waitFor(`!document.querySelector('app-collections-sidebar button[aria-label="Back to collections"]')`, 'the collections list');
 };
 const treeItem = (level, text) => `[...document.querySelectorAll('[role="treeitem"][aria-level="${level}"] .p-tree-node-content')].find((e) => e.textContent.includes(${js(text)}))`;
 
@@ -213,14 +219,11 @@ async function seed() {
 }
 
 async function auditRequest(theme) {
-    await waitFor(`!!${treeItem(1, 'Audit')}`, 'the collection in the sidebar');
-
-    if (!(await evaluate(`!!${treeItem(2, 'Items')}`))) {
-        await evaluate(`${treeItem(1, 'Audit')}.click()`);
-    }
-
-    await waitFor(`!!${treeItem(2, 'Items')}`, 'the request in the sidebar');
-    await evaluate(`${treeItem(2, 'Items')}.click()`);
+    // Uma coleção por vez: entra pelo card no Overview do workspace; a árvore mostra só os itens dela.
+    await waitFor(`!!document.querySelector('.otto-collection-card')`, 'the collection card');
+    await click('.otto-collection-card', 'Audit');
+    await waitFor(`!!${treeItem(1, 'Items')}`, 'the request in the sidebar');
+    await evaluate(`${treeItem(1, 'Items')}.click()`);
     await waitFor(`!!document.querySelector('button[aria-label="Generate code"]')`, 'the request view');
     await audit(`Request editor (${theme})`);
 
@@ -244,8 +247,8 @@ async function auditRequest(theme) {
 }
 
 async function auditCollection(theme) {
-    // A página da coleção e os ambientes abrem pelo menu de contexto do nó.
-    await contextMenu(treeItem(1, 'Audit'), 'Overview');
+    // A página da coleção e os ambientes abrem pelo menu ⋮ da barra lateral.
+    await collectionMenu('Overview');
     await waitFor(`[...document.querySelectorAll('[role="tab"]')].some((t) => t.textContent.trim().startsWith('Mock'))`, 'the collection page');
     await audit(`Collection overview (${theme})`);
 
@@ -294,7 +297,7 @@ async function auditCollection(theme) {
     await audit(`OpenAPI connection settings (${theme})`);
     await closeOverlay();
 
-    await contextMenu(treeItem(1, 'Audit'), 'Environments');
+    await collectionMenu('Environments');
     await waitFor(`!!document.querySelector('app-environments-page li button')`, 'the environments page');
     await click('app-environments-page li button', 'Dev');
     await audit(`Environments and secrets (${theme})`);
@@ -308,6 +311,7 @@ try {
 
     for (const theme of ['light', 'dark']) {
         await setTheme(theme);
+        await backToCollections();
         await audit(`Workspace overview (${theme})`);
 
         // Preferences (diálogo aberto pela barra de status).

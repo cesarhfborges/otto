@@ -109,6 +109,7 @@ export class ContextHeader {
             { label: 'Overview', icon: 'pi pi-info-circle', command: () => this.tabs.open({ kind: 'collection', title: 'Overview', collectionId: id }) },
             { label: 'Environments', icon: 'pi pi-globe', command: () => this.openEnvironments(id) },
             { separator: true },
+            { label: 'Back to Collections', icon: 'pi pi-arrow-left', command: () => this.tabs.setContext(null) },
             { label: 'Remove from Workspace', icon: 'pi pi-times', command: () => this.ui.removeCollectionDialog.set(id) }
         ];
     });

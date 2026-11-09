@@ -110,7 +110,8 @@ export function registerAppCommands(): void {
     };
 
     registerCommand('sidebar.focus', { run: focusSidebar(false) });
-    registerCommand('sidebar.filter', { when: () => collections.opened().length > 0, run: focusSidebar(true) });
+    // O filtro é da árvore da coleção aberta (no workspace a barra lateral lista as coleções).
+    registerCommand('sidebar.filter', { when: () => !!tabs.context(), run: focusSidebar(true) });
 
     registerCommand('environment.manage', { when: () => !!tabs.context(), run: () => tabs.open({ kind: 'environments', title: 'Environments', collectionId: tabs.context() }) });
     registerCommand('workspace.manage', { run: () => tabs.open({ kind: 'workspaces', title: 'Workspaces', collectionId: null }) });

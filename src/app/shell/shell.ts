@@ -97,7 +97,7 @@ function savedSplitterSize(key: string, fallback: number): number {
                 </p-splitter>
             </main>
         } @else {
-            <main class="flex min-h-0 flex-1">
+            <main id="main-content" class="flex min-h-0 flex-1">
                 <ng-container *ngTemplateOutlet="mainContent" />
             </main>
         }
