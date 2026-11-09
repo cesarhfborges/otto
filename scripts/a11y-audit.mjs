@@ -234,6 +234,12 @@ async function auditRequest(theme) {
     await click('[role="tab"]', 'Console');
     await audit(`Response console (${theme})`);
 
+    await click('[role="tab"]', 'Headers');
+    await audit(`Response headers (${theme})`);
+
+    await click('[role="tab"]', 'Cookies');
+    await audit(`Response cookies (${theme})`);
+
     await click('[role="tab"]', 'History');
     await audit(`Request history (${theme})`);
 

@@ -1,4 +1,4 @@
-import { Component, computed, input, linkedSignal, output } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, output } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -8,13 +8,16 @@ import { formatBytes, formatDuration } from '../../shared/format';
 import { errorHelp } from './error-hints';
 import { ResponseBody } from './response-body';
 import { ResponseConsole } from './response-console';
+import { SettingsState } from '../../core/state/settings.state';
+import { requestCookies, ResponseCookies, responseCookies } from './response-cookies';
+import { requestHeaders, ResponseHeaders } from './response-headers';
 
 const STATUS_COLORS = ['var(--otto-method-other)', 'var(--otto-method-get)', 'var(--otto-method-post)', 'var(--otto-method-put)', 'var(--otto-method-delete)'];
 
-/** Painel de resposta: estado de envio, erro (com sugestões) ou status/tempo/tamanho + corpo, headers, tempos e console. */
+/** Painel de resposta: estado de envio, erro (com sugestões) ou status/tempo/tamanho + corpo, headers, cookies, tempos e console. */
 @Component({
     selector: 'app-response-panel',
-    imports: [ButtonModule, MessageModule, ProgressSpinnerModule, ResponseBody, ResponseConsole, TabsModule],
+    imports: [ButtonModule, MessageModule, ProgressSpinnerModule, ResponseBody, ResponseConsole, ResponseCookies, ResponseHeaders, TabsModule],
     template: `
         @switch (entry().status) {
             @case ('sending') {
@@ -78,7 +81,10 @@ const STATUS_COLORS = ['var(--otto-method-other)', 'var(--otto-method-get)', 'va
                             @if (response(); as res) {
                                 <p-tab value="body">Body</p-tab>
                                 <p-tab value="headers"
-                                    >Headers <span class="text-xs text-muted-color">({{ res.headers.length }})</span></p-tab
+                                    >Headers <span class="text-xs text-muted-color">({{ headerCount() }})</span></p-tab
+                                >
+                                <p-tab value="cookies"
+                                    >Cookies <span class="text-xs text-muted-color">({{ cookieCount() }})</span></p-tab
                                 >
                                 <p-tab value="timings">Timings</p-tab>
                             } @else {
@@ -94,25 +100,10 @@ const STATUS_COLORS = ['var(--otto-method-other)', 'var(--otto-method-get)', 'va
                                     <app-response-body [response]="res" />
                                 </p-tabpanel>
                                 <p-tabpanel value="headers">
-                                    <table class="w-full table-fixed border-collapse text-sm">
-                                        <caption class="sr-only">
-                                            Response headers
-                                        </caption>
-                                        <thead>
-                                            <tr class="text-left text-xs text-muted-color">
-                                                <th scope="col" class="w-1/3 border-b border-surface-200 py-1.5 pr-4 font-medium dark:border-surface-700">Name</th>
-                                                <th scope="col" class="border-b border-surface-200 py-1.5 font-medium dark:border-surface-700">Value</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @for (header of res.headers; track $index) {
-                                                <tr>
-                                                    <td class="break-all border-b border-surface-100 py-1.5 pr-4 align-top font-mono dark:border-surface-800">{{ header[0] }}</td>
-                                                    <td class="break-all border-b border-surface-100 py-1.5 font-mono dark:border-surface-800">{{ header[1] }}</td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
+                                    <app-response-headers [received]="res.headers" [timeline]="timeline()" [showSent]="showRequestHeaders()" />
+                                </p-tabpanel>
+                                <p-tabpanel value="cookies">
+                                    <app-response-cookies [response]="res" [timeline]="timeline()" [showSent]="showRequestCookies()" />
                                 </p-tabpanel>
                                 <p-tabpanel value="timings">
                                     <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
@@ -162,6 +153,7 @@ const STATUS_COLORS = ['var(--otto-method-other)', 'var(--otto-method-get)', 'va
 })
 export class ResponsePanel {
     readonly entry = input.required<ResponseEntry>();
+    private readonly settings = inject(SettingsState);
     /** Pedido para guardar a resposta como exemplo do mock server. */
     readonly saveExample = output<{ status: number; headers: Array<[string, string]>; body: string; name: string }>();
     protected readonly timeMs = computed(() => this.response()?.timeMs ?? this.failure()?.timeMs ?? 0);
@@ -190,6 +182,16 @@ export class ResponsePanel {
         return STATUS_COLORS[Math.min(Math.floor(status / 100) - 1, 4)] ?? STATUS_COLORS[0];
     });
     protected readonly timeline = computed(() => this.result()?.timeline ?? []);
+    protected readonly showRequestHeaders = computed(() => this.settings.settings().appearance.showRequestHeaders);
+    /** Contador da aba: só o que está visível (enviados entram apenas com a preferência ligada). */
+    protected readonly headerCount = computed(() => (this.response()?.headers.length ?? 0) + (this.showRequestHeaders() ? requestHeaders(this.timeline()).length : 0));
+    protected readonly showRequestCookies = computed(() => this.settings.settings().appearance.showRequestCookies);
+    /** Contador da aba: só o que está visível (enviados entram apenas com a preferência ligada). */
+    protected readonly cookieCount = computed(() => {
+        const response = this.response();
+
+        return response ? responseCookies(response, this.timeline()).length + (this.showRequestCookies() ? requestCookies(this.timeline()).length : 0) : 0;
+    });
     /** Mantém a aba escolhida entre envios; volta para a primeira se ela não existir no novo resultado. */
     protected readonly tab = linkedSignal<boolean | null, string | number | undefined>({
         // `null` enquanto envia: não mexe na aba.

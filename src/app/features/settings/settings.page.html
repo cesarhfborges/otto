@@ -339,6 +339,28 @@
                             <p-toggleswitch formControlName="showQueryInUrl" inputId="show-query"
                                             ariaLabelledBy="show-query-label" />
                         </div>
+                        <div formGroupName="appearance"
+                             class="mt-4 flex items-center justify-between gap-6 rounded-lg border border-surface-200 px-4 py-3 dark:border-surface-700">
+                            <div class="min-w-0">
+                                <label id="show-request-headers-label" for="show-request-headers" class="font-medium">Show request headers</label>
+                                <p id="show-request-headers-help" class="m-0 mt-0.5 text-sm text-muted-color">In the
+                                    response Headers tab, also list the headers sent with the request, next to the ones
+                                    the server returned.</p>
+                            </div>
+                            <p-toggleswitch formControlName="showRequestHeaders" inputId="show-request-headers"
+                                            ariaLabelledBy="show-request-headers-label" />
+                        </div>
+                        <div formGroupName="appearance"
+                             class="mt-4 flex items-center justify-between gap-6 rounded-lg border border-surface-200 px-4 py-3 dark:border-surface-700">
+                            <div class="min-w-0">
+                                <label id="show-request-cookies-label" for="show-request-cookies" class="font-medium">Show request cookies</label>
+                                <p id="show-request-cookies-help" class="m-0 mt-0.5 text-sm text-muted-color">In the
+                                    response Cookies tab, also list the cookies sent with the request (Cookie header),
+                                    next to the ones the server set.</p>
+                            </div>
+                            <p-toggleswitch formControlName="showRequestCookies" inputId="show-request-cookies"
+                                            ariaLabelledBy="show-request-cookies-label" />
+                        </div>
                         <fieldset formGroupName="appearance"
                                   class="m-0 mt-4 divide-y divide-surface-200 rounded-lg border border-surface-200 p-0 dark:divide-surface-700 dark:border-surface-700">
                             <legend class="sr-only">Syntax highlighting</legend>

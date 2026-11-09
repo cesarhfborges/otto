@@ -209,6 +209,8 @@ export class SettingsPage {
             surfaceColor: this.fb.control<SurfaceColor | null>(null),
             requestLayout: this.fb.control<RequestLayout>('horizontal'),
             showQueryInUrl: this.fb.control(true),
+            showRequestHeaders: this.fb.control(true),
+            showRequestCookies: this.fb.control(true),
             codeTheme: this.fb.control<CodeTheme>('seneca'),
             codeFontSize: this.fb.control(14, { validators: [Validators.required, Validators.min(MIN_CODE_FONT_SIZE), Validators.max(MAX_CODE_FONT_SIZE)] })
         }),
