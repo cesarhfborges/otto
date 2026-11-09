@@ -76,9 +76,15 @@ function readExpanded(): ReadonlySet<string> {
             </div>
 
             @if (nodes().length) {
+                <!--
+                    scrollHeight="flex": o .p-tree-root (overflow auto) ocupa toda a altura e é o ÚNICO contêiner
+                    de rolagem, com as duas barras nas bordas da barra lateral (a horizontal no rodapé, não onde a
+                    lista termina). O host não rola; o filtro fica fixo no topo.
+                -->
                 <p-tree
-                    class="min-h-0 flex-1 overflow-auto"
+                    class="otto-sidebar-tree min-h-0 flex-1 overflow-hidden"
                     styleClass="!bg-transparent !p-1"
+                    scrollHeight="flex"
                     [value]="nodes()"
                     selectionMode="single"
                     [selection]="selectedNode()"
@@ -108,7 +114,7 @@ function readExpanded(): ReadonlySet<string> {
                                     <app-method-badge [method]="node.data.method" [compact]="true" />
                                 }
                             }
-                            <span class="min-w-0 flex-1 truncate">{{ node.label }}</span>
+                            <span class="otto-tree-label truncate">{{ node.label }}</span>
                             @if (node.data.error) {
                                 <i class="pi pi-exclamation-triangle text-xs text-orange-600 dark:text-orange-400" [pTooltip]="node.data.error" aria-hidden="true"></i>
                                 <span class="sr-only">(invalid file: {{ node.data.error }})</span>
@@ -158,6 +164,28 @@ function readExpanded(): ReadonlySet<string> {
         class: 'flex min-h-0 flex-col border-r border-surface-200 bg-surface-50 dark:border-surface-800 dark:bg-surface-900'
     },
     styles: `
+        /*
+         * Sem min-height: 0, o item flex (.p-tree-root) cresceria até a altura do conteúdo e a rolagem
+         * voltaria para fora dele. A lista raiz tem a largura da linha mais larga (max-content; no mínimo
+         * a da barra): todas as linhas vão até a mesma borda, então hover e seleção não cortam ao rolar
+         * para o lado. O nome não entra nessa conta (largura 0, mínimo 3rem; ver .otto-tree-label): a barra
+         * horizontal só surge quando a pasta mais funda não cabe, e os nomes seguem truncados com "…".
+         */
+        :host ::ng-deep .otto-sidebar-tree .p-tree-root {
+            min-height: 0;
+        }
+
+        :host ::ng-deep .otto-sidebar-tree .p-tree-root-children {
+            width: max-content;
+            min-width: 100%;
+        }
+
+        .otto-tree-label {
+            width: 0;
+            min-width: 3rem;
+            flex-grow: 1;
+        }
+
         ::ng-deep {
             .p-tree-node-label {
                 width: 100%;

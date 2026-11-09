@@ -110,7 +110,13 @@ const highlightStyle = HighlightStyle.define([
 ]);
 
 const scriptTheme = EditorView.theme({
-    '&': { height: '100%' },
+    /*
+     * '&.cm-editor' e não '&': as classes do tema também vão para o contêiner de tooltips que o CodeMirror
+     * põe no <body> (tooltips({ parent: document.body })). Com '&', esse contêiner vazio ganhava 100% da
+     * altura do body, abaixo do app: o documento ficava rolável e um scrollIntoView (foco numa pasta funda
+     * da barra lateral, por exemplo) deslocava o app inteiro para cima.
+     */
+    '&.cm-editor': { height: '100%' },
     '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace', scrollbarWidth: 'auto', overflow: 'auto' },
     '.cm-content': { padding: '0.75rem 0' },
     '.cm-line': { fontSize: 'var(--otto-code-font-size, 14px)', padding: '0 0.75rem 0 0' },
