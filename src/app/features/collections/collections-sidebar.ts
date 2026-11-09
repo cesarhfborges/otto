@@ -19,7 +19,8 @@ import { UiState } from '../../core/state/ui.state';
 import { MethodBadge } from '../../shared/method-badge';
 import { TreeToggleLabel } from '../../shared/tree-toggle-label.directive';
 import { buildCollectionRoot, findNode, folderOf, dropPositionOf, nodeKey, parentKey, pathInFolder, resolveDrop, type SidebarNode, type SidebarNodeData } from './collection-tree-nodes';
-import { EntryNameDialog, type EntryNameRequest } from './entry-name-dialog';
+import { copyName } from '../../shared/copy-name';
+import { NameDialog, type NameRequest } from '../../shared/name-dialog';
 
 const EXPANDED_KEY = 'otto.sidebarExpanded';
 
@@ -49,7 +50,7 @@ function readExpanded(): ReadonlySet<string> {
  */
 @Component({
     selector: 'app-collections-sidebar',
-    imports: [TreeModule, PrimeTemplate, ContextMenuModule, MenuModule, TieredMenuModule, ButtonModule, TooltipModule, MethodBadge, TreeToggleLabel, EntryNameDialog],
+    imports: [TreeModule, PrimeTemplate, ContextMenuModule, MenuModule, TieredMenuModule, ButtonModule, TooltipModule, MethodBadge, TreeToggleLabel, NameDialog],
     // O `p-tree` injeta o serviço como opcional: sem ele o arrastar e soltar não funciona.
     providers: [TreeDragDropService],
     template: `
@@ -155,7 +156,7 @@ function readExpanded(): ReadonlySet<string> {
         <p-context-menu #contextMenu [model]="contextItems()" appendTo="body" />
         <p-menu #addMenu [model]="addItems()" [popup]="true" appendTo="#collections-sidebar" />
         <p-tiered-menu #moreMenu [model]="moreItems()" [popup]="true" appendTo="body" />
-        <app-entry-name-dialog [(request)]="nameDialog" />
+        <app-name-dialog [(request)]="nameDialog" />
     `,
     host: {
         id: 'collections-sidebar',
@@ -214,7 +215,7 @@ export class CollectionsSidebar {
     /** Enquanto um arraste é gravado no disco, novos arrastes ficam bloqueados. */
     protected readonly moving = signal(false);
     /** Diálogo de nome aberto (renomear ou duplicar). */
-    protected readonly nameDialog = signal<EntryNameRequest | null>(null);
+    protected readonly nameDialog = signal<NameRequest | null>(null);
 
     /** Coleção aberta (contexto das abas); as demais não aparecem na barra lateral. */
     protected readonly collection = computed(() => this.collections.find(this.tabs.context()));
@@ -535,7 +536,8 @@ export class CollectionsSidebar {
             header: folder ? 'Duplicate Folder' : 'Duplicate Request',
             acceptLabel: 'Duplicate',
             acceptIcon: 'pi pi-copy',
-            name: `${this.labelOf(target)} copy`,
+            // Sugestão única entre os itens da mesma pasta (o usuário pode mudar antes de confirmar).
+            name: copyName(this.labelOf(target), this.siblingLabels(target)),
             folder,
             submit: (name) => this.duplicate(target, name)
         });
@@ -607,6 +609,10 @@ export class CollectionsSidebar {
     /** Caminhos dos itens da mesma pasta do alvo, na ordem atual da árvore. */
     private siblingPaths(target: SidebarNodeData): string[] {
         return ((this.find(parentKey(target))?.children ?? []) as SidebarNode[]).map(({ data }) => data!.path);
+    }
+
+    private siblingLabels(target: SidebarNodeData): string[] {
+        return ((this.find(parentKey(target))?.children ?? []) as SidebarNode[]).map((node) => node.label ?? '');
     }
 
     private labelOf(target: SidebarNodeData): string {

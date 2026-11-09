@@ -62,9 +62,9 @@ export class CollectionsState {
         return this.track(await this.gateway.import(request));
     }
 
-    /** Duplica a coleção (pasta, requisições e ambientes) no workspace ativo. */
-    async duplicate(id: EntityId): Promise<OpenedCollection> {
-        return this.track(await this.gateway.duplicate(id));
+    /** Duplica a coleção (pasta, requisições e ambientes) no workspace ativo, com o nome `name`. Lança o erro para o diálogo exibir. */
+    async duplicate(id: EntityId, name: string): Promise<OpenedCollection> {
+        return this.track(await this.gateway.duplicate(id, name));
     }
 
     /** Pergunta o destino e exporta como backup (.zip) ou spec OpenAPI. Retorna o arquivo, ou `null` se cancelado. */

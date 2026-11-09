@@ -10,11 +10,13 @@ import { EnvironmentsState } from '../../core/state/environments.state';
 import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
 import { WorkspacesState } from '../../core/state/workspaces.state';
+import { copyName } from '../../shared/copy-name';
+import { NameDialog, type NameRequest } from '../../shared/name-dialog';
 
 /** Visão geral do workspace ativo: local, números, ações rápidas e as coleções em cards (escolher um abre a coleção). */
 @Component({
     selector: 'app-workspace-overview',
-    imports: [ButtonModule, TieredMenuModule],
+    imports: [ButtonModule, TieredMenuModule, NameDialog],
     template: `
         <!-- Topo fixo (local, números, ações); só a grade de coleções rola. Com pouca altura, compacta (ver styles). -->
         <div class="overview-top flex max-w-5xl shrink-0 flex-col gap-6 p-4 pb-0">
@@ -96,6 +98,7 @@ import { WorkspacesState } from '../../core/state/workspaces.state';
             }
         </section>
         <p-tiered-menu #rowMenu [model]="rowItems()" [popup]="true" appendTo="body" />
+        <app-name-dialog [(request)]="nameDialog" />
     `,
     /*
      * O host é um container de tamanho: com pouca altura (janela baixa), o topo deixa de empilhar
@@ -169,6 +172,8 @@ export class WorkspaceOverview {
     private readonly rowMenu = viewChild.required<TieredMenu>('rowMenu');
 
     protected readonly rowItems = signal<MenuItem[]>([]);
+    /** Diálogo do nome da cópia (duplicar coleção). */
+    protected readonly nameDialog = signal<NameRequest | null>(null);
     /** Lista rolada: o título "Collections" ganha uma linha de separação do conteúdo que passa por baixo. */
     protected readonly scrolled = signal(false);
 
@@ -205,7 +210,7 @@ export class WorkspaceOverview {
     protected showMenu(event: MouseEvent, collection: CollectionMetadata): void {
         this.rowItems.set([
             { label: 'Open', icon: 'pi pi-arrow-right', command: () => this.openCollection(collection.id) },
-            { label: 'Duplicate', icon: 'pi pi-copy', command: () => void this.duplicate(collection) },
+            { label: 'Duplicate', icon: 'pi pi-copy', command: () => this.askDuplicate(collection) },
             { label: 'Reveal in File Explorer', icon: 'pi pi-folder-open', command: () => void this.reveal(collection.id) },
             {
                 label: 'Export Collection',
@@ -222,14 +227,23 @@ export class WorkspaceOverview {
         this.rowMenu().toggle(event);
     }
 
-    private async duplicate(collection: CollectionMetadata): Promise<void> {
-        try {
-            const copy = await this.collections.duplicate(collection.id);
+    /** Pede o nome da cópia, sugerindo "<nome> Copy" único entre as coleções conhecidas pelo app. */
+    private askDuplicate(collection: CollectionMetadata): void {
+        this.nameDialog.set({
+            header: 'Duplicate Collection',
+            acceptLabel: 'Duplicate',
+            acceptIcon: 'pi pi-copy',
+            name: copyName(
+                collection.name,
+                [...this.collections.known(), ...this.collections.opened().map((c) => c.metadata)].map((c) => c.name)
+            ),
+            folder: true,
+            submit: async (name) => {
+                const copy = await this.collections.duplicate(collection.id, name);
 
-            this.messages.add({ severity: 'success', summary: 'Collection duplicated', detail: copy.metadata.name, life: 4000 });
-        } catch (error) {
-            this.messages.add({ severity: 'error', summary: 'Could not duplicate the collection', detail: ipcErrorMessage(error), life: 6000 });
-        }
+                this.messages.add({ severity: 'success', summary: 'Collection duplicated', detail: copy.metadata.name, life: 4000 });
+            }
+        });
     }
 
     private async exportCollection(collection: CollectionMetadata, format: CollectionExportFormat): Promise<void> {

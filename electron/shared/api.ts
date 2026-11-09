@@ -158,8 +158,8 @@ export interface CollectionsApi {
     createOnDisk(name: string): Promise<OpenedCollection>;
     /** Importa para o workspace ativo um backup do Otto (.zip) ou um spec OpenAPI (URL/arquivo). */
     import(request: CollectionImportRequest): Promise<OpenedCollection>;
-    /** Cópia completa da coleção ("<nome> Copy") com os ambientes, incluída no workspace ativo. */
-    duplicate(id: EntityId): Promise<OpenedCollection>;
+    /** Cópia completa da coleção, com os ambientes, com o nome `name`, incluída no workspace ativo. */
+    duplicate(id: EntityId, name: string): Promise<OpenedCollection>;
     /** `backup`: .zip com arquivos e ambientes da coleção; `openapi`: spec OpenAPI 3 (.yaml/.json). */
     export(id: EntityId, format: CollectionExportFormat, file: string): Promise<void>;
     close(id: EntityId): Promise<void>;

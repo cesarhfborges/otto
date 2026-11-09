@@ -4,25 +4,28 @@ import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
-import { ipcErrorMessage } from '../../core/bridge/ipc-error';
-import { EnterSubmit } from '../../shared/enter-submit.directive';
+import { ipcErrorMessage } from '../core/bridge/ipc-error';
+import { EnterSubmit } from './enter-submit.directive';
 
 /** O que o diálogo pede: título, nome inicial e a ação executada com o nome escolhido. */
-export interface EntryNameRequest {
+export interface NameRequest {
     header: string;
     acceptLabel: string;
     acceptIcon: string;
     name: string;
     /** Pastas viram diretórios: o nome não pode ter separadores nem começar com ponto. */
-    folder: boolean;
+    folder?: boolean;
     submit: (name: string) => Promise<void>;
 }
 
 const FOLDER_NAME = /^[^./\\][^/\\]*$/;
 
-/** Pede o nome de um item da coleção (renomear ou duplicar pasta/requisição). */
+/**
+ * Pede um nome antes de uma ação (renomear ou duplicar coleção, pasta, requisição ou ambiente).
+ * Erros lançados por `submit` aparecem no próprio diálogo, que continua aberto para corrigir o nome.
+ */
 @Component({
-    selector: 'app-entry-name-dialog',
+    selector: 'app-name-dialog',
     imports: [DialogModule, ReactiveFormsModule, EnterSubmit, InputTextModule, ButtonModule, MessageModule, FormsModule],
     template: `
         <p-dialog closeAriaLabel="Close" [header]="request()?.header ?? ''" [modal]="true" [visible]="!!request()" (visibleChange)="!$event && close()" (onShow)="focusName()" [style]="{ width: '28rem' }" [draggable]="false" appendTo="body">
@@ -47,8 +50,8 @@ const FOLDER_NAME = /^[^./\\][^/\\]*$/;
         </p-dialog>
     `
 })
-export class EntryNameDialog {
-    readonly request = model<EntryNameRequest | null>(null);
+export class NameDialog {
+    readonly request = model<NameRequest | null>(null);
 
     private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
 

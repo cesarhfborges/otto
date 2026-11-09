@@ -95,13 +95,14 @@ export class CollectionsIpcModule implements IIpcModule {
 
         // Os scripts da cópia só seguem confiáveis se o original estiver confiável e sem scripts novos ou
         // alterados pendentes de revisão (senão a cópia adotaria em silêncio o que ainda não foi revisto).
-        ipc.handle('collections:duplicate', async (_event, rawId) => {
+        ipc.handle('collections:duplicate', async (_event, rawId, rawName) => {
             const id = parseEntityId(rawId);
+            const name = parseEntryName(rawName);
             const inventory = await this.scriptPolicy.inventory(id);
             const reviewed = inventory.entries.every((entry) => entry.trust === 'same') && inventory.removed.length === 0;
             const mode = inventory.policy.mode === 'trusted' ? (reviewed ? 'trusted' : 'ask') : inventory.policy.mode;
 
-            return this.workspaces.duplicateCollection(id, mode);
+            return this.workspaces.duplicateCollection(id, name, mode);
         });
 
         ipc.handle('collections:export', (_event, rawId, rawFormat, rawFile) => {

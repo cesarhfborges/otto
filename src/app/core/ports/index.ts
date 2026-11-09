@@ -133,7 +133,7 @@ export abstract class CollectionsGateway implements CollectionsApi {
     abstract delete(id: EntityId): Promise<boolean>;
     abstract createOnDisk(name: string): Promise<OpenedCollection>;
     abstract import(request: CollectionImportRequest): Promise<OpenedCollection>;
-    abstract duplicate(id: EntityId): Promise<OpenedCollection>;
+    abstract duplicate(id: EntityId, name: string): Promise<OpenedCollection>;
     abstract export(id: EntityId, format: CollectionExportFormat, file: string): Promise<void>;
     abstract close(id: EntityId): Promise<void>;
     abstract trash(id: EntityId): Promise<void>;

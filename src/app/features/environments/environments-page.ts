@@ -17,6 +17,8 @@ import { EnvironmentsState } from '../../core/state/environments.state';
 
 import { TemplateScope } from '../../core/templating/template-scope';
 import { OttoInput } from '../../shared/template-editor';
+import { copyName } from '../../shared/copy-name';
+import { NameDialog, type NameRequest } from '../../shared/name-dialog';
 type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<string>; value: FormControl<string>; secret: FormControl<boolean> }>;
 
 /**
@@ -25,7 +27,7 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
  */
 @Component({
     selector: 'app-environments-page',
-    imports: [ReactiveFormsModule, ButtonModule, CheckboxModule, InputTextModule, MessageModule, TooltipModule, OttoInput],
+    imports: [ReactiveFormsModule, ButtonModule, CheckboxModule, InputTextModule, MessageModule, TooltipModule, OttoInput, NameDialog],
     providers: [TemplateScope],
     template: `
         <nav class="flex w-60 shrink-0 flex-col gap-2 border-r border-surface-200 p-3 dark:border-surface-700" aria-labelledby="environments-heading">
@@ -143,6 +145,7 @@ type VariableForm = FormGroup<{ enabled: FormControl<boolean>; key: FormControl<
                 </div>
             }
         </section>
+        <app-name-dialog [(request)]="nameDialog" />
     `,
     host: { class: 'flex h-full min-h-0' }
 })
@@ -156,6 +159,8 @@ export class EnvironmentsPage {
     protected readonly selected = computed(() => this.environments().find((env) => env.id === this.selectedId()) ?? null);
     private readonly state = inject(EnvironmentsState);
     protected readonly environments = computed(() => this.state.list(this.collectionId()));
+    /** Diálogo do nome da cópia (duplicar ambiente). */
+    protected readonly nameDialog = signal<NameRequest | null>(null);
     private readonly collections = inject(CollectionsState);
     private readonly confirm = inject(ConfirmState);
     private readonly messages = inject(MessageService);
@@ -251,19 +256,32 @@ export class EnvironmentsPage {
         }
     }
 
+    /** Pede o nome da cópia, sugerindo "<nome> Copy" único no escopo (coleção ou globais do workspace). */
     protected async duplicate(environment: Environment): Promise<void> {
         if (!(await this.confirmDiscard())) {
             return;
         }
 
-        try {
-            const copy = await this.state.create(this.collectionId(), `${environment.name} copy`, environment.variables);
+        const collectionId = this.collectionId();
+        const taken = () => this.state.list(collectionId).map((env) => env.name);
 
-            this.form.markAsPristine();
-            this.selectedId.set(copy.id);
-        } catch (error) {
-            this.messages.add({ severity: 'error', summary: 'Could not duplicate the environment', detail: ipcErrorMessage(error), life: 6000 });
-        }
+        this.nameDialog.set({
+            header: 'Duplicate Environment',
+            acceptLabel: 'Duplicate',
+            acceptIcon: 'pi pi-copy',
+            name: copyName(environment.name, taken()),
+            submit: async (name) => {
+                // O create tornaria o nome único em silêncio ("x 2"); aqui o usuário escolheu o nome, então avisa.
+                if (taken().some((existing) => existing.toLowerCase() === name.toLowerCase())) {
+                    throw new Error(`An environment named "${name}" already exists.`);
+                }
+
+                const copy = await this.state.create(collectionId, name, environment.variables);
+
+                this.form.markAsPristine();
+                this.selectedId.set(copy.id);
+            }
+        });
     }
 
     protected async remove(environment: Environment): Promise<void> {

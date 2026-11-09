@@ -95,7 +95,7 @@ export interface IpcInvokeContract {
     'collections:delete': { args: [id: EntityId]; result: boolean };
     'collections:new': { args: [name: string]; result: OpenedCollection };
     'collections:import': { args: [request: CollectionImportRequest]; result: OpenedCollection };
-    'collections:duplicate': { args: [id: EntityId]; result: OpenedCollection };
+    'collections:duplicate': { args: [id: EntityId, name: string]; result: OpenedCollection };
     'collections:export': { args: [id: EntityId, format: CollectionExportFormat, file: string]; result: void };
     'collections:close': { args: [id: EntityId]; result: void };
     'collections:trash': { args: [id: EntityId]; result: void };

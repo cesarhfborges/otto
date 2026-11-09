@@ -294,35 +294,17 @@ export class WorkspaceService {
     }
 
     /**
-     * Duplica a coleção em `<workspace ativo>/collections/<slug>` com o nome "<nome> Copy" (ou
-     * "Copy 2", "Copy 3"... se já houver), copia os ambientes dela (os segredos inclusive: a cópia
-     * não sai da máquina) e inclui no workspace.
+     * Duplica a coleção em `<workspace ativo>/collections/<slug do nome>` com o nome escolhido (a UI sugere
+     * "<nome> Copy"), copia os ambientes dela (os segredos inclusive: a cópia não sai da máquina) e inclui no
+     * workspace. Falha se já houver uma pasta com o slug do nome.
      */
-    async duplicateCollection(id: EntityId, scriptMode: ScriptMode): Promise<OpenedCollection> {
-        const source = this.collections.findById(id);
-
-        if (!source) {
+    async duplicateCollection(id: EntityId, name: string, scriptMode: ScriptMode): Promise<OpenedCollection> {
+        if (!this.collections.findById(id)) {
             throw new Error(`Collection "${id}" not found`);
         }
 
         const workspace = await this.activeFolder();
-        const parent = path.join(workspace.path!, COLLECTIONS_FOLDER);
-        const taken = new Set(this.collections.findAll().map((collection) => collection.name.toLowerCase()));
-        let name = '';
-
-        for (let attempt = 1; attempt <= 100 && !name; attempt++) {
-            const candidate = `${source.name} Copy${attempt === 1 ? '' : ` ${attempt}`}`;
-
-            if (!taken.has(candidate.toLowerCase()) && !(await this.store.isDirectory(path.join(parent, slugify(candidate, 'collection'))))) {
-                name = candidate;
-            }
-        }
-
-        if (!name) {
-            throw new Error('Could not find an available name for the copy');
-        }
-
-        const copy = await this.collectionService.copy(id, parent, name, scriptMode);
+        const copy = await this.collectionService.copy(id, path.join(workspace.path!, COLLECTIONS_FOLDER), name, scriptMode);
 
         for (const environment of this.environments.findByCollection(id)) {
             this.environments.create({ collectionId: copy.metadata.id, name: environment.name, variables: environment.variables });
