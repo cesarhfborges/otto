@@ -15,13 +15,13 @@ import { CollectionsState } from '../../core/state/collections.state';
 import { ConfirmState } from '../../core/state/confirm.state';
 import { TabsState } from '../../core/state/tabs.state';
 import { UiState } from '../../core/state/ui.state';
-import { SecurityIcon, securityIconOf, securityModeIcon } from '../../shared/security-icon';
+import { SecurityIcon, securityModeIcon } from '../../shared/security-icon';
 import { ScriptChangesDialog } from './script-changes-dialog';
 
 const MODES: ReadonlyArray<{ value: ScriptMode; label: string; description: string; icon: ReturnType<typeof securityModeIcon> }> = [
-    { value: 'trusted', label: 'Trusted', description: 'Scripts run without asking while they stay the same as when you trusted them. Any change (a Git pull, another editor) asks again.', icon: securityModeIcon('trusted') },
-    { value: 'ask', label: 'Ask before running', description: 'Otto asks once per session before running any script of this collection.', icon: securityModeIcon('ask') },
-    { value: 'disabled', label: 'Scripts disabled', description: 'No script runs: requests are sent without them, and the console says they were skipped.', icon: securityModeIcon('disabled') }
+    { value: 'trusted', label: 'Trusted', description: 'Scripts run without asking. Edits you make in Otto stay trusted; changes from outside (a Git pull, another editor) ask first.', icon: securityModeIcon('trusted') },
+    { value: 'ask', label: 'Ask before running', description: 'Before sending, Otto asks: allow once, allow for this session, or cancel the request.', icon: securityModeIcon('ask') },
+    { value: 'disabled', label: 'Blocked', description: 'No script runs: requests are sent without them, and the console says they were skipped.', icon: securityModeIcon('disabled') }
 ];
 
 const PERMISSION_HELP: Record<ScriptPermission, string> = {
@@ -58,7 +58,7 @@ const keyOf = (entry: Pick<ScriptInventoryEntry, 'location' | 'path' | 'phase'>)
             <section aria-labelledby="security-mode-heading" class="flex flex-col gap-3">
                 <h2 id="security-mode-heading" class="m-0 text-base font-semibold">Script mode</h2>
                 <p id="security-mode-help" class="m-0 text-sm text-muted-color">
-                    Scripts always run in an isolated sandbox. The mode decides whether they run at all; the permissions below decide what they may do. Kept only on this computer, never in the collection files.
+                    The mode decides whether scripts run; the permissions below decide what they may do. Kept only on this computer, never in the collection files, so a collection from Git or a .zip cannot trust itself.
                 </p>
                 <div role="radiogroup" aria-labelledby="security-mode-heading" aria-describedby="security-mode-help" class="grid gap-2 md:grid-cols-3">
                     @for (option of modes; track option.value) {
@@ -87,19 +87,22 @@ const keyOf = (entry: Pick<ScriptInventoryEntry, 'location' | 'path' | 'phase'>)
                     }
                 </div>
 
-                <div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3 text-sm" [class]="statusTone()" role="status">
-                    <app-security-icon class="size-4" [kind]="statusIcon()" />
-                    <span class="min-w-0 flex-1">{{ statusText() }}</span>
+                <div role="status">
                     @switch (status()) {
                         @case ('changed') {
-                            <p-button label="Review Changes" icon="pi pi-eye" size="small" severity="secondary" [outlined]="true" (onClick)="reviewOpen.set(true)" />
-                            <p-button label="Trust Current Scripts" icon="pi pi-shield" size="small" [loading]="busy()" (onClick)="trustCurrent()" />
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                                <app-security-icon class="size-4" kind="ask" />
+                                <span class="min-w-0 flex-1">{{ changedText() }}</span>
+                                <p-button label="Review Changes" icon="pi pi-eye" size="small" severity="secondary" [outlined]="true" (onClick)="reviewOpen.set(true)" />
+                                <p-button label="Trust Current Scripts" icon="pi pi-shield" size="small" [loading]="busy()" (onClick)="trustCurrent()" />
+                            </div>
                         }
                         @case ('session') {
-                            <p-button label="Forget Decision" size="small" severity="secondary" [text]="true" (onClick)="security.forgetSession(collectionId())" />
-                        }
-                        @case ('refused') {
-                            <p-button label="Forget Decision" size="small" severity="secondary" [text]="true" (onClick)="security.forgetSession(collectionId())" />
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+                                <app-security-icon class="size-4" kind="trusted" />
+                                <span class="min-w-0 flex-1">Allowed for this session: Otto asks again after a restart or if the scripts change.</span>
+                                <p-button label="Ask Again" size="small" severity="secondary" [text]="true" (onClick)="security.forgetSession(collectionId())" />
+                            </div>
                         }
                     }
                 </div>
@@ -113,7 +116,7 @@ const keyOf = (entry: Pick<ScriptInventoryEntry, 'location' | 'path' | 'phase'>)
             <section aria-labelledby="security-permissions-heading" class="flex flex-col gap-3">
                 <div class="flex flex-wrap items-center gap-2">
                     <h2 id="security-permissions-heading" class="m-0 text-base font-semibold">Permissions</h2>
-                    <span class="text-xs text-muted-color">{{ policy()?.customPermissions ? 'Customized' : 'Default for this mode' }}</span>
+                    <span class="text-xs text-muted-color">{{ policy()?.customPermissions ? 'Customized' : 'Default' }}</span>
                     @if (policy()?.customPermissions) {
                         <p-button class="ms-auto" label="Reset to Defaults" size="small" severity="secondary" [text]="true" [disabled]="busy()" (onClick)="resetPermissions()" />
                     }
@@ -207,12 +210,17 @@ const keyOf = (entry: Pick<ScriptInventoryEntry, 'location' | 'path' | 'phase'>)
 
             <section aria-labelledby="security-sandbox-heading" class="flex flex-col gap-2">
                 <h2 id="security-sandbox-heading" class="m-0 text-base font-semibold">Sandbox</h2>
-                <p class="m-0 text-sm text-muted-color">Scripts run in QuickJS (WebAssembly), isolated from the app: they only see <code>otto</code> and <code>console</code> — no network, files, timers or DOM.</p>
-                <dl class="m-0 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <p class="m-0 text-sm text-muted-color">
+                    Each script runs in its own QuickJS (WebAssembly) sandbox, in a background worker, so a slow script never freezes Otto. It only sees <code>otto</code> and <code>console</code>: no <code>fetch</code>, files, DOM or timers (use
+                    <code>await otto.sleep(ms)</code>). What it can change (the request, variables, cookies, other requests) is set by the permissions above. A script that goes over a limit is stopped; if it is a pre-request script, its request is
+                    not sent.
+                </p>
+                <dl class="m-0 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                     @for (limit of limits; track limit.label) {
                         <div class="rounded-lg border border-surface-200 p-3 dark:border-surface-700">
                             <dt class="text-xs text-muted-color">{{ limit.label }}</dt>
                             <dd class="m-0 font-medium tabular-nums">{{ limit.value }}</dd>
+                            <dd class="m-0 mt-1 text-xs text-muted-color">{{ limit.hint }}</dd>
                         </div>
                     }
                 </dl>
@@ -277,10 +285,11 @@ export class CollectionSecurity {
     protected readonly permissionKeys = SCRIPT_PERMISSIONS;
     protected readonly help = PERMISSION_HELP;
     protected readonly limits = [
-        { label: 'Memory', value: `${DEFAULT_SANDBOX_LIMITS.memoryBytes / 1024 / 1024} MB` },
-        { label: 'Continuous work', value: `${DEFAULT_SANDBOX_LIMITS.sliceMs / 1000} s` },
-        { label: 'CPU per script', value: `${DEFAULT_SANDBOX_LIMITS.cpuMs / 1000} s` },
-        { label: 'Total time', value: `${DEFAULT_SANDBOX_LIMITS.wallMs / 1000} s` }
+        { label: 'Memory', value: `${DEFAULT_SANDBOX_LIMITS.memoryBytes / 1024 / 1024} MB`, hint: 'Per script run' },
+        { label: 'Continuous work', value: `${DEFAULT_SANDBOX_LIMITS.sliceMs / 1000} s`, hint: 'Longest stretch of code without an await' },
+        { label: 'CPU time', value: `${DEFAULT_SANDBOX_LIMITS.cpuMs / 1000} s`, hint: 'Total computing time of one script' },
+        { label: 'Total time', value: `${DEFAULT_SANDBOX_LIMITS.wallMs / 1000} s`, hint: 'Includes waiting for otto.sleep and other requests' },
+        { label: 'Call stack', value: `${DEFAULT_SANDBOX_LIMITS.stackBytes / 1024 / 1024} MB`, hint: 'Limits deep recursion' }
     ];
 
     protected readonly busy = signal(false);
@@ -320,46 +329,12 @@ export class CollectionSecurity {
     });
     protected readonly removed = computed(() => (this.inventory()?.removed ?? []).map((entry) => ({ key: keyOf(entry), name: entry.name, phase: PHASE_LABELS[entry.phase] })));
 
-    protected readonly statusText = computed(() => {
+    protected readonly changedText = computed(() => {
         const policy = this.policy();
         const changes = this.security.changes(this.collectionId());
         const since = policy?.trustedAt ? ` on ${new Date(policy.trustedAt).toLocaleString()}` : '';
 
-        switch (this.status()) {
-            case 'none':
-                return this.inventory() ? 'This collection has no scripts. The mode applies to any script added later.' : 'Reading scripts…';
-            case 'trusted':
-                return `Trusted${since}. The scripts are the same as when you trusted them.`;
-            case 'changed':
-                return `${changes} script${changes === 1 ? '' : 's'} changed since you trusted them${since}. Otto asks before running them again.`;
-            case 'session':
-                return 'Allowed until Otto restarts. Choose Trusted to stop asking.';
-            case 'refused':
-                return 'Not allowed in this session: requests that use scripts are not sent.';
-            case 'disabled':
-                return 'Scripts are disabled: requests are sent without running them.';
-            default:
-                return 'Otto asks before running the scripts of this collection.';
-        }
-    });
-    protected readonly statusIcon = computed(() => {
-        const status = this.status();
-
-        return securityIconOf(status === 'none' ? 'ask' : status).kind;
-    });
-    protected readonly statusTone = computed(() => {
-        switch (this.status()) {
-            case 'trusted':
-                return 'border-green-200 bg-green-50 text-green-900 dark:border-green-900 dark:bg-green-950 dark:text-green-200';
-            case 'changed':
-            case 'ask':
-                return 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200';
-            case 'refused':
-            case 'disabled':
-                return 'border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200';
-            default:
-                return 'border-surface-200 dark:border-surface-700';
-        }
+        return `${changes} script${changes === 1 ? '' : 's'} changed outside Otto since you trusted them${since}. Otto asks before running them.`;
     });
 
     constructor() {

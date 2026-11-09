@@ -2,7 +2,7 @@ import { inject, Injectable, resource } from '@angular/core';
 import { inheritanceChain, parentFolder, resolveInheritedAuth, type InheritanceLevel } from '@shared/http/inheritance';
 import { interpolateRequest, type InterpolationResult } from '@shared/http/interpolate';
 import type { CollectionNode, EntityId, RequestAuth, RequestDefinition } from '@shared/models';
-import { requestSnapshot, VariableScopes, type MessageSnapshot, type VariableLayer, type OttoHost, type RequestRefHandle, type ValidationEnv } from '@shared/templating';
+import { createTemplateEngine, requestSnapshot, VariableScopes, type MessageSnapshot, type VariableLayer, type OttoHost, type RequestRefHandle, type ValidationEnv } from '@shared/templating';
 import { AppInfoGateway, CollectionFilesGateway } from '../ports';
 import { CollectionsState } from '../state/collections.state';
 import { EnvironmentsState } from '../state/environments.state';
@@ -99,13 +99,30 @@ export class TemplateContextService {
         return this.drafts.draft(draftKey(collectionId, path)) ?? this.files.readRequest(collectionId, path);
     }
 
-    /** Interpola a requisição (com os headers da coleção antes dos dela: no envio o último com o mesmo nome vence). */
-    prepare(collectionId: EntityId, path: string, definition: RequestDefinition, access: ResponseAccess, chain: readonly string[]): Promise<InterpolationResult> {
+    /**
+     * Interpola a requisição (com os headers da coleção antes dos dela: no envio o último com o mesmo nome vence).
+     * `preview`: não envia requisições referenciadas; `maskSecrets`: segredos viram `••••` (como os scripts sem `readSecrets` os veem).
+     */
+    prepare(collectionId: EntityId, path: string, definition: RequestDefinition, access: ResponseAccess, chain: readonly string[], options: { preview?: boolean; maskSecrets?: boolean } = {}): Promise<InterpolationResult> {
         const collectionHeaders = this.collections.find(collectionId)?.manifest.headers ?? [];
-
         const effective = this.withInheritedAuth(collectionId, path, definition);
+        const scopes = this.scopes(collectionId, parentFolder(path));
+        const host = this.host(collectionId, path, definition, access, chain);
 
-        return interpolateRequest({ ...effective, headers: [...collectionHeaders, ...effective.headers] }, { scopes: this.scopes(collectionId, parentFolder(path)), host: this.host(collectionId, path, definition, access, chain) });
+        return interpolateRequest({ ...effective, headers: [...collectionHeaders, ...effective.headers] }, { scopes: options.maskSecrets ? scopes.masked() : scopes, host: options.preview ? { ...host, preview: true } : host });
+    }
+
+    /** Se o texto, interpolado, depende de alguma variável secreta (compara com os segredos mascarados, sem enviar nada). */
+    async usesSecret(collectionId: EntityId, path: string, definition: RequestDefinition, access: ResponseAccess, chain: readonly string[], text: string): Promise<boolean> {
+        if (!text.includes('{{')) {
+            return false;
+        }
+
+        const scopes = this.scopes(collectionId, parentFolder(path));
+        const host = { ...this.host(collectionId, path, definition, access, chain), preview: true };
+        const [real, masked] = await Promise.all([createTemplateEngine({ scopes, host }).render(text), createTemplateEngine({ scopes: scopes.masked(), host }).render(text)]);
+
+        return real.text !== masked.text;
     }
 
     /** Implementação do `otto` (cookies, outras requisições…) usada nos templates e nos scripts. */

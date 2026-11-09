@@ -1,5 +1,5 @@
 import { inject, Injectable, signal } from '@angular/core';
-import type { EntityId, ScriptInventory, ScriptPermissions, ScriptPhaseName, ScriptPolicy, ScriptPolicyPatch } from '@shared/models';
+import { defaultScriptPermissions, type EntityId, type ScriptInventory, type ScriptPermissions, type ScriptPhaseName, type ScriptPolicy, type ScriptPolicyPatch } from '@shared/models';
 import { CollectionsGateway } from '../ports';
 import { CollectionsState } from '../state/collections.state';
 import { ConfirmState } from '../state/confirm.state';
@@ -9,12 +9,13 @@ import { UiState } from '../state/ui.state';
 /**
  * Estado efetivo dos scripts de uma coleção:
  * - `none`: sem scripts;
- * - `trusted`: confiáveis e iguais aos de quando a confiança foi dada;
- * - `changed`: confiáveis, mas alterados/criados/removidos desde então (volta a perguntar);
- * - `ask`: pergunta antes de rodar; `session`/`refused`: decisão desta sessão;
- * - `disabled`: nunca rodam (as requisições saem sem eles).
+ * - `trusted`: confiáveis e iguais aos de quando a confiança foi dada (ou editados no app);
+ * - `changed`: confiáveis, mas alterados fora do app desde então (pergunta antes de rodar);
+ * - `ask`: pergunta antes de rodar;
+ * - `session`: liberados até o Otto reiniciar (ou até os scripts mudarem);
+ * - `blocked`: nunca rodam (as requisições saem sem eles).
  */
-export type ScriptSecurityStatus = 'none' | 'trusted' | 'changed' | 'ask' | 'session' | 'refused' | 'disabled';
+export type ScriptSecurityStatus = 'none' | 'trusted' | 'changed' | 'ask' | 'session' | 'blocked';
 
 export type ScriptActivityResult = 'ok' | 'error' | 'stopped' | 'blocked' | 'skipped';
 
@@ -32,11 +33,12 @@ export interface ScriptActivity {
     message: string | null;
 }
 
+/** `run`: roda os scripts; `skip`: envia sem eles (Blocked); `cancel`: não envia (pergunta cancelada). */
+export type ScriptRunAction = 'run' | 'skip' | 'cancel';
+
 export interface ScriptRunDecision {
-    run: boolean;
+    action: ScriptRunAction;
     permissions: ScriptPermissions;
-    /** Por que não roda: `disabled` envia sem os scripts; `refused` não envia. */
-    reason: 'disabled' | 'refused' | null;
 }
 
 const MAX_ACTIVITY = 50;
@@ -44,15 +46,7 @@ const MAX_ACTIVITY = 50;
 const FRESH_MS = 1_000;
 const REFRESH_DELAY_MS = 300;
 
-const PERMISSION_LABELS: Record<keyof ScriptPermissions, string> = {
-    modifyRequest: 'Change the request being sent',
-    writeVariables: 'Write environment and collection variables',
-    writeCookies: 'Change cookies',
-    sendRequests: 'Send other requests of the collection',
-    readSecrets: 'Read secret variables'
-};
-
-export const scriptPermissionLabel = (permission: keyof ScriptPermissions): string => PERMISSION_LABELS[permission];
+export { scriptPermissionLabel } from './script-api';
 
 /**
  * Política de segurança dos scripts por coleção (modo, permissões, confiança presa ao
@@ -67,12 +61,15 @@ export class ScriptSecurityState {
     private readonly ui = inject(UiState);
 
     private readonly inventories = signal<ReadonlyMap<EntityId, ScriptInventory>>(new Map());
-    private readonly sessionState = signal<ReadonlyMap<EntityId, 'session' | 'refused'>>(new Map());
+    /** "Allow This Session": vale para os scripts com esta impressão digital. */
+    private readonly sessionState = signal<ReadonlyMap<EntityId, string>>(new Map());
     private readonly activityState = signal<ReadonlyMap<EntityId, readonly ScriptActivity[]>>(new Map());
     private readonly problemState = signal<ReadonlyMap<EntityId, string>>(new Map());
     private readonly loadedAt = new Map<EntityId, number>();
     private readonly loading = new Map<EntityId, Promise<ScriptInventory | null>>();
-    private readonly asking = new Map<EntityId, Promise<boolean>>();
+    private readonly asking = new Map<EntityId, Promise<ScriptRunAction>>();
+    /** Decisão do envio em andamento (vale para a cadeia, o post-response e envios aninhados). */
+    private readonly activeSends = new Map<EntityId, { decision: ScriptRunDecision; count: number }>();
     private readonly timers = new Map<EntityId, ReturnType<typeof setTimeout>>();
     private nextActivityId = 1;
 
@@ -140,14 +137,19 @@ export class ScriptSecurityState {
             return 'none';
         }
 
-        switch (policy.mode) {
-            case 'disabled':
-                return 'disabled';
-            case 'trusted':
-                return this.changes(collectionId) ? 'changed' : 'trusted';
-            default:
-                return this.sessionState().get(collectionId) ?? 'ask';
+        if (policy.mode === 'disabled') {
+            return 'blocked';
         }
+
+        if (policy.mode === 'trusted' && !this.changes(collectionId)) {
+            return 'trusted';
+        }
+
+        if (this.sessionState().get(collectionId) === inventory.fingerprint) {
+            return 'session';
+        }
+
+        return policy.mode === 'trusted' ? 'changed' : 'ask';
     }
 
     /** Scripts alterados, criados ou removidos desde a confiança. */
@@ -173,16 +175,52 @@ export class ScriptSecurityState {
         return collectionId ? (this.problemState().get(collectionId) ?? null) : null;
     }
 
-    sessionDecision(collectionId: EntityId | null): 'session' | 'refused' | null {
-        return collectionId ? (this.sessionState().get(collectionId) ?? null) : null;
+    hasSessionDecision(collectionId: EntityId | null): boolean {
+        return !!collectionId && this.sessionState().has(collectionId);
     }
 
-    /** Decide se os scripts rodam (perguntando se preciso) e com quais permissões. */
-    async allowed(collectionId: EntityId): Promise<ScriptRunDecision> {
+    /**
+     * Decide uma vez por envio se os scripts rodam (perguntando se preciso) e com quais
+     * permissões. Envios aninhados (`otto.request('…')`) durante um envio reaproveitam a
+     * decisão. Sempre chamar `endSend` depois.
+     */
+    async beginSend(collectionId: EntityId): Promise<ScriptRunDecision> {
+        const active = this.activeSends.get(collectionId);
+
+        if (active) {
+            active.count++;
+
+            return active.decision;
+        }
+
+        const entry = { decision: { action: 'cancel' as ScriptRunAction, permissions: defaultScriptPermissions() }, count: 1 };
+
+        this.activeSends.set(collectionId, entry);
+
+        try {
+            entry.decision = await this.decide(collectionId);
+        } catch (error) {
+            this.endSend(collectionId);
+
+            throw error;
+        }
+
+        return entry.decision;
+    }
+
+    endSend(collectionId: EntityId): void {
+        const active = this.activeSends.get(collectionId);
+
+        if (active && --active.count <= 0) {
+            this.activeSends.delete(collectionId);
+        }
+    }
+
+    private async decide(collectionId: EntityId): Promise<ScriptRunDecision> {
         const collection = this.collections.find(collectionId);
 
         if (!collection) {
-            return { run: true, permissions: { modifyRequest: true, writeVariables: true, writeCookies: true, sendRequests: true, readSecrets: true }, reason: null };
+            return { action: 'run', permissions: defaultScriptPermissions() };
         }
 
         // Relê o inventário antes de rodar: scripts confiados podem ter mudado há pouco.
@@ -190,19 +228,25 @@ export class ScriptSecurityState {
             await this.refresh(collectionId);
         }
 
-        const status = this.status(collectionId);
-        const decision = (run: boolean, reason: ScriptRunDecision['reason'] = null): ScriptRunDecision => ({ run, reason, permissions: this.policy(collectionId)?.permissions ?? collection.metadata.scriptPolicy.permissions });
+        const policy = this.policy(collectionId) ?? collection.metadata.scriptPolicy;
+        const permissions = policy.permissions;
+        let status = this.status(collectionId);
+
+        // Sem scripts no disco (ex.: script digitado e ainda não salvo): vale o modo da coleção.
+        if (status === 'none') {
+            const session = this.sessionState().get(collectionId);
+
+            status = policy.mode === 'disabled' ? 'blocked' : policy.mode === 'trusted' ? 'trusted' : session !== undefined && session === this.inventory(collectionId)?.fingerprint ? 'session' : 'ask';
+        }
 
         switch (status) {
-            case 'disabled':
-                return decision(false, 'disabled');
-            case 'refused':
-                return decision(false, 'refused');
+            case 'blocked':
+                return { action: 'skip', permissions };
             case 'ask':
             case 'changed':
-                return (await this.ask(collectionId, status)) ? decision(true) : decision(false, 'refused');
+                return { action: await this.ask(collectionId, status), permissions };
             default:
-                return decision(true);
+                return { action: 'run', permissions };
         }
     }
 
@@ -221,7 +265,7 @@ export class ScriptSecurityState {
         return this.setPolicy(collectionId, { mode: 'trusted', permissions: policy?.customPermissions ? policy.permissions : null, retrust: true });
     }
 
-    /** Esquece a decisão desta sessão (e o último aviso de script parado, que dependia dela). */
+    /** Esquece o "Allow This Session" (volta a perguntar) e o último aviso de script parado. */
     forgetSession(collectionId: EntityId): void {
         this.problemState.update((map) => {
             const next = new Map(map);
@@ -277,65 +321,56 @@ export class ScriptSecurityState {
         );
     }
 
-    /** Uma única pergunta por coleção, mesmo com vários scripts no mesmo envio. */
-    private ask(collectionId: EntityId, status: 'ask' | 'changed'): Promise<boolean> {
+    /** Uma única pergunta por coleção, mesmo com vários envios ao mesmo tempo. */
+    private ask(collectionId: EntityId, status: 'ask' | 'changed'): Promise<ScriptRunAction> {
         let pending = this.asking.get(collectionId);
 
         if (!pending) {
-            pending = (status === 'changed' ? this.askChanged(collectionId) : this.askUntrusted(collectionId)).finally(() => this.asking.delete(collectionId));
+            pending = this.askToRun(collectionId, status).finally(() => this.asking.delete(collectionId));
             this.asking.set(collectionId, pending);
         }
 
         return pending;
     }
 
-    private async askUntrusted(collectionId: EntityId): Promise<boolean> {
-        const name = this.collections.find(collectionId)?.manifest.name ?? 'This collection';
-        const count = this.inventory(collectionId)?.entries.length ?? 0;
-        const answer = await this.confirm.choose({
-            header: 'Run Scripts?',
-            message: `"${name}" has ${count} script${count === 1 ? '' : 's'} that run when you send requests. This collection came from outside this app (an import or a folder from Git), so its scripts have not been reviewed.`,
-            detail: 'Scripts run in an isolated sandbox, limited by the permissions in the collection’s Security tab. Only trust collections from sources you know.',
-            acceptLabel: 'Trust Collection',
-            acceptIcon: 'pi pi-shield',
-            alternativeLabel: 'Allow Until Restart',
-            rejectLabel: "Don't Run",
-            severity: 'warn',
-            icon: 'pi pi-exclamation-triangle'
-        });
-
-        return this.applyAnswer(collectionId, answer, () => this.setPolicy(collectionId, { mode: 'trusted', permissions: null }));
-    }
-
-    private async askChanged(collectionId: EntityId): Promise<boolean> {
+    /** Allow Once (só este envio), Allow This Session (até reiniciar ou os scripts mudarem) ou Cancel (não envia). */
+    private async askToRun(collectionId: EntityId, status: 'ask' | 'changed'): Promise<ScriptRunAction> {
         const name = this.collections.find(collectionId)?.manifest.name ?? 'This collection';
         const inventory = this.inventory(collectionId);
-        const changed = [...(inventory?.entries.filter((entry) => entry.trust !== 'same').map((entry) => `${entry.name} (${entry.trust === 'new' ? 'new' : 'changed'})`) ?? []), ...(inventory?.removed.map((entry) => `${entry.name} (removed)`) ?? [])];
-        const list = changed.slice(0, 5).join(', ') + (changed.length > 5 ? ` and ${changed.length - 5} more` : '');
+        const count = inventory?.entries.length ?? 0;
+        let message: string;
+        let detail: string;
+
+        if (status === 'changed') {
+            const changed = [
+                ...(inventory?.entries.filter((entry) => entry.trust !== 'same').map((entry) => `${entry.name} (${entry.trust === 'new' ? 'new' : 'changed'})`) ?? []),
+                ...(inventory?.removed.map((entry) => `${entry.name} (removed)`) ?? [])
+            ];
+            const list = changed.slice(0, 5).join(', ') + (changed.length > 5 ? ` and ${changed.length - 5} more` : '');
+
+            message = `${changed.length || 'Some'} script${changed.length === 1 ? '' : 's'} of "${name}" changed outside Otto since you trusted them${list ? `: ${list}` : ''}.`;
+            detail = 'They may come from a Git pull or another editor. Review the differences in the collection’s Security tab and trust them there to stop asking.';
+        } else {
+            message = `"${name}" ${count ? `has ${count} script${count === 1 ? '' : 's'} that run` : 'has scripts that run'} when you send requests, and this collection is set to ask before running them.`;
+            detail = 'Scripts run in an isolated sandbox, limited by the permissions in the collection’s Security tab. Cancel does not send the request.';
+        }
+
         const answer = await this.confirm.choose({
-            header: 'Scripts Changed',
-            message: `${changed.length || 'Some'} script${changed.length === 1 ? '' : 's'} of "${name}" changed since you trusted them${list ? `: ${list}` : ''}.`,
-            detail: 'They may have come from a Git pull or another editor. Review the differences in the collection’s Security tab before trusting them again.',
-            acceptLabel: 'Trust Current Scripts',
-            acceptIcon: 'pi pi-shield',
-            alternativeLabel: 'Allow Until Restart',
-            rejectLabel: "Don't Run",
+            header: 'Run Scripts?',
+            message,
+            detail,
+            acceptLabel: 'Allow Once',
+            acceptIcon: 'pi pi-play',
+            alternativeLabel: 'Allow This Session',
+            rejectLabel: 'Cancel',
             severity: 'warn',
             icon: 'pi pi-exclamation-triangle'
         });
 
-        return this.applyAnswer(collectionId, answer, () => this.trustCurrent(collectionId));
-    }
-
-    private async applyAnswer(collectionId: EntityId, answer: 'accept' | 'alternative' | 'cancel', trust: () => Promise<void>): Promise<boolean> {
-        if (answer === 'accept') {
-            await trust();
-
-            return true;
+        if (answer === 'alternative' && inventory) {
+            this.sessionState.update((map) => new Map(map).set(collectionId, inventory.fingerprint));
         }
 
-        this.sessionState.update((map) => new Map(map).set(collectionId, answer === 'alternative' ? 'session' : 'refused'));
-
-        return answer === 'alternative';
+        return answer === 'cancel' ? 'cancel' : 'run';
     }
 }

@@ -131,7 +131,7 @@ const api: OttoApi = {
         connect: (collectionId, config) => invoke('openapi:connect', collectionId, config),
         disconnect: (collectionId) => invoke('openapi:disconnect', collectionId),
         spec: (collectionId) => invoke('openapi:spec', collectionId),
-        sync: (collectionId, keys) => invoke('openapi:sync', collectionId, keys),
+        sync: (collectionId, keys, reviewed) => invoke('openapi:sync', collectionId, keys, reviewed ?? []),
         revert: (collectionId, keys) => invoke('openapi:revert', collectionId, keys)
     },
     updates: {

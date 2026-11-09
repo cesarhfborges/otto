@@ -110,7 +110,7 @@ export interface IpcInvokeContract {
     'openapi:connect': { args: [collectionId: EntityId, config: OpenApiConfig]; result: OpenApiStatus };
     'openapi:disconnect': { args: [collectionId: EntityId]; result: void };
     'openapi:spec': { args: [collectionId: EntityId]; result: string };
-    'openapi:sync': { args: [collectionId: EntityId, keys: string[]]; result: OpenApiStatus };
+    'openapi:sync': { args: [collectionId: EntityId, keys: string[], reviewed?: string[]]; result: OpenApiStatus };
     'openapi:revert': { args: [collectionId: EntityId, keys: string[]]; result: OpenApiStatus };
     'collection-files:read-request': { args: [collectionId: EntityId, path: string]; result: RequestDefinition };
     'collection-files:save-request': { args: [collectionId: EntityId, path: string, request: RequestDefinition]; result: void };

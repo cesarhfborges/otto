@@ -122,6 +122,22 @@ async function responseOf(handle: RequestRefHandle, options: RequestRefOptions, 
 }
 
 /**
+ * `otto.request(ref, options)` como dados (para o sandbox dos scripts, que roda em outro
+ * contexto): a resposta segundo a política de envio e a requisição interpolada.
+ */
+export function referencedRequest(host: OttoHost, ref: string, rawOptions?: unknown): { response(): Promise<MessageSnapshot>; request(): Promise<MessageSnapshot> } {
+    const handle = host.findRequest(ref);
+
+    if (!handle) {
+        throw new TemplateError(`Request "${ref}" not found in this collection`);
+    }
+
+    const options = refOptions(rawOptions);
+
+    return { response: () => responseOf(handle, options, host), request: () => handle.request() };
+}
+
+/**
  * Monta o objeto `otto` de uma avaliação. `currentRequest` dá a requisição atual já
  * interpolada; `guard` impede que o campo em avaliação leia a si mesmo.
  */

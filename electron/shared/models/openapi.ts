@@ -47,7 +47,15 @@ export interface EndpointChange {
     after: RequestDefinition | null;
     /** Arquivo da requisição na coleção, quando existe. */
     requestPath: string | null;
+    /**
+     * Spec updates numa coleção com scripts: o que muda no destino (servidor/host), na
+     * autenticação ou nos headers. Exige revisão (não entra no "aceitar tudo") porque um
+     * script confiável pode mandar credenciais para o novo destino.
+     */
+    sensitive: EndpointSensitiveChange[];
 }
+
+export type EndpointSensitiveChange = 'destination' | 'auth' | 'headers';
 
 export interface OpenApiStatus {
     config: OpenApiConfig | null;

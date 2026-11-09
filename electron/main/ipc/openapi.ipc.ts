@@ -2,7 +2,7 @@ import type { IIpcModule, IIpcRegistrar } from '../core/contracts';
 import { parseEntityId, parseOpenApiConfig, requireArray, requireString } from '../core/validation';
 import type { OpenApiService } from '../services/openapi/openapi.service';
 
-const parseKeys = (raw: unknown): string[] => requireArray(raw, 'keys', 5_000).map((key, i) => requireString(key, `keys[${i}]`, { maxLength: 2_000 }));
+const parseKeys = (raw: unknown, name = 'keys'): string[] => requireArray(raw, name, 5_000).map((key, i) => requireString(key, `${name}[${i}]`, { maxLength: 2_000 }));
 
 /** Ligação de coleções com specs OpenAPI: verificar, sincronizar e reverter. */
 export class OpenApiIpcModule implements IIpcModule {
@@ -17,7 +17,7 @@ export class OpenApiIpcModule implements IIpcModule {
 
         ipc.handle('openapi:spec', (_event, id) => this.openapi.specText(parseEntityId(id)));
 
-        ipc.handle('openapi:sync', (_event, id, keys) => this.openapi.sync(parseEntityId(id), parseKeys(keys)));
+        ipc.handle('openapi:sync', (_event, id, keys, reviewed) => this.openapi.sync(parseEntityId(id), parseKeys(keys), reviewed === undefined ? [] : parseKeys(reviewed, 'reviewed')));
 
         ipc.handle('openapi:revert', (_event, id, keys) => this.openapi.revert(parseEntityId(id), parseKeys(keys)));
     }

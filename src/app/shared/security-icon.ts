@@ -28,8 +28,7 @@ export const securityIconOf = (status: Exclude<ScriptSecurityStatus, 'none'>): {
             return { kind: 'trusted', tone: TONES.trusted };
         case 'session':
             return { kind: 'trusted', tone: TONES.session };
-        case 'refused':
-        case 'disabled':
+        case 'blocked':
             return { kind: 'blocked', tone: TONES.blocked };
         default:
             return { kind: 'ask', tone: TONES.ask };
@@ -37,7 +36,7 @@ export const securityIconOf = (status: Exclude<ScriptSecurityStatus, 'none'>): {
 };
 
 /** Ícone e tom de cada modo salvo. */
-export const securityModeIcon = (mode: ScriptMode): { kind: SecurityIconKind; tone: string } => securityIconOf(mode);
+export const securityModeIcon = (mode: ScriptMode): { kind: SecurityIconKind; tone: string } => securityIconOf(mode === 'disabled' ? 'blocked' : mode);
 
 /**
  * Escudo de segurança dos scripts (trusted ✓, ask, blocked ✗), em SVG inline com

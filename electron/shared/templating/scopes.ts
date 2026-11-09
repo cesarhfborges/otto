@@ -24,9 +24,17 @@ export interface VariableEntry {
     shadowed: boolean;
 }
 
+/** Como scripts sem a permissão "Read secret variables" enxergam valores secretos. */
+export const SECRET_MASK = '••••';
+
 /** Cadeia de escopos (§4 do plano): a primeira camada com o nome vence. */
 export class VariableScopes {
     constructor(readonly layers: readonly VariableLayer[]) {}
+
+    /** Cópia com os valores secretos trocados por `SECRET_MASK`. */
+    masked(): VariableScopes {
+        return new VariableScopes(this.layers.map((layer) => ({ ...layer, items: layer.items.map((item) => (item.secret ? { ...item, value: SECRET_MASK } : item)) })));
+    }
 
     lookup(name: string, scope: VariableScope | null = null): VariableEntry | undefined {
         return this.entries().find((entry) => entry.name === name && (scope ? entry.scope === scope : !entry.shadowed));

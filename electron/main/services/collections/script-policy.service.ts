@@ -17,6 +17,9 @@ const fingerprintOf = (scripts: readonly CollectionScript[]): string => sha256(J
  * renderer nunca informa o fingerprint, então não consegue "confiar" em outro conteúdo).
  */
 export class ScriptPolicyService {
+    /** Edições do app em série por coleção (o antes/depois de uma não se mistura com outra). */
+    private readonly edits = new Map<EntityId, Promise<void>>();
+
     constructor(
         private readonly collections: CollectionService,
         private readonly metadata: ICollectionMetadataRepository,
@@ -97,6 +100,82 @@ export class ScriptPolicyService {
         this.metadata.setScriptPolicy(id, { ...policy, trustedFingerprint: null, trustedAt: null });
 
         return this.saveTrust(id, this.require(id), scripts, fingerprintOf(scripts));
+    }
+
+    /**
+     * Operação feita pelo próprio app (editor de scripts, renomear, mover, duplicar, apagar):
+     * numa coleção confiável, o que o usuário fez aqui continua confiável. Adota no snapshot
+     * (a) os scripts de `edited` que a operação alterou ou criou, (b) scripts novos idênticos a
+     * um que já era confiável e estava igual (rename/move/duplicate), e tira os confiáveis que
+     * a operação apagou. Mudanças externas (Git, outro editor, sync do OpenAPI) não passam por
+     * aqui e continuam pedindo revisão.
+     */
+    async withAppEdit<T>(id: EntityId, op: () => Promise<T>, edited: (script: CollectionScript, result: T) => boolean = () => false): Promise<T> {
+        const previous = this.edits.get(id) ?? Promise.resolve();
+        const run = previous.then(async () => {
+            const policy = this.metadata.findById(id)?.scriptPolicy;
+
+            if (policy?.mode !== 'trusted' || !policy.trustedFingerprint) {
+                return op();
+            }
+
+            const before = (await this.collections.scripts(id)).scripts;
+            const result = await op();
+
+            this.adopt(id, before, (await this.collections.scripts(id)).scripts, (script) => edited(script, result));
+
+            return result;
+        });
+
+        this.edits.set(
+            id,
+            run.then(
+                () => undefined,
+                () => undefined
+            )
+        );
+
+        return run;
+    }
+
+    private adopt(id: EntityId, before: readonly CollectionScript[], after: readonly CollectionScript[], edited: (script: CollectionScript) => boolean): void {
+        const snapshot = new Map(this.trusted.list(id).map((script) => [keyOf(script), script]));
+        const beforeHashes = new Map(before.map((script) => [keyOf(script), sha256(script.code)]));
+        // Hashes que eram confiáveis e estavam iguais antes da operação.
+        const trustedSame = new Set(before.filter((script) => snapshot.has(keyOf(script)) && sha256(snapshot.get(keyOf(script))!.code) === beforeHashes.get(keyOf(script))).map((script) => sha256(script.code)));
+        const afterKeys = new Set(after.map(keyOf));
+        let changed = false;
+
+        for (const script of after) {
+            const key = keyOf(script);
+            const hash = sha256(script.code);
+            const isNew = !beforeHashes.has(key);
+            const touched = beforeHashes.get(key) !== hash;
+            const trusted = snapshot.has(key) && sha256(snapshot.get(key)!.code) === hash;
+
+            if (!trusted && ((touched && edited(script)) || (isNew && trustedSame.has(hash)))) {
+                snapshot.set(key, script);
+                changed = true;
+            }
+        }
+
+        for (const script of before) {
+            const key = keyOf(script);
+
+            if (!afterKeys.has(key) && snapshot.delete(key)) {
+                changed = true;
+            }
+        }
+
+        if (!changed) {
+            return;
+        }
+
+        const scripts = [...snapshot.values()];
+        const current = this.require(id).scriptPolicy;
+
+        this.trusted.replace(id, scripts);
+        this.metadata.setScriptPolicy(id, { mode: 'trusted', permissions: current.customPermissions ? current.permissions : null, trustedFingerprint: fingerprintOf(scripts), trustedAt: current.trustedAt });
     }
 
     private saveTrust(id: EntityId, current: CollectionMetadata, scripts: readonly CollectionScript[], fingerprint: string): CollectionMetadata {

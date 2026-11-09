@@ -165,7 +165,8 @@ export abstract class OpenApiGateway implements OpenApiApi {
     abstract connect(collectionId: EntityId, config: OpenApiConfig): Promise<OpenApiStatus>;
     abstract disconnect(collectionId: EntityId): Promise<void>;
     abstract spec(collectionId: EntityId): Promise<string>;
-    abstract sync(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus>;
+    /** `reviewed`: atualizações sensíveis (destino, auth, headers) que o usuário revisou e confirmou. */
+    abstract sync(collectionId: EntityId, keys: string[], reviewed?: string[]): Promise<OpenApiStatus>;
     abstract revert(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus>;
 }
 

@@ -462,8 +462,8 @@ export class ElectronOpenApiGateway extends OpenApiGateway {
         return requireOttoApi(this.api).openapi.spec(collectionId);
     }
 
-    sync(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus> {
-        return requireOttoApi(this.api).openapi.sync(collectionId, keys);
+    sync(collectionId: EntityId, keys: string[], reviewed: string[] = []): Promise<OpenApiStatus> {
+        return requireOttoApi(this.api).openapi.sync(collectionId, keys, reviewed);
     }
 
     revert(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus> {

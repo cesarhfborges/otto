@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
-import type { EndpointChange, EndpointChangeKind, EntityId } from '@shared/models';
+import type { EndpointChange, EndpointChangeKind, EndpointSensitiveChange, EntityId } from '@shared/models';
 import { MessageService, type MenuItem } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
@@ -49,6 +49,11 @@ function relative(iso: string | null): string {
 
     return hours < 24 ? `${hours} h ago` : `${Math.round(hours / 24)} days ago`;
 }
+
+const SENSITIVE_LABELS: Record<EndpointSensitiveChange, string> = { destination: 'destination', auth: 'authentication', headers: 'headers' };
+
+/** Destino da URL (`{{baseUrl}}`, `https://api.x.com`), como no main. */
+const destinationOf = (url: string | undefined): string => (url && /^\s*(\{\{[^}]*\}\}|[a-z][\w+.-]*:\/\/[^/?#]*)/i.exec(url)?.[1]?.replace(/\s+/g, '')) || 'a relative URL';
 
 const groupBy = (changes: EndpointChange[], titles: Record<EndpointChangeKind, [string, string]>): Group[] =>
     (['added', 'modified', 'removed'] as const).map((kind) => ({ kind, title: titles[kind][0], hint: titles[kind][1], items: changes.filter((change) => change.kind === kind) })).filter((group) => group.items.length);
@@ -163,6 +168,11 @@ const groupBy = (changes: EndpointChange[], titles: Record<EndpointChangeKind, [
                                     <div class="min-w-0 flex-1">
                                         <p class="m-0 text-sm font-semibold">Review changes</p>
                                         <p class="m-0 text-sm text-muted-color">Accept the endpoints to update. Accepted requests are replaced completely by the spec version.</p>
+                                        @if (hasSensitive()) {
+                                            <p class="m-0 mt-1 text-sm text-amber-800 dark:text-amber-300">
+                                                Endpoints marked "Requires review" change the destination, authentication or headers of a collection with scripts. Accept All skips them: accept each one after checking it.
+                                            </p>
+                                        }
                                     </div>
                                     <p-button label="Skip All" icon="pi pi-times" size="small" severity="secondary" [outlined]="true" (onClick)="skipAll()" />
                                     <p-button label="Accept All" icon="pi pi-check" size="small" severity="secondary" [outlined]="true" (onClick)="acceptAll()" />
@@ -206,6 +216,9 @@ const groupBy = (changes: EndpointChange[], titles: Record<EndpointChangeKind, [
                                         @if (change.operationId) {
                                             <span class="truncate text-xs text-muted-color">{{ change.operationId }}</span>
                                         }
+                                        @if (mode === 'updates' && change.sensitive.length) {
+                                            <span class="shrink-0 rounded-full bg-amber-100 px-1.5 text-xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">Requires review: {{ sensitiveText(change) }}</span>
+                                        }
                                         <span class="ml-auto flex gap-1">
                                             @if (mode === 'updates') {
                                                 <p-button
@@ -226,7 +239,7 @@ const groupBy = (changes: EndpointChange[], titles: Record<EndpointChangeKind, [
                                                     [outlined]="!accepted().has(change.key)"
                                                     [attr.aria-pressed]="accepted().has(change.key)"
                                                     [ariaLabel]="acceptLabel(change.kind) + ' ' + change.key"
-                                                    (onClick)="setAccepted(change.key, true)"
+                                                    (onClick)="accept(change)"
                                                 />
                                             } @else {
                                                 <p-button label="Reset" icon="pi pi-undo" size="small" severity="secondary" [outlined]="true" [ariaLabel]="'Reset ' + change.key + ' to the spec'" (onClick)="revert([change.key])" />
@@ -281,6 +294,9 @@ export class OpenApiPanel {
 
     protected readonly section = signal<Section>('overview');
     protected readonly accepted = signal<ReadonlySet<string>>(new Set());
+    /** Atualizações sensíveis confirmadas pelo usuário (o main recusa as demais). */
+    private readonly reviewed = signal<ReadonlySet<string>>(new Set());
+    protected readonly hasSensitive = computed(() => (this.status()?.specUpdates ?? []).some((change) => change.sensitive.length > 0));
     protected readonly expanded = signal<ReadonlySet<string>>(new Set());
     protected readonly settingsOpen = signal(false);
     protected readonly specOpen = signal(false);
@@ -400,12 +416,40 @@ export class OpenApiPanel {
         });
     }
 
+    protected sensitiveText(change: EndpointChange): string {
+        return change.sensitive.map((item) => SENSITIVE_LABELS[item]).join(', ');
+    }
+
+    /** Aceitar uma atualização sensível exige confirmar o que muda (destino, auth, headers). */
+    protected async accept(change: EndpointChange): Promise<void> {
+        if (change.sensitive.length && !this.reviewed().has(change.key)) {
+            const destination = change.sensitive.includes('destination') ? ` Requests to it will go to ${destinationOf(change.after?.url)} (before: ${change.before ? destinationOf(change.before.url) : 'not in the collection'}).` : '';
+            const confirmed = await this.confirm.ask({
+                header: 'Review This Update',
+                message: `${change.method} ${change.path} changes the ${this.sensitiveText(change)} of a collection with scripts.${destination}`,
+                detail: 'Trusted scripts of this collection (and its folders) run on this request and may add credentials to it. Accept only if you expected this change; open the differences to check it.',
+                acceptLabel: 'Accept Update',
+                acceptIcon: 'pi pi-check',
+                severity: 'warn'
+            });
+
+            if (!confirmed) {
+                return;
+            }
+
+            this.reviewed.update((set) => new Set(set).add(change.key));
+        }
+
+        this.setAccepted(change.key, true);
+    }
+
     protected skipAll(): void {
         this.accepted.set(new Set());
     }
 
     protected acceptAll(): void {
-        this.accepted.set(new Set((this.status()?.specUpdates ?? []).map((change) => change.key)));
+        // As sensíveis já confirmadas continuam aceitas; as não revisadas ficam de fora.
+        this.accepted.set(new Set((this.status()?.specUpdates ?? []).filter((change) => !change.sensitive.length || this.reviewed().has(change.key)).map((change) => change.key)));
     }
 
     protected check(): void {
@@ -425,8 +469,13 @@ export class OpenApiPanel {
         const keys = [...this.accepted()];
 
         try {
-            await this.openapi.sync(this.collectionId(), keys);
+            await this.openapi.sync(
+                this.collectionId(),
+                keys,
+                keys.filter((key) => this.reviewed().has(key))
+            );
             this.accepted.set(new Set());
+            this.reviewed.set(new Set());
             this.messages.add({ severity: 'success', summary: 'Collection synced', detail: `${keys.length} endpoint${keys.length === 1 ? '' : 's'} updated from the spec.`, life: 4000 });
         } catch (error) {
             this.messages.add({ severity: 'error', summary: 'Could not sync the collection', detail: ipcErrorMessage(error), life: 6000 });

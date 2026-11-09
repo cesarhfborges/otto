@@ -33,8 +33,8 @@ export type NewCollectionMetadata = Omit<CollectionMetadata, 'id' | 'scriptPolic
 
 /**
  * Modo de segurança dos scripts da coleção: `trusted` roda sem perguntar enquanto os
- * scripts forem os mesmos de quando a confiança foi dada; `ask` pergunta uma vez por
- * sessão; `disabled` envia as requisições sem rodar nenhum script.
+ * scripts forem os mesmos de quando a confiança foi dada; `ask` pergunta antes de rodar
+ * (uma vez ou pela sessão); `disabled` ("Blocked") envia as requisições sem rodar nenhum script.
  */
 export const SCRIPT_MODES = ['trusted', 'ask', 'disabled'] as const;
 export type ScriptMode = (typeof SCRIPT_MODES)[number];
@@ -44,20 +44,23 @@ export const SCRIPT_PERMISSIONS = ['modifyRequest', 'writeVariables', 'writeCook
 export type ScriptPermission = (typeof SCRIPT_PERMISSIONS)[number];
 export type ScriptPermissions = Record<ScriptPermission, boolean>;
 
-/** Padrão de cada modo: fora do `trusted`, os scripts não enviam outras requisições nem leem segredos. */
-export const defaultScriptPermissions = (mode: ScriptMode): ScriptPermissions => ({
+/**
+ * Padrão (igual em todos os modos): tudo liberado menos ler segredos. Sem `readSecrets`,
+ * os scripts leem segredos como `••••` e não conseguem usá-los em valores que definem.
+ */
+export const defaultScriptPermissions = (): ScriptPermissions => ({
     modifyRequest: true,
     writeVariables: true,
     writeCookies: true,
-    sendRequests: mode === 'trusted',
-    readSecrets: mode === 'trusted'
+    sendRequests: true,
+    readSecrets: false
 });
 
 export interface ScriptPolicy {
     mode: ScriptMode;
-    /** Já resolvidas (as personalizadas ou o padrão do modo). */
+    /** Já resolvidas (as personalizadas ou o padrão). */
     permissions: ScriptPermissions;
-    /** Se o usuário personalizou as permissões (senão seguem o padrão do modo). */
+    /** Se o usuário personalizou as permissões (senão seguem o padrão). */
     customPermissions: boolean;
     /** Impressão digital dos scripts no momento da confiança (`null` = ainda não calculada). */
     trustedFingerprint: string | null;
@@ -105,7 +108,7 @@ export interface ScriptInventory {
 /** Alteração da política pela UI (o fingerprint é sempre calculado no main). */
 export interface ScriptPolicyPatch {
     mode: ScriptMode;
-    /** `null` = voltar ao padrão do modo. */
+    /** `null` = voltar ao padrão. */
     permissions: ScriptPermissions | null;
     /** Com `mode: 'trusted'`: confia nos scripts atuais (mesmo que já fosse `trusted`). */
     retrust?: boolean;

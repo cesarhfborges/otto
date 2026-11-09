@@ -134,16 +134,21 @@ export class CollectionsIpcModule implements IIpcModule {
             // `null` volta ao avatar automático (remove a chave do otto.yaml).
             const avatar = patch['avatar'] === undefined ? undefined : patch['avatar'] === null ? null : parseCollectionAvatar(patch['avatar'], 'patch.avatar');
 
-            return this.service.updateManifest(parseEntityId(id), (manifest) => ({
-                ...manifest,
-                ...(description !== undefined && { description }),
-                ...(headers && { headers }),
-                ...(variables && { variables }),
-                ...(cookies && { cookies }),
-                ...(auth && { auth }),
-                ...(scripts && { scripts }),
-                ...(avatar !== undefined && { avatar: avatar ?? {} })
-            }));
+            return this.scriptPolicy.withAppEdit(
+                parseEntityId(id),
+                () =>
+                    this.service.updateManifest(parseEntityId(id), (manifest) => ({
+                        ...manifest,
+                        ...(description !== undefined && { description }),
+                        ...(headers && { headers }),
+                        ...(variables && { variables }),
+                        ...(cookies && { cookies }),
+                        ...(auth && { auth }),
+                        ...(scripts && { scripts }),
+                        ...(avatar !== undefined && { avatar: avatar ?? {} })
+                    })),
+                (script) => script.location === 'collection'
+            );
         });
 
         // Autenticação, variáveis e scripts de uma pasta (gravados no _folder.yaml).
@@ -153,7 +158,13 @@ export class CollectionsIpcModule implements IIpcModule {
             const variables = patch['variables'] === undefined ? undefined : parseKeyValues(patch['variables'], 'patch.variables');
             const scripts = patch['scripts'] === undefined ? undefined : parseScripts(patch['scripts'], 'patch.scripts');
 
-            return this.service.updateFolder(parseEntityId(id), parseRelativePath(folder, 'folder'), (settings) => ({ ...settings, ...(auth && { auth }), ...(variables && { variables }), ...(scripts && { scripts }) }));
+            const folderPath = parseRelativePath(folder, 'folder');
+
+            return this.scriptPolicy.withAppEdit(
+                parseEntityId(id),
+                () => this.service.updateFolder(parseEntityId(id), folderPath, (settings) => ({ ...settings, ...(auth && { auth }), ...(variables && { variables }), ...(scripts && { scripts }) })),
+                (script) => script.location === 'folder' && script.path === folderPath
+            );
         });
 
         // Política dos scripts: só no banco do app (nunca no otto.yaml, que vem do Git/.zip).

@@ -16,11 +16,10 @@ interface StatusView {
 
 const VIEWS: Record<Exclude<ScriptSecurityStatus, 'none'>, StatusView> = {
     trusted: { text: 'Scripts: trusted', describe: (name) => `Scripts of ${name} are trusted` },
-    changed: { text: 'Scripts changed', describe: (name) => `Scripts of ${name} changed since they were trusted: review them` },
+    changed: { text: 'Scripts changed', describe: (name) => `Scripts of ${name} changed outside Otto since they were trusted: review them` },
     ask: { text: 'Scripts: ask', describe: (name) => `Otto asks before running scripts of ${name}` },
-    session: { text: 'Scripts: allowed until restart', describe: (name) => `Scripts of ${name} are allowed until Otto restarts` },
-    refused: { text: 'Scripts: off', describe: (name) => `Scripts of ${name} were not allowed in this session` },
-    disabled: { text: 'Scripts: off', describe: (name) => `Scripts of ${name} are disabled` }
+    session: { text: 'Scripts: allowed this session', describe: (name) => `Scripts of ${name} are allowed until Otto restarts or they change` },
+    blocked: { text: 'Scripts: blocked', describe: (name) => `Scripts of ${name} are blocked: requests are sent without them` }
 };
 
 const PHASES = { preRequest: 'pre-request', postResponse: 'post-response' } as const;
@@ -143,8 +142,8 @@ export class ScriptSecurityIndicator {
                   ? [{ label: 'Trust Collection…', icon: 'pi pi-shield', command: () => void this.trust(id) }]
                   : []),
             ...(this.security.policy(id)?.mode !== 'ask' ? [{ label: 'Ask Before Running', icon: 'pi pi-question-circle', command: () => void this.setMode(id, 'ask') }] : []),
-            ...(status !== 'disabled' ? [{ label: 'Disable Scripts', icon: 'pi pi-ban', command: () => void this.setMode(id, 'disabled') }] : []),
-            ...(this.security.sessionDecision(id) ? [{ label: 'Forget Session Decision', icon: 'pi pi-undo', command: () => this.security.forgetSession(id) }] : [])
+            ...(status !== 'blocked' ? [{ label: 'Block Scripts', icon: 'pi pi-ban', command: () => void this.setMode(id, 'disabled') }] : []),
+            ...(this.security.hasSessionDecision(id) ? [{ label: 'Ask Again', icon: 'pi pi-undo', command: () => this.security.forgetSession(id) }] : [])
         ];
     });
 

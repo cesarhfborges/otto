@@ -153,6 +153,7 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
     const importers = new ImporterRegistry();
     const window = new WindowManager(settings, settingsStore);
     const http = new FetchHttpExecutor({ settings: () => settings.get().http, userAgent: `Otto/${app.getVersion()}`, oauth2Authorizer: createOAuth2Authorizer(() => window.current) });
+    const scriptPolicy = new ScriptPolicyService(collectionService, collections, new SqliteTrustedScriptsRepository(db), systemClock);
     const openapi = new OpenApiService(
         collectionService,
         http,
@@ -201,9 +202,9 @@ export function createContainer(db: DatabaseSync, hardwareAcceleration: boolean)
             new TabsIpcModule(tabs),
             new WorkspacesIpcModule(workspaceService, window, (folder) => shell.showItemInFolder(path.join(folder, 'workspace.yaml'))),
             new EnvironmentsIpcModule(environments, () => workspaceService.active().id, () => workspaceService.saveEnvironments().catch((error: unknown) => console.warn('[otto] could not write the environments to workspace.yaml', error))),
-            new CollectionsIpcModule(collections, collectionService, workspaceService, openapi, new ScriptPolicyService(collectionService, collections, new SqliteTrustedScriptsRepository(db), systemClock), window),
+            new CollectionsIpcModule(collections, collectionService, workspaceService, openapi, scriptPolicy, window),
             new OpenApiIpcModule(openapi),
-            new CollectionFilesIpcModule(collectionService, (file) => shell.showItemInFolder(file)),
+            new CollectionFilesIpcModule(collectionService, scriptPolicy, (file) => shell.showItemInFolder(file)),
             new UpdatesIpcModule(updates, window),
             new MockIpcModule(mocks)
         ],

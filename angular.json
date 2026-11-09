@@ -34,7 +34,8 @@
                             "src/assets/styles.scss",
                             "src/assets/tailwind.css"
                         ],
-                        "scripts": []
+                        "scripts": [],
+                        "webWorkerTsConfig": "tsconfig.worker.json"
                     },
                     "configurations": {
                         "production": {

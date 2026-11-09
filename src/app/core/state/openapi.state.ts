@@ -64,8 +64,8 @@ export class OpenApiState {
         return this.gateway.spec(collectionId);
     }
 
-    async sync(collectionId: EntityId, keys: string[]): Promise<void> {
-        await this.run(collectionId, () => this.gateway.sync(collectionId, keys), true);
+    async sync(collectionId: EntityId, keys: string[], reviewed: string[] = []): Promise<void> {
+        await this.run(collectionId, () => this.gateway.sync(collectionId, keys, reviewed), true);
     }
 
     async revert(collectionId: EntityId, keys: string[]): Promise<void> {

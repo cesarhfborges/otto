@@ -1,4 +1,4 @@
-import type { QuickJSContext, QuickJSHandle, QuickJSRuntime, QuickJSWASMModule } from 'quickjs-emscripten-core';
+import type { QuickJSContext, QuickJSDeferredPromise, QuickJSHandle, QuickJSRuntime, QuickJSWASMModule } from 'quickjs-emscripten-core';
 
 /**
  * Sandbox dos scripts de usuário: QuickJS compilado para WASM, num realm totalmente
@@ -119,6 +119,8 @@ const messageOf = (error: unknown): string => (error instanceof Error ? error.me
 class SandboxRun {
     private readonly owned: QuickJSHandle[] = [];
     private readonly cache = new Map<object, QuickJSHandle>();
+    /** Promises do host ainda não resolvidas (ex.: `otto.cookies.set` sem `await`): descartadas no fim. */
+    private readonly deferreds = new Set<QuickJSDeferredPromise>();
     private pendingHost = 0;
     private wake: (() => void) | null = null;
     private alive = true;
@@ -190,6 +192,13 @@ class SandboxRun {
     dispose(): void {
         this.alive = false;
         this.wake?.();
+
+        // Sem isso o QuickJS aborta ao liberar o runtime (funções resolve/reject ainda vivas).
+        for (const deferred of this.deferreds) {
+            if (deferred.alive) {
+                deferred.dispose();
+            }
+        }
 
         for (const handle of this.owned.reverse()) {
             if (handle.alive) {
@@ -412,6 +421,7 @@ class SandboxRun {
     private promiseToGuest(promise: PromiseLike<unknown>): QuickJSHandle {
         const deferred = this.ctx.newPromise();
 
+        this.deferreds.add(deferred);
         this.pendingHost++;
         Promise.resolve(promise)
             .then(
@@ -439,6 +449,7 @@ class SandboxRun {
                 }
             })
             .finally(() => {
+                this.deferreds.delete(deferred);
                 this.pendingHost--;
                 this.wake?.();
                 this.wake = null;

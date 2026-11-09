@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
-import type { EndpointChange, EntityId, IsoDateTime, OpenApiConfig, OpenApiStatus, OpenedCollection, RequestDefinition } from '../../../shared/models';
+import type { EndpointChange, EndpointSensitiveChange, EntityId, IsoDateTime, OpenApiConfig, OpenApiStatus, OpenedCollection, RequestDefinition } from '../../../shared/models';
 import type { IClock, IEnvironmentRepository, IHttpExecutor } from '../../core/contracts';
 import { convertSpec, parseSpec, type ConvertedSpec } from '../../infra/openapi/openapi-converter';
 import { buildOpenApiSpec } from '../../infra/openapi/openapi-exporter';
@@ -37,6 +37,37 @@ const EMPTY_SNAPSHOT = (): Snapshot => ({ version: 1, syncedAt: '', specVersion:
 const comparable = (request: RequestDefinition): string => JSON.stringify({ method: request.method, url: request.url, params: request.params, headers: request.headers, auth: request.auth, body: request.body });
 
 const same = (a: RequestDefinition, b: RequestDefinition): boolean => comparable(a) === comparable(b);
+
+/** Destino da URL (`{{baseUrl}}`, `https://api.x.com`); `''` = relativa. */
+const destinationOf = (url: string): string => /^\s*(\{\{[^}]*\}\}|[a-z][\w+.-]*:\/\/[^/?#]*)/i.exec(url)?.[1]?.replace(/\s+/g, '').toLowerCase() ?? '';
+
+const headersOf = (request: RequestDefinition): string => JSON.stringify(request.headers.filter((item) => item.enabled).map((item) => [item.key.trim().toLowerCase(), item.value]));
+
+/** O que exige revisão numa coleção com scripts (ver `EndpointChange.sensitive`). */
+interface SensitiveGuard {
+    hasScripts: boolean;
+    /** Destinos já usados pelas requisições da coleção. */
+    destinations: ReadonlySet<string>;
+}
+
+function sensitiveChanges(before: RequestDefinition | null, after: RequestDefinition | null, guard: SensitiveGuard): EndpointSensitiveChange[] {
+    if (!guard.hasScripts || !after) {
+        return [];
+    }
+
+    // Endpoint novo: os scripts herdados (coleção/pastas) também rodam nele.
+    if (!before) {
+        return guard.destinations.has(destinationOf(after.url)) ? [] : ['destination'];
+    }
+
+    return [
+        ...(destinationOf(before.url) !== destinationOf(after.url) ? (['destination'] as const) : []),
+        ...(JSON.stringify(before.auth) !== JSON.stringify(after.auth) ? (['auth'] as const) : []),
+        ...(headersOf(before) !== headersOf(after) ? (['headers'] as const) : [])
+    ];
+}
+
+const SENSITIVE_LABELS: Record<EndpointSensitiveChange, string> = { destination: 'destination', auth: 'authentication', headers: 'headers' };
 
 const splitKey = (key: string): { method: EndpointChange['method']; path: string } => {
     const [method, ...rest] = key.split(' ');
@@ -91,7 +122,7 @@ export class OpenApiService {
         }
 
         const spec = cached.converted;
-        const specUpdates = this.specUpdates(spec, snapshot, local, config.preserveValues);
+        const specUpdates = this.specUpdates(spec, snapshot, local, config.preserveValues, await this.sensitiveGuard(collectionId, local));
         const changedKeys = new Set([...specUpdates, ...collectionChanges].map((change) => change.key));
 
         return {
@@ -119,7 +150,10 @@ export class OpenApiService {
 
         await this.collections.updateManifest(id, (manifest) => ({ ...manifest, openapi: config }));
         this.cache.set(id, { text, converted, error: null, checkedAt: this.clock.now() });
-        await this.sync(id, converted.operations.map((operation) => operation.key));
+        await this.sync(
+            id,
+            converted.operations.map((operation) => operation.key)
+        );
 
         return { ...opened, manifest: await this.collections.manifest(id), tree: await this.collections.tree(id) };
     }
@@ -171,7 +205,7 @@ export class OpenApiService {
      * mescladas com a da coleção (`mergeRequest`) e removidas vão para a lixeira.
      * Itens não escolhidos continuam pendentes.
      */
-    async sync(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus> {
+    async sync(collectionId: EntityId, keys: string[], reviewed: string[] = []): Promise<OpenApiStatus> {
         const config = (await this.collections.manifest(collectionId)).openapi;
         const spec = config ? this.cache.get(collectionId)?.converted : null;
 
@@ -182,14 +216,27 @@ export class OpenApiService {
         const snapshot = await this.readSnapshot(collectionId);
         const local = await this.localRequests(collectionId);
         const byKey = new Map(spec.operations.map((operation) => [operation.key, operation]));
+        const confirmed = new Set(reviewed);
+        // Defesa em profundidade: o renderer só manda atualizações sensíveis depois da revisão.
+        const unreviewed = this.specUpdates(spec, snapshot, local, config.preserveValues, await this.sensitiveGuard(collectionId, local)).filter((change) => change.sensitive.length && keys.includes(change.key) && !confirmed.has(change.key));
+
+        if (unreviewed.length) {
+            const [first] = unreviewed;
+
+            throw new Error(`${first!.method} ${first!.path} changes the ${first!.sensitive.map((item) => SENSITIVE_LABELS[item]).join(', ')} of a collection with scripts: review it before syncing`);
+        }
 
         for (const key of new Set(keys)) {
             const operation = byKey.get(key);
             const existing = local.get(key);
 
             if (operation) {
-                const request = existing ? mergeRequest(existing.request, snapshot.operations[key]?.request, operation.request, config.preserveValues) : operation.request;
+                const merged = existing ? mergeRequest(existing.request, snapshot.operations[key]?.request, operation.request, config.preserveValues) : operation.request;
+                // Scripts nunca vêm do spec: ficam só os que a requisição já tinha.
+                const { scripts: _fromSpec, ...rest } = merged;
+                const request: RequestDefinition = existing?.request.scripts ? { ...rest, scripts: existing.request.scripts } : rest;
 
+                void _fromSpec;
                 await this.writeRequest(collectionId, operation.folder, request, existing?.path);
                 snapshot.operations[key] = { folder: operation.folder, request: operation.request };
             } else if (snapshot.operations[key]) {
@@ -227,7 +274,13 @@ export class OpenApiService {
     }
 
     /** O lado "depois" é o que a sincronização vai gravar (já mesclado com a coleção). */
-    private specUpdates(spec: ConvertedSpec, snapshot: Snapshot, local: Map<string, { path: string; request: RequestDefinition }>, preserveValues: boolean): EndpointChange[] {
+    private async sensitiveGuard(collectionId: EntityId, local: Map<string, { path: string; request: RequestDefinition }>): Promise<SensitiveGuard> {
+        const hasScripts = (await this.collections.scripts(collectionId)).scripts.length > 0;
+
+        return { hasScripts, destinations: new Set([...local.values()].map(({ request }) => destinationOf(request.url))) };
+    }
+
+    private specUpdates(spec: ConvertedSpec, snapshot: Snapshot, local: Map<string, { path: string; request: RequestDefinition }>, preserveValues: boolean, guard: SensitiveGuard): EndpointChange[] {
         const changes: EndpointChange[] = [];
         const specKeys = new Set<string>();
 
@@ -242,10 +295,10 @@ export class OpenApiService {
             if (!synced) {
                 // Nunca sincronizado: só é novidade se a coleção ainda não tiver igual.
                 if (!current || !same(current.request, incoming)) {
-                    changes.push(this.change(operation.key, operation.operationId, 'added', current?.request ?? null, incoming, current?.path ?? null));
+                    changes.push(this.change(operation.key, operation.operationId, 'added', current?.request ?? null, incoming, current?.path ?? null, sensitiveChanges(current?.request ?? null, incoming, guard)));
                 }
             } else if (!same(synced, operation.request)) {
-                changes.push(this.change(operation.key, operation.operationId, 'modified', current?.request ?? synced, incoming, current?.path ?? null));
+                changes.push(this.change(operation.key, operation.operationId, 'modified', current?.request ?? synced, incoming, current?.path ?? null, sensitiveChanges(current?.request ?? synced, incoming, guard)));
             }
         }
 
@@ -272,8 +325,8 @@ export class OpenApiService {
         });
     }
 
-    private change(key: string, operationId: string | null, kind: EndpointChange['kind'], before: RequestDefinition | null, after: RequestDefinition | null, requestPath: string | null): EndpointChange {
-        return { key, ...splitKey(key), operationId, kind, before, after, requestPath };
+    private change(key: string, operationId: string | null, kind: EndpointChange['kind'], before: RequestDefinition | null, after: RequestDefinition | null, requestPath: string | null, sensitive: EndpointSensitiveChange[] = []): EndpointChange {
+        return { key, ...splitKey(key), operationId, kind, before, after, requestPath, sensitive };
     }
 
     private async fetch(collectionId: EntityId, config: OpenApiConfig): Promise<CachedSpec> {

@@ -10,6 +10,7 @@ import { CollectionsState } from './collections.state';
 import { RequestHistoryState } from './request-history.state';
 import { TemplateContextService, type ResponseAccess } from '../templating/template-context.service';
 import { ScriptRunner } from '../scripting/script-runner';
+import { ScriptSecurityState, type ScriptRunDecision } from '../scripting/script-security.state';
 
 /** `startedAt` (ms, `Date.now()`) alimenta o contador de tempo exibido durante o envio. */
 export type ResponseEntry = { status: 'sending'; requestId: string; startedAt: number } | { status: 'done'; result: HttpResult; receivedAt: number };
@@ -20,6 +21,29 @@ const MAX_KEPT_RESPONSES = 20;
 export const responseKey = (collectionId: EntityId, path: string): string => `${collectionId}:${path}`;
 
 const failure = (error: string, code?: string, timeline: HttpTimelineEntry[] = []): HttpResult => ({ ok: false, error, ...(code && { code }), timeMs: 0, timeline });
+
+/** Campos que um script pode mudar, com o rótulo usado nas mensagens (headers e params por nome). */
+function scriptFields(definition: RequestDefinition): Map<string, string> {
+    const fields = new Map<string, string>([
+        ['the URL', definition.url],
+        ['the method', definition.method],
+        ['the body', JSON.stringify(definition.body)]
+    ]);
+    const add = (label: string, value: string) => fields.set(label, fields.has(label) ? `${fields.get(label)}\n${value}` : value);
+
+    definition.headers.filter((item) => item.enabled).forEach((item) => add(`header "${item.key.trim()}"`.toLowerCase(), item.value));
+    definition.params.filter((item) => item.enabled).forEach((item) => add(`query parameter "${item.key.trim()}"`, item.value));
+
+    return fields;
+}
+
+const hostOf = (url: string): string | null => {
+    try {
+        return new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(url) ? url : `http://${url}`).host || null;
+    } catch {
+        return null;
+    }
+};
 
 /** Mensagens dos scripts entram no console antes (pre-request) e depois (post-response) das da execução. */
 const withLogs = (result: HttpResult, before: HttpTimelineEntry[], after: HttpTimelineEntry[] = []): HttpResult => (before.length || after.length ? { ...result, timeline: [...before, ...result.timeline, ...after] } : result);
@@ -35,6 +59,7 @@ export class ResponsesState implements ResponseAccess {
     private readonly templates = inject(TemplateContextService);
     private readonly collections = inject(CollectionsState);
     private readonly scripts = inject(ScriptRunner);
+    private readonly security = inject(ScriptSecurityState);
     private readonly history = inject(RequestHistoryState);
     private readonly entries = signal<ReadonlyMap<string, ResponseEntry>>(new Map());
 
@@ -65,9 +90,35 @@ export class ResponsesState implements ResponseAccess {
         return snapshot;
     }
 
-    /** `chain`: requisições que dependem desta (envio em cascata), para detectar ciclos. */
+    /**
+     * `chain`: requisições que dependem desta (envio em cascata), para detectar ciclos. Se
+     * houver scripts, a política de segurança decide uma vez para o envio inteiro.
+     */
     async send(collectionId: EntityId, path: string, definition: RequestDefinition, chain: readonly string[] = []): Promise<void> {
+        const scriptChain = this.scriptChain(collectionId, path, definition);
+
+        if (!scriptChain.some(({ scripts }) => scripts.preRequest?.trim() || scripts.postResponse?.trim())) {
+            return this.dispatch(collectionId, path, definition, chain, scriptChain, null);
+        }
+
+        const decision = await this.security.beginSend(collectionId);
+
+        try {
+            if (decision.action === 'cancel') {
+                this.set(responseKey(collectionId, path), { status: 'done', result: failure('Cancelled: the scripts of this collection were not allowed to run, so the request was not sent.', 'SCRIPTS_CANCELLED'), receivedAt: Date.now() });
+
+                return;
+            }
+
+            await this.dispatch(collectionId, path, definition, chain, scriptChain, decision);
+        } finally {
+            this.security.endSend(collectionId);
+        }
+    }
+
+    private async dispatch(collectionId: EntityId, path: string, definition: RequestDefinition, chain: readonly string[], scriptChain: ReturnType<ResponsesState['scriptChain']>, decision: ScriptRunDecision | null): Promise<void> {
         const key = responseKey(collectionId, path);
+        const original = definition;
 
         if (this.get(key)?.status === 'sending') {
             return;
@@ -78,17 +129,21 @@ export class ResponsesState implements ResponseAccess {
         }
 
         const preLogs: HttpTimelineEntry[] = [];
-        const scriptChain = this.scriptChain(collectionId, path, definition);
 
         // Coleção → pastas (de fora para dentro) → requisição; cada um recebe a requisição já alterada pelo anterior.
         for (const { origin, scripts } of scriptChain) {
             const preRequest = scripts.preRequest;
 
-            if (!preRequest?.trim()) {
+            if (!preRequest?.trim() || !decision) {
                 continue;
             }
 
-            const outcome = await this.scripts.run('preRequest', preRequest, { collectionId, path, definition, access: this, chain: [...chain, path], origin });
+            if (decision.action === 'skip') {
+                preLogs.push(this.scripts.skip('preRequest', { collectionId, path, definition, origin }));
+                continue;
+            }
+
+            const outcome = await this.scripts.run('preRequest', preRequest, { collectionId, path, definition, access: this, chain: [...chain, path], origin, permissions: decision.permissions });
 
             preLogs.push(...outcome.logs);
 
@@ -107,6 +162,18 @@ export class ResponsesState implements ResponseAccess {
             this.set(key, { status: 'done', result: failure(this.describeProblems(collectionId, path, unresolved, errors), unresolved.length ? 'UNRESOLVED_VARIABLES' : 'TEMPLATE_ERROR', preLogs), receivedAt: Date.now() });
 
             return;
+        }
+
+        if (decision?.action === 'run' && definition !== original) {
+            const guard = await this.checkScriptChanges(collectionId, path, original, definition, resolved, chain, decision.permissions.readSecrets);
+
+            if (guard.error) {
+                this.set(key, { status: 'done', result: failure(guard.error, 'SCRIPT_SECRET', preLogs), receivedAt: Date.now() });
+
+                return;
+            }
+
+            preLogs.push(...guard.warnings);
         }
 
         let request: HttpRequest = { ...buildHttpRequest(resolved, { id: crypto.randomUUID(), source: { collectionId, requestPath: path } }) };
@@ -143,8 +210,10 @@ export class ResponsesState implements ResponseAccess {
             for (const { origin, scripts } of scriptChain) {
                 const postResponse = scripts.postResponse;
 
-                if (postResponse?.trim()) {
-                    const outcome = await this.scripts.run('postResponse', postResponse, { collectionId, path, definition: resolved, access: this, chain: [...chain, path], response: result.response, origin });
+                if (postResponse?.trim() && decision?.action === 'skip') {
+                    postLogs.push(this.scripts.skip('postResponse', { collectionId, path, definition: resolved, origin }));
+                } else if (postResponse?.trim() && decision) {
+                    const outcome = await this.scripts.run('postResponse', postResponse, { collectionId, path, definition: resolved, access: this, chain: [...chain, path], response: result.response, origin, permissions: decision.permissions });
 
                     postLogs.push(...outcome.logs);
 
@@ -165,6 +234,54 @@ export class ResponsesState implements ResponseAccess {
         if (current?.status === 'sending' && current.requestId === request.id) {
             this.set(key, { status: 'done', result, receivedAt: Date.now() });
         }
+    }
+
+    /**
+     * O que os pre-request mudaram na requisição: sem `readSecrets`, um campo definido por
+     * script não pode depender de variável secreta (senão `setUrl('…?t={{token}}')` vazaria o
+     * segredo); e uma troca de host vira aviso no console.
+     */
+    private async checkScriptChanges(
+        collectionId: EntityId,
+        path: string,
+        original: RequestDefinition,
+        scripted: RequestDefinition,
+        resolved: RequestDefinition,
+        chain: readonly string[],
+        readSecrets: boolean
+    ): Promise<{ error: string | null; warnings: HttpTimelineEntry[] }> {
+        const before = scriptFields(original);
+        const after = scriptFields(scripted);
+        const changed = [...after.keys()].filter((label) => before.get(label) !== after.get(label));
+        const warnings: HttpTimelineEntry[] = [];
+
+        if (!changed.length) {
+            return { error: null, warnings };
+        }
+
+        if (!readSecrets) {
+            const masked = scriptFields((await this.templates.prepare(collectionId, path, scripted, this, [...chain, path], { preview: true, maskSecrets: true })).definition);
+            const real = scriptFields(resolved);
+            const leaking = changed.find((label) => real.get(label) !== masked.get(label));
+
+            if (leaking) {
+                return {
+                    error: `A pre-request script set ${leaking} using a secret variable, which its permissions do not allow. Turn on "Read secret variables" in the collection's Security tab if you trust this script.`,
+                    warnings
+                };
+            }
+        }
+
+        if (changed.includes('the URL')) {
+            const from = hostOf((await this.templates.prepare(collectionId, path, original, this, [...chain, path], { preview: true })).definition.url);
+            const to = hostOf(resolved.url);
+
+            if (from && to && from !== to) {
+                warnings.push({ kind: 'error', text: `[Scripts] a pre-request script changed the destination of this request: ${from} → ${to}` });
+            }
+        }
+
+        return { error: null, warnings };
     }
 
     /** Scripts herdados (coleção e pastas) seguidos dos da requisição, na ordem de execução. */

@@ -17,10 +17,10 @@ interface CollectionRow {
     updated_at: string;
 }
 
-/** Permissões gravadas (JSON) sobre o padrão do modo; chaves desconhecidas ou inválidas são ignoradas. */
-function permissionsOf(mode: ScriptMode, raw: string | null): { permissions: ScriptPermissions; custom: boolean } {
+/** Permissões gravadas (JSON) sobre o padrão; chaves desconhecidas ou inválidas são ignoradas. */
+function permissionsOf(raw: string | null): { permissions: ScriptPermissions; custom: boolean } {
     const stored = fromSqlJson<Record<string, unknown> | null>(raw, null);
-    const permissions = defaultScriptPermissions(mode);
+    const permissions = defaultScriptPermissions();
 
     if (!stored || typeof stored !== 'object') {
         return { permissions, custom: false };
@@ -36,7 +36,7 @@ function permissionsOf(mode: ScriptMode, raw: string | null): { permissions: Scr
 }
 
 const toCollection = (row: CollectionRow): CollectionMetadata => {
-    const { permissions, custom } = permissionsOf(row.script_mode, row.script_permissions);
+    const { permissions, custom } = permissionsOf(row.script_permissions);
 
     return {
         id: row.id,

@@ -189,7 +189,8 @@ export interface OpenApiApi {
     disconnect(collectionId: EntityId): Promise<void>;
     spec(collectionId: EntityId): Promise<string>;
     /** Aplica as atualizações do spec escolhidas (por `MÉTODO /caminho`). */
-    sync(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus>;
+    /** `reviewed`: atualizações sensíveis (destino, auth, headers) que o usuário revisou e confirmou. */
+    sync(collectionId: EntityId, keys: string[], reviewed?: string[]): Promise<OpenApiStatus>;
     /** Volta as requisições escolhidas ao último spec sincronizado. */
     revert(collectionId: EntityId, keys: string[]): Promise<OpenApiStatus>;
 }

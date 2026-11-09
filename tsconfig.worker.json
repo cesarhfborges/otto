@@ -1,0 +1,10 @@
+/* Web Workers (scripts do usuário rodam em `src/app/core/scripting/script.worker.ts`). */
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "outDir": "./out-tsc/worker",
+        "lib": ["es2022", "webworker", "webworker.iterable"],
+        "types": []
+    },
+    "include": ["src/**/*.worker.ts"]
+}

@@ -88,9 +88,9 @@ export class ScopeScripts {
             case 'trusted':
                 return 'Scripts of this collection are trusted: they run in an isolated sandbox, with the permissions set in the Security tab.';
             case 'disabled':
-                return 'Scripts are disabled for this collection: requests are sent without running them.';
+                return 'Scripts are blocked for this collection: requests are sent without running them.';
             default:
-                return 'Otto asks before running the scripts of this collection (it came from outside this app).';
+                return 'Otto asks before running the scripts of this collection: allow once, for this session, or cancel.';
         }
     });
 
